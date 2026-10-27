@@ -6,3 +6,5 @@
 - `cards.js` カードデータ / `effects.js` カード効果
 - `img/*.json` 縮小したカード画像（パック単位）
 - `manifest.json` `sw.js` `icon-*.png` Webアプリ・オフライン用
+
+公開URL: https://sssseed.github.io/conan-sim/
