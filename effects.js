@@ -140,7 +140,8 @@ DEF["0687"]={ // 怪盗キッド＆白馬探
       const t=await chooseChar(p,"デッキの下に移す相手のキャラ（AP8000以下）",y=>isOpp(p,y)&&apOf(y)<=8000);
       if(t)toDeckBottom(t);return true}}],
   endTurn:async(p,x)=>{const n=p.field.filter(y=>y.st!=="a").length;if(n<3)return;
-    const t=await chooseChar(p,"ターン終了時: アクティブにするキャラ",y=>y.st!=="a",{ai:cs=>cs.filter(y=>!isOpp(p,y)).sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});if(t)activateC(t)}};
+    const t=await chooseChar(p,"ターン終了時: アクティブにするキャラ",y=>y.st!=="a",{ai:cs=>cs.filter(y=>!isOpp(p,y)).sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});if(t)activateC(t)},
+  partnerToo:true}; // この能力はパートナーエリアでも発動する
 DEF["0301"]={ // 怪盗キッド B03046
   enter:async(p,x)=>{const t=await chooseChar(p,"登場時: スタンさせるキャラ");if(t)stunC(t)}};
 DEF["0119"]={ // 怪盗キッド PR149
@@ -187,7 +188,10 @@ DEF["0604"]={ // バーボン B05108
 DEF["0716"]={ // ラム
   enter:async(p,x)=>{if(!condOk("事件黒",p)||!partnerIs(p,"黒"))return;const t=await chooseChar(p,"登場時: リムーブするキャラ（レベル8以下）",y=>lvOf(y)<=8&&y!==x);if(t)removeCard(t,"効果",{by:p,effect:true})}};
 DEF["1141"]={ // スコッチ
-  cutin:async(p,card,mine)=>{if(C(mine).ci&&hasColor(mine,"黒"))drawN(p,1)}};
+  cutin:async(p,card,mine)=>{if(C(mine).ci&&hasColor(mine,"黒"))drawN(p,1)},
+  // 【パートナー黒】【自分ターン中】【ターン1】このキャラのコンタクト中に［バーボン］のカットインを使ったら、アクティブにする（以後このコンタクトではカットイン不可）
+  onCutinInContact:async(p,self,card)=>{if(!card||!C(card).nm.includes("バーボン")||!partnerIs(p,"黒")||G.turn!==p.idx||turnCount(self,"scotch"))return;
+    useTurn(self,"scotch");self.st="a";useTurn(self,"noCutin");log(`　${C(self).nm}: バーボンのカットインでアクティブに（このコンタクト中はもうカットインできない）`,"n")}};
 DEF["1142"]={ // ジン B10087
   onCutinInContact:async(p,self)=>{drawN(p,1)},
   enter:async(p,x)=>{if(!partnerIs(p,"黒"))return;
@@ -271,7 +275,14 @@ DEF["1079"]={ // キック力増強シューズ
     const t=await chooseChar(p,"リムーブするキャラ（AP8000以下）",y=>apOf(y)<=8000);if(t)removeCard(t,"効果",{by:p,effect:true});
     const cs=p.field.filter(y=>C(y).nm.includes("江戸川コナン"));if(!cs.length)return;
     const [c]=await pickCards(p,"セットする江戸川コナン","",cs,{min:1,max:1});if(c){detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　キック力増強シューズを ${C(c).nm} にセット`,"n")}},
-  ai:p=>opp(p).field.some(y=>apOf(y)<=8000)};
+  ai:p=>opp(p).field.some(y=>apOf(y)<=8000),
+  // セットされているキャラが得る能力
+  grants:[{label:"ベルトをリムーブ: AP8000以上のキャラをリムーブ",turn1:true,
+    can:(p,x)=>(x.set||[]).some(s=>s.up&&idOf(s.c)==="1080")&&allChars().some(y=>apOf(y)>=8000),
+    run:async(p,x)=>{const s=x.set.find(s=>s.up&&idOf(s.c)==="1080");if(!s)return false;x.set.splice(x.set.indexOf(s),1);p.rm.push(s.c);
+      log(`　コスト: ${C(x).nm} にセットされたベルトをリムーブ`,"n");
+      const t=await chooseChar(p,"リムーブするキャラ（AP8000以上）",y=>apOf(y)>=8000);if(t)removeCard(t,"効果",{by:p,effect:true});return true},
+    aiCan:p=>opp(p).field.some(y=>apOf(y)>=8000)}]};
 DEF["1074"]={ // 真田貴大
   enter:async(p,x)=>{if(partnerIs(p,"青"))setTop(p,x)},
   abilities:[MOVE_SET_AB,{label:"セットを1枚リムーブ: ターン終了時まで突撃",turn1:true,
@@ -293,13 +304,21 @@ DEF["0019"]={ // シャッフルロマンス
   ai:p=>true};
 DEF["0954"]={ // 赤木守
   hirameki:async o=>{const cs=o.rm.filter(y=>C(y).t==="キャラ"&&hasTrait(y,"サッカー選手"));const [y]=await pickCards(o,"ヒラメキ: 手札に加えるサッカー選手","",cs,{ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});if(y){detach(y);o.hand.push(y);log(`　${C(y).nm} を手札に`)}}};
+const setBelt=(p,x,c)=>{const bonus=hasTrait(c,"サッカー選手")&&!faceDownSet(c).length;
+  detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　ベルトを ${C(c).nm} にセット`,"n");
+  if(bonus){setTop(p,c);drawN(p,1)}};
+const isConan=y=>C(y).nm.includes("江戸川コナン");
+const hasGadget=p=>p.field.some(y=>hasTrait(y,"ガジェット")||(y.set||[]).some(s=>s.up&&hasTrait(s.c,"ガジェット")));
 DEF["1080"]={ // どこでもボール射出ベルト
   event:async(p,x)=>{const cs=p.field.filter(y=>hasColor(y,"青"));if(!cs.length){log("　セットできる【青】のキャラがいない","n");return}
     const [c]=await pickCards(p,"ベルトをセットする【青】のキャラ","",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>(hasTrait(b,"サッカー選手")&&!faceDownSet(b).length)-(hasTrait(a,"サッカー選手")&&!faceDownSet(a).length))});
-    if(!c)return;const bonus=hasTrait(c,"サッカー選手")&&!faceDownSet(c).length;
-    detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　ベルトを ${C(c).nm} にセット`,"n");
-    if(bonus){setTop(p,c);drawN(p,1)}},
-  ai:p=>p.field.some(y=>hasColor(y,"青"))};
+    if(c)setBelt(p,x,c)},
+  ai:p=>p.field.some(y=>hasColor(y,"青")),
+  // 【FILE8】【宣言】手札から江戸川コナンにセット（現場にガジェットがないとき）
+  handAbilities:[{label:"手札から江戸川コナンにセット",
+    can:(p,x)=>p.file.length>=8&&p.field.some(isConan)&&!hasGadget(p),
+    run:async(p,x)=>{const [c]=await pickCards(p,"ベルトをセットする江戸川コナン","",p.field.filter(isConan),{min:1,max:1});if(!c)return false;setBelt(p,x,c);return true},
+    aiCan:p=>true}]};
 DEF["0102"]=LOOK3PLAY("青");
 
 // --- 青単SOSアグロ（毛利蘭） ---
@@ -350,19 +369,25 @@ const FX={
   async disguise(p,x){const d=def(x);if(d&&d.disguise){log(`　【変装時】${C(x).nm}`,"n");await d.disguise(p,x)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時")},
   async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await d.hirameki(o);return true}return false},
   async cutin(p,card,mine){const d=def(card);if(d&&d.cutin)await d.cutin(p,card,mine);
-    if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await def(mine).onCutinInContact(p,mine)},
+    if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await def(mine).onCutinInContact(p,mine,card)},
+  noCutin:x=>!!x&&turnCount(x,"noCutin")>0&&G.contact&&(G.contact.a===x||G.contact.d===x),
   async onAction(p,actor){for(const y of p.field.slice()){const d=def(y);if(d&&d.onAction)await d.onAction(p,y,actor)}},
   async actionEnd(p,actor){const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await d.actionEnd(p,actor);await runQueue()},
   async contactWin(p,winner,victim){const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await d.contactWin(p,winner,victim)},
-  async endTurn(p){for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await d.endTurn(p,y)}},
+  async endTurn(p){for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await d.endTurn(p,y)}
+    const pd=def(p.partner);if(pd&&pd.endTurn&&pd.partnerToo&&p.pLoc==="area")await pd.endTurn(p,p.partner)},
   async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger)await d.solvedTrigger(p)},
   async onLeave(info){ // {x,p,turn,by,effect}
     const d=def(info.x);if(!d)return;
     if(d.leaveOppTurn&&info.turn!==info.p.idx){log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await d.leaveOppTurn(info.p,info.x)}
     if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await d.selfRemovedOwnTurn(info.p,info.x)},
-  abilities(p,x){const d=def(x);if(!d||!d.abilities)return [];
-    return d.abilities.map((a,i)=>({...a,key:"ab"+i,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,"ab"+i))&&a.can(p,x)}))},
-  async useAbility(p,x,a){if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);const r=await a.run(p,x);render();await runQueue();return r},
+  abilities(p,x){const d=def(x);
+    let list=[];
+    if(p.hand.includes(x))list=(d&&d.handAbilities||[]).map((a,i)=>({...a,key:"hab"+i,hand:true}));
+    else{list=(d&&d.abilities||[]).map((a,i)=>({...a,key:"ab"+i}));
+      for(const s of x.set||[]){const sd=s.up&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}}
+    return list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&a.can(p,x)}))},
+  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);const r=await a.run(p,x);render();await runQueue();return r},
   apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
     if(G.turn===p.idx&&hasTrait(x,"サッカー選手"))b+=1000*p.field.filter(y=>idOf(y)==="0954").length; // 赤木守
     if(G.contact&&(G.contact.a===x||G.contact.d===x))b+=2000*(x.set||[]).filter(s=>s.up&&idOf(s.c)==="0019").length; // シャッフルロマンス

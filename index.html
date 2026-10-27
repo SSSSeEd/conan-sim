@@ -231,6 +231,9 @@ html.compact #setup textarea{height:140px}
 
 /* ===== スマホ縦（ポケポケ風） ===== */
 #topbar .tb-only{display:none}
+.reclist{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin:6px 0}
+.reclist .rec{text-align:left;font-size:12px}
+.reclist .rw{color:#7fd18b;font-weight:bold}.reclist .rl{color:#e58a7a;font-weight:bold}
 html.compact.portrait #topbar .tb-only{display:inline-block}
 html.compact.portrait #topbar .meta{display:none}
 html.compact.portrait #topbar .phase{background:rgba(217,178,106,.16);border:1px solid var(--manila);border-radius:999px;padding:3px 12px;font-size:13px;margin-right:auto}
@@ -526,7 +529,7 @@ function disguiseOk(x,p){
 function canPlayColor(card,p){const cc=C(p.caseC).c||"";return colorsOf(card.c).every(ch=>cc.includes(ch))}
 
 // ================= ログ・UI補助 =================
-function log(msg,cls){const d=document.createElement("div");if(!cls&&G){const nm=msg.replace(/^\[手動\] /,"");if(nm.startsWith(G.P[0].name))cls="me";else if(nm.startsWith(G.P[1].name))cls="op"}if(cls)d.className=cls;d.textContent=msg;const L=document.getElementById("log");L.appendChild(d);L.scrollTop=L.scrollHeight}
+function log(msg,cls){if(G&&G.rec)G.rec.log.push([G.turnNo,msg]);const d=document.createElement("div");if(!cls&&G){const nm=msg.replace(/^\[手動\] /,"");if(nm.startsWith(G.P[0].name))cls="me";else if(nm.startsWith(G.P[1].name))cls="op"}if(cls)d.className=cls;d.textContent=msg;const L=document.getElementById("log");L.appendChild(d);L.scrollTop=L.scrollHeight}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function esc(s){return String(s??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]))}
@@ -606,17 +609,70 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
 async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
-function win(p,why){if(G.over)return;G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");render();
+function win(p,why){if(G.over)return;G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
   ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"もう一度（同じデッキ）",value:"again",primary:true},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(v=>{if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()})}
 function lose(p,why){win(opp(p),`${p.name} の敗北: ${why}`)}
 
+// ===== 対戦記録（将来のフィードバック機能用に、行動とその時に選べた選択肢を残す） =====
+const REC_KEY="conan-sim-records",REC_MAX=100;
+const cardRef=x=>x?{n:x.n,nm:C(x).nm}:null;
+function deckLabel(d){const c=C({n:d.caseN});return `${C({n:d.partner}).nm}／${c.c||""}`}
+function recOptions(p){ // その場で選べた行動
+  const o={hand:p.hand.filter(x=>!playableReason(p,x,false)).map(x=>C(x).nm),
+    hint:!p.noHint&&p.file.some(x=>x!==p.partner),
+    reason:[...p.field,p.partner].filter(x=>(x!==p.partner||p.pLoc==="area")&&canAct(x,p,"reason")).map(x=>C(x).nm),
+    actChara:p.field.filter(x=>canAct(x,p,"chara")).map(x=>C(x).nm),
+    actCase:opp(p).ev.length?p.field.filter(x=>canAct(x,p,"case")).map(x=>C(x).nm):[],
+    targets:opp(p).field.filter(y=>y.st!=="a").map(y=>C(y).nm),
+    assist:p.pLoc==="area"&&p.partner.st==="a",
+    solve:p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level};
+  return o;
+}
+function recState(p){const o=opp(p);return {file:p.file.length,ev:p.ev.length,level:p.level,solved:p.solved,hand:p.hand.length,deck:p.deck.length,
+  field:p.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oField:o.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oEv:o.ev.length,oFile:o.file.length}}
+function recAct(p,kind,x,target){
+  if(!G||!G.rec||G.over)return;
+  G.rec.acts.push({t:G.turnNo,who:p.idx,kind,card:cardRef(x),target:target==="case"?"事件":cardRef(target),opts:recOptions(p),state:recState(p)});
+}
+function loadRecords(){try{return JSON.parse(localStorage.getItem(REC_KEY)||"[]")}catch(e){return []}}
+function saveRecord(w,why){
+  if(!G||!G.rec)return;
+  const r=G.rec;r.end=new Date().toISOString();r.winner=w.idx;r.why=why;r.turns=G.turnNo;
+  r.final=G.P.map(p=>({ev:p.ev.length,file:p.file.length,field:p.field.length,hand:p.hand.length,deck:p.deck.length,solved:p.solved}));
+  if(window.SIM_FAST&&!window.SIM_SAVE)return;
+  try{const all=loadRecords();all.push(r);while(all.length>REC_MAX)all.shift();localStorage.setItem(REC_KEY,JSON.stringify(all))}catch(e){}
+}
+
+// ===== 一手戻す（自分のターン中だけ） =====
+function pushUndo(){
+  if(!G||G.over||cur().cpu)return;
+  try{G.undo.push({s:structuredClone({P:G.P,turn:G.turn,turnNo:G.turnNo,queue:G.queue,phase:G.phase}),uid:UID,
+    logN:document.getElementById("log").children.length,recL:G.rec.log.length,recA:G.rec.acts.length});
+    if(G.undo.length>30)G.undo.shift()}catch(e){console.warn(e)}
+}
+function undo(){
+  if(!G||G.busy||!G.undo.length||cur().cpu||G.over)return;
+  const u=G.undo.pop();Object.assign(G,u.s);UID=u.uid;
+  const L=document.getElementById("log");while(L.children.length>u.logN)L.lastChild.remove();
+  G.rec.log.length=u.recL;G.rec.acts.length=u.recA;
+  G.ui.mode=null;G.ui.act=null;_sel=null;
+  document.getElementById("detail").classList.remove("open");document.getElementById("selPane").innerHTML=SEL_HINT;
+  render();toast("一手戻しました");
+}
+async function act(fn){ // 人の行動: 戻せるように保存してから実行
+  pushUndo();G.busy=(G.busy||0)+1;
+  try{await fn()}finally{if(G)G.busy=Math.max(0,(G.busy||1)-1)}
+}
+
 async function startGame(cfg){
   UID=1;
-  G={cfg,P:[mkPlayer(0,cfg.names[0],cfg.decks[0],!!cfg.cpu0),mkPlayer(1,cfg.names[1],cfg.decks[1],cfg.cpu)],turn:0,turnNo:0,first:0,over:false,ui:{mode:null},queue:[],showOppHand:!cfg.cpu||!!cfg.cpu0};
+  G={cfg,P:[mkPlayer(0,cfg.names[0],cfg.decks[0],!!cfg.cpu0),mkPlayer(1,cfg.names[1],cfg.decks[1],cfg.cpu)],turn:0,turnNo:0,first:0,over:false,ui:{mode:null},queue:[],undo:[],busy:0,showOppHand:!cfg.cpu||!!cfg.cpu0};
   document.getElementById("setup").hidden=true;document.getElementById("app").hidden=false;
   document.getElementById("board").innerHTML=`<div id="oppSide"></div><div id="mid"><div id="guide"></div><div id="log" aria-live="polite"></div></div><div id="meSide"></div>`;
   _sel=null;document.getElementById("selPane").innerHTML=SEL_HINT;document.getElementById("hoverPane").innerHTML="";
   G.first=cfg.first==="rand"?Math.floor(Math.random()*2):+cfg.first;
+  G.rec={v:1,start:new Date().toISOString(),names:[...cfg.names],cpu:[!!cfg.cpu0,!!cfg.cpu],decks:cfg.decks.map(deckLabel),
+    deckLists:cfg.decks.map(deckToText),first:G.first,log:[],acts:[]};
   G.turn=G.first;
   for(const p of G.P)p.level=caseLevel(p,p.idx===G.first);
   log(`先攻: ${G.P[G.first].name}`,"t");
@@ -652,7 +708,7 @@ async function mulligan(p){
 }
 function beginTurn(){
   if(G.over)return;
-  const p=cur();G.turnNo++;p.usedHand=false;p.hinted=false;p.hintN=0;p.noHint=false;
+  const p=cur();G.turnNo++;p.usedHand=false;p.hinted=false;p.hintN=0;p.noHint=false;G.undo=[];
   log(`— ${G.turnNo}ターン目: ${p.name} —`,"t");
   // オートフェイズ
   if(p.pLoc==="file"){p.file.splice(p.file.indexOf(p.partner),1);p.pLoc="area";log("パートナーがFILEからパートナーエリアに戻った")}
@@ -669,7 +725,7 @@ function beginTurn(){
 }
 async function endTurn(){
   if(G.over||G.ending)return;
-  const p=cur();G.ending=true;
+  const p=cur();recAct(p,"end",null);G.ending=true;
   await FX.endTurn(p);await runQueue();G.ending=false;
   if(G.over)return;
   const ends=[...p.field,...opp(p).field].filter(x=>/ターン終了時/.test(C(x).f||"")&&!FX.automated(x));
@@ -691,6 +747,7 @@ function playableReason(p,x,viaHint){
 }
 async function useFromHand(p,x,viaHint=false){
   const r=playableReason(p,x,viaHint);if(r){toast(r);return false}
+  recAct(p,viaHint?"hintUse":"use",x);
   const c=C(x);
   if(p.cpu&&!window.SIM_FAST){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
   if(c.t==="キャラ"){
@@ -719,6 +776,7 @@ async function nextHint(p){
   if(p.noHint){toast("このターンはネクストヒントできない");return}
   const top=[...p.file].reverse().find(x=>x!==p.partner);
   if(!top){toast("FILEにカードがない");return}
+  recAct(p,"hint",null);
   p.file.splice(p.file.indexOf(top),1);p.hand.push(top);p.hinted=true;p.hintN=(p.hintN||0)+1;
   log(`${p.name} はネクストヒント${p.hintN>1?`（このターン${p.hintN}回目）`:""}（FILE ${p.file.length}枚）。${p.cpu?"":C(top).nm+" を手札に"}`);
   render();
@@ -730,6 +788,7 @@ async function nextHint(p){
 }
 async function assist(p){
   if(p.pLoc!=="area"||p.partner.st!=="a"){toast("パートナーがアクティブではない");return}
+  recAct(p,"assist",p.partner);
   p.partner.st="s";p.pLoc="file";p.file.push(p.partner);
   log(`${p.name} はアシスト（FILE ${p.file.length}枚）`);
   if(p.file.length>=7&&!p.solved){p.solved=true;log(`${p.name} の事件が解決編になった！`,"t");toast("解決編へ");render();await FX.solvedTrigger(p)}
@@ -738,6 +797,7 @@ async function assist(p){
 function solve(p){
   if(p.pLoc!=="area"||p.partner.st!=="a"){toast("パートナーがアクティブではない");return}
   if(!p.solved){toast("事件がまだ事件編");return}
+  recAct(p,"solve",p.partner);
   p.partner.st="s";
   if(FX.eraseEvidence(p)){
     if(p.ev.length>=p.level){const gone=p.ev.splice(p.ev.length-p.level,p.level);p.rm.push(...gone);win(p,`証拠隠滅（証拠を${p.level}つリムーブ）で相手が敗北`)}
@@ -758,6 +818,7 @@ function canAct(x,p,kind){ // kind: reason|chara|case
 }
 async function reason(p,x){
   if(!canAct(x,p,"reason")){toast("推理できない（スリープ中か名乗り状態）");return}
+  recAct(p,"reason",x);
   x.st="s";
   let lp=x===p.partner?(C(x).lp||1)+x.lpT+x.lpM:lpOf(x);
   log(`${p.name} の ${C(x).nm} が推理（LP${lp}）`);
@@ -780,6 +841,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
   const o=opp(p);
   if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"))){toast("対象はスリープかスタン状態のキャラ");return}
   if(kind==="case"&&o.ev.length===0){toast("相手の証拠が0");return}
+  recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);
   x.st="s";
   log(`${p.name} の ${C(x).nm}（AP${apOf(x)}）がアクション → ${kind==="case"?"事件":C(target).nm}`);
@@ -805,6 +867,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
 }
 // 証拠をめくって見せる（タップで早送り）
 function revealCard(x,title,sub,hit){
+  if(window.SIM_TURBO)return Promise.resolve();
   return new Promise(res=>{
     const d=document.createElement("div");d.id="reveal";if(hit)d.classList.add("hit");
     d.innerHTML=`<div class="rvt">${esc(title)}</div><div class="flip"><div class="fin"><div class="face back"></div><div class="face front"></div></div></div><div class="rvs"></div>`;
@@ -869,7 +932,7 @@ async function contact(p,a,d){ // p=ターンプレイヤー(攻撃側)
 async function contactRight(q,ct,tp){
   if(G.over)return false;
   const mine=q===tp?ct.a:ct.d,theirs=q===tp?ct.d:ct.a;
-  const cuts=q.hand.filter(x=>C(x).ci);
+  const cuts=FX.noCutin(mine)?[]:q.hand.filter(x=>C(x).ci);
   const dis=q.hand.filter(x=>C(x).t==="キャラ"&&C(x).dg&&disguiseOk(x,q));
   if(!cuts.length&&!dis.length)return false;
   let choice=null;
@@ -918,7 +981,7 @@ function cpuContact(q,mine,theirs,cuts,tp){
   return null;
 }
 async function cpuTurn(p){
-  const step=async ms=>{clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8)};
+  const step=async ms=>{if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8)};
   await step(600);
   const o=opp(p);
   // 1) 事件解決
@@ -947,7 +1010,7 @@ async function cpuTurn(p){
   // 2.5) 宣言能力
   for(let guard=0;guard<8;guard++){
     let used=false;
-    for(const x of [...p.field,p.caseC]){
+    for(const x of [...p.field,p.caseC,...p.hand]){
       for(const ab of FX.abilities(p,x)){
         if(!ab.ok||ab.noAi)continue;if(ab.aiCan&&!ab.aiCan(p,x))continue;
         await showCpu(p,x,"能力",ab.label);await FX.useAbility(p,x,ab);await step();used=true;break}
@@ -1040,7 +1103,7 @@ function btn(box,label,fn,opt={}){const b=document.createElement("button");b.tex
   b.onclick=async()=>{ // 行動を決めたら選択を解除して通常画面に戻る（PCの手動操作だけは選択を残す）
     const close=opt.close||document.documentElement.classList.contains("compact");
     if(close){document.getElementById("detail").classList.remove("open");_sel=null}
-    await fn();render();if(close){if(G)clearSel()}else if(G&&x0()&&ownerOf(x0()))showDetail(x0(),true);else if(G)clearSel()};box.appendChild(b);return b}
+    if(G&&!opt.noUndo)await act(fn);else await fn();render();if(close){if(G)clearSel()}else if(G&&x0()&&ownerOf(x0()))showDetail(x0(),true);else if(G)clearSel()};box.appendChild(b);return b}
 let _sel=null;const x0=()=>_sel;
 function buildActs(box,x,p,z){
   _sel=x;
@@ -1049,11 +1112,12 @@ function buildActs(box,x,p,z){
   if(myTurn){
     h("できること");
     const _btn=btn;const btn2=(b2,l,f,o={})=>{const e=_btn(b2,l,f,{...o,close:true});if(!o.primary&&!o.disabled)e.classList.add("rule");return e};
-    if(z==="hand"){const r=playableReason(p,x,false);btn2(box,r?`使用不可: ${r}`:"使用する",()=>useFromHand(p,x),{primary:!r,disabled:!!r})}
+    if(z==="hand"){const r=playableReason(p,x,false);btn2(box,r?`使用不可: ${r}`:"使用する",()=>useFromHand(p,x),{primary:!r,disabled:!!r});
+      for(const a of FX.abilities(p,x))btn2(box,`能力: ${a.label}`,()=>FX.useAbility(p,x,a),{disabled:!a.ok})}
     if(z==="field"||z==="partner"){
       btn2(box,"推理",()=>reason(p,x),{disabled:!canAct(x,p,"reason")});
       if(z==="field"){
-        btn2(box,"アクション［キャラ］",()=>{G.ui.mode={kind:"target",atk:x};document.getElementById("detail").classList.remove("open");toast("相手のスリープ/スタン状態のキャラをタップ");},{disabled:!canAct(x,p,"chara")||!opp(p).field.some(y=>y.st!=="a")});
+        btn2(box,"アクション［キャラ］",()=>{G.ui.mode={kind:"target",atk:x};document.getElementById("detail").classList.remove("open");toast("相手のスリープ/スタン状態のキャラをタップ");},{noUndo:true,disabled:!canAct(x,p,"chara")||!opp(p).field.some(y=>y.st!=="a")});
         btn2(box,"アクション［事件］",()=>declareAction(p,x,"case"),{disabled:!canAct(x,p,"case")||opp(p).ev.length===0});
       }
       if(z==="partner"){btn2(box,"アシスト",()=>assist(p),{disabled:x.st!=="a"});btn2(box,FX.eraseEvidence(p)?"証拠隠滅（相手の敗北）":"事件解決",()=>solve(p),{disabled:x.st!=="a"||!p.solved,primary:p.solved&&p.ev.length>=p.level})}
@@ -1136,7 +1200,8 @@ function render(){
   const R=document.documentElement;
   b("ログ",()=>{R.classList.toggle("logopen");R.classList.remove("menuopen");const L=document.getElementById("log");L.scrollTop=L.scrollHeight},{cls:"tb-only"});
   b("≡",()=>{R.classList.toggle("menuopen");R.classList.remove("logopen")},{cls:"tb-only"});
-  b("ネクストヒント",()=>nextHint(p),{cls:"fab tb-hint",disabled:!human||p.noHint||!p.file.some(x=>x!==p.partner)});
+  b("↶ 戻す",undo,{cls:"tb-undo",disabled:!human||!G.undo.length});
+  b("ネクストヒント",()=>act(()=>nextHint(p)),{cls:"fab tb-hint",disabled:!human||p.noHint||!p.file.some(x=>x!==p.partner)});
   b("ターン終了",()=>{if(G.ui.mode)G.ui.mode=null;endTurn()},{primary:true,cls:"fab tb-end",disabled:!human});
   if(G.cfg.cpu){b(G.showOppHand?"相手の手札を隠す":"相手の手札を見る",()=>{G.showOppHand=!G.showOppHand;render()},{cls:"tb-extra"})}
   b("降参",async()=>{const v=await ask("降参しますか？","",[{label:"降参する",value:true},{label:"続ける",value:false,primary:true}]);if(v)lose(human?p:me,"降参")},{cls:"tb-extra"});
@@ -1177,7 +1242,7 @@ function sideEl(p,top){
     if(human&&(canAct(x,p,"reason")||canAct(x,p,"chara")||canAct(x,p,"case")))e.classList.add("ready");
     if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()&&x.st!=="a")e.classList.add("tgt");
     e.onclick=()=>{
-      if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()){const a=G.ui.mode.atk;G.ui.mode=null;declareAction(cur(),a,x);return}
+      if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()){const a=G.ui.mode.atk;G.ui.mode=null;act(()=>declareAction(cur(),a,x));return}
       showDetail(x,true)};
     sl.appendChild(e)}
   for(let i=p.field.length;i<5;i++){const d=document.createElement("div");d.className="slot";sl.appendChild(d)}
@@ -1241,7 +1306,9 @@ function showSetup(){
    <div class="row"><label>先攻: <select id="first"><option value="rand">ランダム</option><option value="0">あなた</option><option value="1">相手</option></select></label>
      <button class="primary" id="go" style="font-size:14px;padding:8px 18px">対戦開始</button></div>
    <div class="hint">デッキリストの書き方: 1行に「カードNo x枚数」。パートナーと事件はカードNoを書けば自動で判別します。conan-tcg-app の共有IDでの読込はブラウザから直接通信するため、環境によっては失敗します。その場合はリストを貼り付けてください。<br>
-   操作: カードをクリックすると右パネルに操作が出ます。アクション［キャラ］は対象（赤く点滅）をクリック、Escでキャンセル。デッキ・FILE・証拠・リムーブの枚数をクリックすると中身と手動操作が開きます。</div>`;
+   操作: カードをクリックすると右パネルに操作が出ます。アクション［キャラ］は対象（赤く点滅）をクリック、Escでキャンセル。デッキ・FILE・証拠・リムーブの枚数をクリックすると中身と手動操作が開きます。</div>
+   <div class="box" id="recBox"></div>`;
+  renderRecords();
   const chk=i=>{const d=parseDeckText(document.getElementById("dk"+i).value);const w=[...d.errors,...validateDeck(d)];const m=document.getElementById("dm"+i);
     if(w.length){m.className="dmsg bad";m.textContent=w.join("\n")}else{m.className="dmsg good";m.textContent=`OK: ${C({n:d.partner}).nm} / ${C({n:d.caseN}).nm} / 40枚`}return {d,w}};
   for(const i of [0,1]){
@@ -1258,6 +1325,22 @@ function showSetup(){
     try{localStorage.setItem("conan-sim-setup",JSON.stringify({nm0:cfg.names[0],nm1:cfg.names[1],dk0:document.getElementById("dk0").value,dk1:document.getElementById("dk1").value,cpu1:cfg.cpu}))}catch(e){}
     startGame(cfg);
   };
+}
+function renderRecords(){
+  const B=document.getElementById("recBox");if(!B)return;
+  const all=loadRecords();
+  const fmt=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`};
+  B.innerHTML=`<b>対戦記録（${all.length}件・端末に保存）</b>
+   <div class="hint">対戦が終わるたびに、行動・その時に選べた選択肢・ログを自動で保存します（最新${REC_MAX}件）。将来のフィードバック機能の材料になります。</div>
+   <div class="reclist">${all.slice().reverse().slice(0,20).map((r,i)=>{const me=r.cpu[0]?null:0;const res=me===null?`${esc(r.names[r.winner])} 勝利`:r.winner===me?"勝ち":"負け";
+     return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span> ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
+   <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>`;
+  B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
+    const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;
+    ask("対戦記録",sum+r.log.map(([t,m])=>m).join("\n"),[{label:"閉じる",value:0,primary:true}])});
+  const ex=document.getElementById("recExp");if(ex)ex.onclick=()=>{const blob=new Blob([JSON.stringify(all,null,1)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove()};
+  const cl=document.getElementById("recClr");if(cl)cl.onclick=async()=>{if(await ask("対戦記録を全部消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){try{localStorage.removeItem(REC_KEY)}catch(e){}renderRecords()}};
 }
 // スマホ（縦・横）ではコンパクト表示
 function applyCompact(){const r=document.documentElement;const mq=window.matchMedia("(max-width: 760px), (max-height: 520px)").matches;
