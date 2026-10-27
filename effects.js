@@ -70,7 +70,7 @@ async function enterByEffect(p,x,state="a"){
     const [t]=await pickCards(p,"スイッチ","現場が5体です。リムーブするキャラを選んでください。",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>lvOf(a)-lvOf(b))});
     if(!t)return false;removeCard(t,"スイッチ");
   }
-  detach(x);resetMods(x);x.st=state;x.fresh=true;p.field.push(x);
+  detach(x);resetMods(x);x.st=FX.entersSleeping(x)?"s":state;x.fresh=true;p.field.push(x);
   log(`　${p.name} は ${C(x).nm} を${state==="s"?"スリープ状態で":""}登場させた`);
   render();
   await FX.enter(p,x);
@@ -118,16 +118,6 @@ const useTurn=(x,key)=>{x.used=x.used||{};const n=turnCount(x,key)+1;x.used[key]
 
 // ================= カード定義 =================
 const DEF={};
-const SEARCH4=col=>({enter:async(p,x)=>{const got=await lookTop(p,4,lookFilterColor(col),{title:`【${col}】のカードを1枚まで手札に`});if(got.length)await discard(p,1)}});
-const LOOK3PLAY=col=>({event:async(p,x)=>{
-  await lookTop(p,3,y=>C(y).t==="キャラ"&&hasColor(y,col),{title:`【${col}】のキャラを1枚まで手札に`});
-  await playFromHand(p,y=>hasColor(y,col)&&lvOf(y)<=p.file.length,`FILE${p.file.length}以下の【${col}】のキャラを登場`);
-}, ai:p=>true});
-const DRAW_HR={hirameki:async o=>drawN(o,1)};
-const SLEEP_HR={hirameki:async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}};
-const REMOVE_EVENT=col=>({event:async(p,x)=>{if(!partnerIs(p,col)){log("　パートナーの色が条件を満たさないので効果なし","n");return}
-  const t=await chooseChar(p,"リムーブするキャラ（AP8000以下）",y=>apOf(y)<=8000);if(t)removeCard(t,"効果",{by:p,effect:true})},
-  ai:p=>partnerIs(p,C(p.partner).c)&&opp(p).field.some(y=>apOf(y)<=8000)});
 
 // --- 白（怪盗キッド） ---
 DEF["0687"]={ // 怪盗キッド＆白馬探
@@ -158,18 +148,13 @@ DEF["0437"]={ // 「よォ名探偵…」
     const t1=await chooseChar(p,"スタンさせるキャラ（1枚目）",y=>lvOf(y)<=10);if(!t1)return;stunC(t1);
     const t2=await chooseChar(p,"スタンさせるキャラ（2枚目・レベル合計10以下）",y=>y!==t1&&lvOf(y)+lvOf(t1)<=10);if(t2)stunC(t2)},
   ai:p=>p.solved&&partnerIs(p,"白")&&opp(p).field.length>0};
-DEF["0131"]=REMOVE_EVENT("白");
-DEF["0170"]=SLEEP_HR; // 怪盗キッド D06012（変装は共通処理）
-DEF["0047"]={...SEARCH4("白"),...DRAW_HR}; // 鈴木園子
 DEF["0210"]={ // 怪盗キッド B02044
   enter:async(p,x)=>{await lookTop(p,2,y=>C(y).t==="キャラ"&&!!C(y).dg,{title:"【変装】を持つキャラを1枚まで手札に"})},
   disguise:async(p,x)=>{await lookTop(p,2,y=>C(y).t==="キャラ"&&!!C(y).dg,{title:"【変装】を持つキャラを1枚まで手札に"})}};
 DEF["0215"]={ // 中森青子 B02049
-  ...DRAW_HR,
   onAction:async(p,self,actor)=>{if(!hasTrait(actor,"怪盗")||turnCount(self,"aoko"))return;useTurn(self,"aoko");actor.apT+=1000;log(`　${C(self).nm}: ${C(actor).nm} をターン終了時までAP＋1000`,"n")}};
 DEF["1105"]={ // 中森銀三 B10045
   endTurn:async(p,x)=>{if(p.solved&&p.field.some(y=>C(y).nm.includes("中森青子"))&&x.st!=="a"){activateC(x)}}};
-DEF["0130"]=LOOK3PLAY("白");
 
 // --- 黒試し（ジン） ---
 DEF["0722"]={ // ブラックインパクト！
@@ -208,7 +193,6 @@ DEF["0360"]={ // バーボン B03111
     const [y]=await pickCards(p,"相手の手札からリムーブさせるカード（レベル7以下）","",cs,{min:0,max:1,ai:c=>c.slice().sort((a,b)=>aiCardValue(o,b)-aiCardValue(o,a)).slice(0,1)});
     if(y){detach(y);o.rm.push(y);log(`　${o.name} の手札の ${C(y).nm} をリムーブ`)}}};
 DEF["0721"]={ // カッ
-  ...DRAW_HR,
   event:async(p,x)=>{if(!partnerIs(p,"黒")||!p.solved){log("　条件（パートナー黒・解決編）を満たさないので効果なし","n");return}
     for(const y of allChars())removeCard(y,"カッ",{by:p,effect:true});
     const top=[...p.file].reverse().filter(y=>y!==p.partner).slice(0,2);
@@ -222,11 +206,8 @@ DEF["0365"]={ // ウォッカ B03116
   selfRemovedOwnTurn:async(p,x)=>{if(!partnerIs(p,"黒")||!p.rm.includes(x))return;
     if(!await yes(p,"ウォッカ","リムーブエリアからスリープ状態で登場させて、カードを1枚引きますか？",true))return;
     await enterByEffect(p,x,"s");drawN(p,1)}};
-DEF["0371"]={...SEARCH4("黒"),...DRAW_HR}; // シェリー
 DEF["0925"]={ // ヘルエンジェル
-  ...SLEEP_HR,
   leaveOppTurn:async(p,x)=>{drawN(p,1);if(p.solved)await discard(p,1)}};
-DEF["0381"]=LOOK3PLAY("黒");
 
 // --- サッカー4（比護隆佑） ---
 DEF["1081"]={ // プロサッカー選手脅迫事件
@@ -288,8 +269,6 @@ DEF["1074"]={ // 真田貴大
   abilities:[MOVE_SET_AB,{label:"セットを1枚リムーブ: ターン終了時まで突撃",turn1:true,
     can:(p,x)=>faceDownSet(x).length>0&&!x.kw.includes("突撃"),
     run:async(p,x)=>{removeSetCost(p,x);x.kw.push("突撃");log(`　${C(x).nm} は突撃を得た`,"n");return true},aiCan:(p,x)=>x.fresh&&x.st==="a"}]};
-DEF["0103"]=REMOVE_EVENT("青");
-DEF["0012"]={...SEARCH4("青"),...DRAW_HR}; // 灰原哀 D01013
 DEF["0269"]={ // ゴロ
   abilities:[{label:"デッキの下に移す: LP0の【青】のキャラをLP＋1",
     can:(p,x)=>allChars().some(y=>y!==x&&hasColor(y,"青")&&lpOf(y)===0),
@@ -297,7 +276,6 @@ DEF["0269"]={ // ゴロ
     aiCan:(p,x)=>p.field.some(y=>y!==x&&hasColor(y,"青")&&lpOf(y)===0&&y.st==="a"&&!y.fresh)}]};
 DEF["1078"]={guardWhileSleeping:true}; // レイ・カーティス
 DEF["0019"]={ // シャッフルロマンス
-  ...DRAW_HR,
   event:async(p,x)=>{await lookTop(p,5,()=>true,{title:"カードを1枚まで手札に"});
     if(!p.field.length)return;const [c]=await pickCards(p,"シャッフルロマンスをセットするキャラ","",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>apOf(b)-apOf(a))});
     if(c){detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　シャッフルロマンスを ${C(c).nm} にセット（コンタクト中AP＋2000）`,"n")}},
@@ -319,7 +297,6 @@ DEF["1080"]={ // どこでもボール射出ベルト
     can:(p,x)=>p.file.length>=8&&p.field.some(isConan)&&!hasGadget(p),
     run:async(p,x)=>{const [c]=await pickCards(p,"ベルトをセットする江戸川コナン","",p.field.filter(isConan),{min:1,max:1});if(!c)return false;setBelt(p,x,c);return true},
     aiCan:p=>true}]};
-DEF["0102"]=LOOK3PLAY("青");
 
 // --- 青単SOSアグロ（毛利蘭） ---
 DEF["0530"]={ // 妃弁護士SOS
@@ -343,10 +320,8 @@ DEF["0273"]={ // 津川秀治
   hirameki:async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ（AP5000以下）",y=>y.st==="a"&&apOf(y)<=5000);if(t)sleepC(t)},
   cutin:async(p,card,mine)=>{const t=await chooseChar(p,"カットイン: スリープさせるキャラ（AP5000以下）",y=>y.st==="a"&&apOf(y)<=5000);if(t)sleepC(t)}};
 DEF["0101"]={ // 灰原哀 D01012
-  ...SLEEP_HR,
   leaveOppTurn:async(p,x)=>{await lookTop(p,3,y=>C(y).t==="キャラ"&&hasColor(y,"青")&&lvOf(y)<=4,{toField:"s",title:"レベル4以下の【青】のキャラを1枚までスリープ状態で登場"})}};
 DEF["0092"]={ // 江戸川コナン D01003
-  ...DRAW_HR,
   abilities:[{label:"他のキャラを1枚スリープ: 1枚引いて1枚リムーブ、LP＋1",turn1:true,
     can:(p,x)=>p.field.some(y=>y!==x&&y.st==="a"),
     run:async(p,x)=>{const cs=p.field.filter(y=>y!==x&&y.st==="a");
@@ -355,39 +330,116 @@ DEF["0092"]={ // 江戸川コナン D01003
     aiCan:(p,x)=>x.st==="a"&&!x.fresh&&p.field.some(y=>y!==x&&y.st==="a"&&lpOf(y)<=0&&(y.fresh||apOf(y)<3000))}]};
 DEF["0415"]={ // 本堂瑛祐
   leaveOppTurn:async(p,x)=>{const t=await chooseChar(p,"スリープさせるキャラ（レベル4以下）",y=>y.st==="a"&&lvOf(y)<=4);if(t)sleepC(t)}};
-DEF["0495"]={enter:async(p,x)=>{drawN(p,1);await discard(p,1)}}; // 小嶋元太 D08015/D08016
 DEF["0516"]={cutin:async(p,card,mine)=>{if(partnerIs(p,"青")&&colorsOf(C(p.caseC).c).every(ch=>ch==="青"))drawN(p,1)}}; // 江戸川コナン B05010
-// 汎用: ヒラメキで1枚引くだけのカード
-for(const c of window.CARD_DB){if(c.hr&&/^【ヒラメキ】（[^）]*）カードを1枚引く。$/.test(c.hr.trim())&&!DEF[c.i])DEF[c.i]=DRAW_HR}
+// ================= 効果文から自動で組み立てる（同じ書き方のカードはまとめて処理） =================
+// 1行ずつ型に当てはめる。全部の行が分かったカードだけ「自動」にする（分からない行があれば手動のまま）
+const COLS="青|赤|黄|緑|白|黒";
+const PRE=`(?:【パートナー(${COLS})】(?:（[^）]*）)?)?`; // 先頭の【パートナー色】
+const needPartner=(p,col)=>!col||partnerIs(p,col);
+const bySet=(kind,v)=>kind==="レベル"?y=>lvOf(y)<=v:y=>apOf(y)<=v;
+const traitOf=t=>y=>hasTrait(y,t);
+const searchTop=async(p,n,filter,max,title,dis)=>{const got=await lookTop(p,n,filter,{max,title});if(got.length&&dis)await discard(p,dis);return got};
+// [正規表現, (一致, カード) => {フック名: 処理}]
+const LINE_RULES=[
+  [/^【登場時】カードを(\d)枚引き、手札を(\d)枚リムーブする。$/,m=>({enter:async p=>{drawN(p,+m[1]);await discard(p,+m[2])}})],
+  [/^【登場時】カードを(\d)枚引く。$/,m=>({enter:async p=>drawN(p,+m[1])})],
+  [new RegExp(`^${PRE}【登場時】自分のデッキのカードを上から(\\d)枚見る。その中から【(${COLS})】のカードを(\\d)枚まで公開して手札に加え、残りを好きな順番でデッキの下に移す。(?:カードを手札に加えた場合、手札を(\\d)枚リムーブする。)?$`),
+    m=>({enter:async p=>{if(needPartner(p,m[1]))await searchTop(p,+m[2],lookFilterColor(m[3]),+m[4],`【${m[3]}】のカードを${m[4]}枚まで手札に`,+(m[5]||0))}})],
+  [new RegExp(`^${PRE}【登場時】自分のデッキのカードを上から(\\d)枚見る。その中から〚特徴［([^］]+)］〛のキャラを(\\d)枚まで公開して手札に加え、残りを好きな順番でデッキの下に移す。(?:カードを手札に加えた場合、手札を(\\d)枚リムーブする。)?$`),
+    m=>({enter:async p=>{if(needPartner(p,m[1]))await searchTop(p,+m[2],y=>C(y).t==="キャラ"&&hasTrait(y,m[3]),+m[4],`［${m[3]}］のキャラを${m[4]}枚まで手札に`,+(m[5]||0))}})],
+  [new RegExp(`^自分のデッキのカードを上から(\\d)枚見る。その中から【(${COLS})】のキャラを(\\d)枚まで公開して手札に加え、残りを好きな順番でデッキの下に移す。手札から自分のFILEエリアの枚数以下のレベルの【(${COLS})】のキャラを(\\d)枚まで登場させる。$`),
+    m=>({event:async p=>{await lookTop(p,+m[1],y=>C(y).t==="キャラ"&&hasColor(y,m[2]),{max:+m[3],title:`【${m[2]}】のキャラを${m[3]}枚まで手札に`});
+      await playFromHand(p,y=>hasColor(y,m[4])&&lvOf(y)<=p.file.length,`FILE${p.file.length}以下の【${m[4]}】のキャラを登場`)},ai:p=>true})],
+  [new RegExp(`^${PRE}(レベル|AP)(\\d+)以下のキャラを(\\d)枚まで選び、リムーブする。$`),
+    m=>({event:async p=>{if(!needPartner(p,m[1])){log("　パートナーの色が条件を満たさないので効果なし","n");return}
+      const t=await chooseChar(p,`リムーブするキャラ（${m[2]}${m[3]}以下）`,bySet(m[2],+m[3]));if(t)removeCard(t,"効果",{by:p,effect:true})},
+      ai:p=>needPartner(p,m[1])&&opp(p).field.some(bySet(m[2],+m[3]))})],
+  [new RegExp(`^${PRE}【登場時】(レベル|AP)(\\d+)以下のキャラを(\\d)枚まで選び、リムーブする。$`),
+    m=>({enter:async(p,x)=>{if(!needPartner(p,m[1]))return;const t=await chooseChar(p,`登場時: リムーブするキャラ（${m[2]}${m[3]}以下）`,y=>y!==x&&bySet(m[2],+m[3])(y));if(t)removeCard(t,"効果",{by:p,effect:true})}})],
+  [new RegExp(`^${PRE}【登場時】手札を(\\d)枚リムーブしてもよい。そうした場合、(レベル|AP)(\\d+)以下のキャラを(\\d)枚まで選び、リムーブする。$`),
+    m=>({enter:async(p,x)=>{if(!needPartner(p,m[1])||p.hand.length<+m[2])return;const f=y=>y!==x&&bySet(m[3],+m[4])(y);
+      if(!await yes(p,"登場時",`手札を${m[2]}枚リムーブして、${m[3]}${m[4]}以下のキャラをリムーブしますか？`,()=>opp(p).field.some(f)&&p.hand.length>=2))return;
+      await discard(p,+m[2]);const t=await chooseChar(p,`リムーブするキャラ（${m[3]}${m[4]}以下）`,f);if(t)removeCard(t,"効果",{by:p,effect:true})}})],
+  [/^【相手ターン中】【現場リムーブ時】カードを(\d)枚引く。$/,m=>({leaveOppTurn:async p=>drawN(p,+m[1])})],
+  [/^【相手ターン中】【現場リムーブ時】カードを(\d)枚引き、手札を(\d)枚リムーブする。$/,m=>({leaveOppTurn:async p=>{drawN(p,+m[1]);await discard(p,+m[2])}})],
+  [new RegExp(`^${PRE}【登場時】自分のデッキのカードを上から(\\d)枚裏向きでこのキャラにセットする。$`),
+    m=>({enter:async(p,x)=>{if(needPartner(p,m[1]))for(let i=0;i<+m[2];i++)setTop(p,x)}})],
+  [/^カードを(\d)枚引く。$/,m=>({event:async p=>drawN(p,+m[1]),ai:p=>true})],
+  [/^相手の現場にいるキャラがこのキャラとのコンタクトによってリムーブされたとき、カードを(\d)枚引く。$/,m=>({contactWin:async p=>drawN(p,+m[1])})],
+  [/^この事件が解決編に(?:なった|移行した)とき、自分は手札を(\d)枚リムーブする。$/,m=>({solvedTrigger:async p=>{await discard(p,+m[1],"解決編になったとき: 手札をリムーブ")}})],
+  [/^この事件が解決編に(?:なった|移行した)とき、相手はカードを(\d)枚引く。$/,m=>({solvedTrigger:async p=>drawN(opp(p),+m[1])})],
+];
+// 本体で処理している行（キーワード・パートナーの能力・スリープ登場）
+const CORE_LINE=/^(?:【[^】]+】)*(?:〚(?:突撃|迅速|ブレット|ミスリード\d)|【解決編】【事件解決】|【アシスト】|このキャラはスリープ状態で登場する。$)/;
+const HR_RULES=[
+  [/^カードを(\d)枚引く。$/,m=>async o=>drawN(o,+m[1])],
+  [/^キャラを(\d)枚まで選び、スリープさせる。$/,m=>async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}],
+  [/^自分のリムーブエリアにある(?:〚カード名［([^］]+)］〛|〚特徴［([^］]+)］〛のキャラ)を(\d)枚まで選び、手札に加える。$/,m=>async o=>{
+    const f=m[1]?y=>C(y).nm.includes(m[1]):y=>C(y).t==="キャラ"&&hasTrait(y,m[2]);
+    const got=await pickCards(o,"ヒラメキ: 手札に加えるカード","",o.rm.filter(f),{max:+m[3],ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a))});
+    for(const y of got){detach(y);o.hand.push(y);log(`　${C(y).nm} を手札に`)}}],
+  [/^このカードを手札に加える。$/,m=>async(o,e)=>{if(e&&o.rm.includes(e)){detach(e);o.hand.push(e);log(`　${C(e).nm} を手札に`)}}],
+  [/^自分は証拠を(\d)つ得る。$/,m=>async o=>gainEv(o,+m[1])],
+  [/^相手は手札を(\d)枚リムーブする。$/,m=>async o=>{const q=opp(o);await discard(q,+m[1],"ヒラメキ: 手札をリムーブ",q)}],
+];
+const merge=(a,b)=>{const out={...a};for(const k in b){if(typeof b[k]==="function"&&typeof out[k]==="function"&&k!=="ai"){const f=out[k],g=b[k];out[k]=async(...q)=>{await f(...q);await g(...q)}}else out[k]=b[k]}return out};
+function autoDef(c){
+  let d={},ok=true,any=false;
+  for(const raw of (c.f||"").split("\n")){const line=raw.trim();if(!line||CORE_LINE.test(line))continue;
+    const r=LINE_RULES.find(([re])=>re.test(line));if(!r){ok=false;break}
+    d=merge(d,r[1](line.match(r[0]),c));any=true}
+  if(!ok)d={};
+  const hr=(c.hr||"").trim().replace(/^【ヒラメキ】(?:（[^）]*）)?/,"");
+  if(hr){const r=HR_RULES.find(([re])=>re.test(hr));if(r){d.hirameki=r[1](hr.match(r[0]));any=true}else if(ok&&any)d.partial=true}
+  if(!ok&&any)d.partial=true;
+  return any?d:null;
+}
+for(const c of window.CARD_DB){const d=autoDef(c);if(!d)continue;
+  if(DEF[c.i]){if(!DEF[c.i].hirameki&&d.hirameki)DEF[c.i].hirameki=d.hirameki}else DEF[c.i]=d} // 手書きの定義にもヒラメキを補う
+
+// ================= 効果の演出 =================
+// 効果を使うとき、そのカードと効果文を大きく見せる（本体の showFx）
+const FX_LINE={"登場時":/【登場時】/,"変装時":/【変装時】/,"現場リムーブ時":/【現場リムーブ時】|リムーブされたとき|リムーブエリアに移ったとき/,
+  "ターン終了時":/ターン終了時/,"アクション終了時":/アクション終了時/,"アクション":/アクションした|アクションするとき|アクション宣言/,"コンタクト":/コンタクト/,
+  "解決編":/解決編に(?:なった|移行した)とき/,"能力":/【宣言】/,"カットイン":/./};
+function effText(x,kind){const c=C(x);
+  if(kind==="カットイン")return c.ci||"";if(kind==="ヒラメキ")return c.hr||"";if(kind==="イベント")return c.f||"";
+  const re=FX_LINE[kind];const ls=(c.f||"").split("\n");return (re&&ls.find(l=>re.test(l)))||c.f||""}
+async function fxPre(p,x,kind,text){if(typeof showFx==="function")await showFx(p,x,kind,text??effText(x,kind))}
+// 条件つきの効果は、実際に何か起きたときだけ見せる（ログが増えたかで判断）
+async function fxIf(p,x,kind,fn){const n0=G.rec?G.rec.log.length:0;
+  if(typeof showFx!=="function"||!G.rec){await fn();return}
+  await fn();
+  if(G.rec.log.length>n0)await showFx(p,x,kind,effText(x,kind),{after:true})}
 
 // ================= フック（本体から呼ばれる） =================
 const def=x=>DEF[idOf(x)];
 const FX={
   has:(x,k)=>!!(def(x)&&def(x)[k]),
-  async enter(p,x){const d=def(x);if(d&&d.enter){log(`　【登場時】${C(x).nm}`,"n");await d.enter(p,x);render()}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
-  async event(p,x){const d=def(x);if(d&&d.event){await d.event(p,x);render()}else noteEffect(p,x,"イベント");await runQueue()},
-  async disguise(p,x){const d=def(x);if(d&&d.disguise){log(`　【変装時】${C(x).nm}`,"n");await d.disguise(p,x)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時")},
-  async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await d.hirameki(o);return true}return false},
-  async cutin(p,card,mine){const d=def(card);if(d&&d.cutin)await d.cutin(p,card,mine);
-    if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await def(mine).onCutinInContact(p,mine,card)},
+  async enter(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await d.enter(p,x);render()}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
+  async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");await d.event(p,x);render()}else noteEffect(p,x,"イベント");await runQueue()},
+  async disguise(p,x){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await d.disguise(p,x)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時")},
+  async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await d.hirameki(o,e);return true}return false},
+  async cutin(p,card,mine){const d=def(card);if(d&&d.cutin)await fxIf(p,card,"カットイン",()=>d.cutin(p,card,mine));
+    if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await fxIf(p,mine,"コンタクト",()=>def(mine).onCutinInContact(p,mine,card))},
   noCutin:x=>!!x&&turnCount(x,"noCutin")>0&&G.contact&&(G.contact.a===x||G.contact.d===x),
-  async onAction(p,actor){for(const y of p.field.slice()){const d=def(y);if(d&&d.onAction)await d.onAction(p,y,actor)}},
-  async actionEnd(p,actor){const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await d.actionEnd(p,actor);await runQueue()},
-  async contactWin(p,winner,victim){const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await d.contactWin(p,winner,victim)},
-  async endTurn(p){for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await d.endTurn(p,y)}
-    const pd=def(p.partner);if(pd&&pd.endTurn&&pd.partnerToo&&p.pLoc==="area")await pd.endTurn(p,p.partner)},
-  async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger)await d.solvedTrigger(p)},
+  async onAction(p,actor){for(const y of p.field.slice()){const d=def(y);if(d&&d.onAction)await fxIf(p,y,"アクション",()=>d.onAction(p,y,actor))}},
+  async actionEnd(p,actor){const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
+  async contactWin(p,winner,victim){const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim))},
+  async endTurn(p){for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
+    const pd=def(p.partner);if(pd&&pd.endTurn&&pd.partnerToo&&p.pLoc==="area")await fxIf(p,p.partner,"ターン終了時",()=>pd.endTurn(p,p.partner))},
+  async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await d.solvedTrigger(p)}},
   async onLeave(info){ // {x,p,turn,by,effect}
     const d=def(info.x);if(!d)return;
-    if(d.leaveOppTurn&&info.turn!==info.p.idx){log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await d.leaveOppTurn(info.p,info.x)}
-    if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await d.selfRemovedOwnTurn(info.p,info.x)},
+    if(d.leaveOppTurn&&info.turn!==info.p.idx){await fxPre(info.p,info.x,"現場リムーブ時");log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await d.leaveOppTurn(info.p,info.x)}
+    if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await fxIf(info.p,info.x,"現場リムーブ時",()=>d.selfRemovedOwnTurn(info.p,info.x))},
   abilities(p,x){const d=def(x);
     let list=[];
     if(p.hand.includes(x))list=(d&&d.handAbilities||[]).map((a,i)=>({...a,key:"hab"+i,hand:true}));
     else{list=(d&&d.abilities||[]).map((a,i)=>({...a,key:"ab"+i}));
       for(const s of x.set||[]){const sd=s.up&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}}
     return list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&a.can(p,x)}))},
-  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);const r=await a.run(p,x);render();await runQueue();return r},
+  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await a.run(p,x);render();await runQueue();return r},
   apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
     if(G.turn===p.idx&&hasTrait(x,"サッカー選手"))b+=1000*p.field.filter(y=>idOf(y)==="0954").length; // 赤木守
     if(G.contact&&(G.contact.a===x||G.contact.d===x))b+=2000*(x.set||[]).filter(s=>s.up&&idOf(s.c)==="0019").length; // シャッフルロマンス
@@ -397,6 +449,7 @@ const FX={
   handLevel(p,x){const d=def(x);return d&&d.handLevel?d.handLevel(p,x):null},
   eraseEvidence:p=>!!(def(p.caseC)&&def(p.caseC).eraseEvidence)&&partnerIs(p,"黒"),
   eventAi(p,x){const d=def(x);return !!(d&&d.event&&(!d.ai||d.ai(p)))},
-  automated:x=>!!def(x),
+  automated:x=>!!def(x)&&!def(x).partial,
+  entersSleeping:x=>/(^|\n)このキャラはスリープ状態で登場する。/.test(C(x).f||""),
 };
 window.FX=FX;

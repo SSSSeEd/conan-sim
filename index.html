@@ -233,6 +233,8 @@ html.compact #setup textarea{height:140px}
 #topbar .tb-only{display:none}
 .reclist{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin:6px 0}
 .reclist .rec{text-align:left;font-size:12px}
+.fbl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--manila)}
+.fbl textarea{width:100%;box-sizing:border-box;font-size:14px;background:var(--desk);color:var(--ink);border:1px solid var(--line,#445);border-radius:6px;padding:6px}
 .reclist .rw{color:#7fd18b;font-weight:bold}.reclist .rl{color:#e58a7a;font-weight:bold}
 html.compact.portrait #topbar .tb-only{display:inline-block}
 html.compact.portrait #topbar .meta{display:none}
@@ -257,6 +259,7 @@ html.compact.portrait .side.me .hand .card{width:68px;height:95px;flex:none;tran
 html.compact.portrait .side.me .hand .card.playable{transform:translateY(calc(var(--y,0px) - 10px)) rotate(var(--r,0deg));box-shadow:0 0 0 2px var(--ok),0 0 14px rgba(120,220,140,.55)}
 html.compact.portrait .side.me .hand .card.sel{transform:translateY(calc(var(--y,0px) - 22px)) rotate(0deg);z-index:2}
 html.compact.portrait .side.me .hand .card .nm{font-size:9px}
+html.modalopen .side.me .hand,html.modalopen .fab{filter:brightness(.35);pointer-events:none}
 /* カードをタップ: 大きく表示して操作ボタン */
 html.compact #detail.zoom{top:0;max-height:none;border:0;border-radius:0;background:rgba(4,8,12,.9);box-shadow:none;overflow-y:auto;
   padding:calc(14px + env(safe-area-inset-top,0px)) 12px calc(18px + env(safe-area-inset-bottom,0px));transform:none;opacity:0;pointer-events:none;transition:opacity .15s ease}
@@ -306,6 +309,15 @@ html.compact:not(.portrait) .zoomcard .card.h{width:min(60vw,420px);height:calc(
 .cutin .cs{font-size:14px;color:#ffe7b0;margin-top:4px;max-width:58vw}
 @keyframes cutin{from{transform:rotate(-5deg) translateX(110%)}to{transform:rotate(-5deg) translateX(0)}}
 @keyframes cutout{to{transform:rotate(-5deg) translateX(-110%);opacity:.3}}
+.cutin .tap{position:absolute;bottom:18%;left:0;right:0;text-align:center;font-size:11px;color:rgba(255,255,255,.6)}
+.cutin.fx .band{transform:rotate(-3deg);padding:16px 0}
+.cutin.fx .ccard .card{width:120px;height:168px}.cutin.fx .ccard .card.h{width:168px;height:120px}
+.cutin .fxt{margin-top:8px;max-width:min(62vw,560px);background:rgba(10,14,20,.82);border:1px solid #ffd77a;border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.55;color:#fff;white-space:pre-wrap;text-align:left;animation:fxin .35s .15s both}
+.cutin .fxt .k{color:#ffd77a;font-weight:bold}
+@keyframes fxin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+html.compact .cutin.fx .band{flex-direction:column;gap:8px;transform:rotate(0);width:100vw}
+html.compact .cutin.fx .ccard .card{width:96px;height:134px}
+html.compact .cutin .fxt{max-width:88vw;font-size:13px}
 html.compact .cutin .ct{font-size:22px}html.compact .cutin .cs{font-size:12px}html.compact .cutin .ccard .card{width:64px;height:90px}
 /* 場の動き */
 .card.justin{animation:justin .45s cubic-bezier(.2,.9,.3,1.25)}
@@ -352,6 +364,7 @@ html.portrait #peek .pkc .card{width:min(52vw,210px);height:calc(min(52vw,210px)
 
 <script src="cards.js"></script>
 <script src="effects.js"></script>
+<script src="decks.js"></script>
 <script>
 "use strict";
 // ================= データ =================
@@ -429,6 +442,13 @@ function deckToText(d){
   const cnt={};for(const n of d.main)cnt[n]=(cnt[n]||0)+1;
   return `パートナー ${d.partner}\n事件 ${d.caseN}\n`+Object.entries(cnt).map(([n,k])=>`${n} x${k}`).join("\n");
 }
+// マイデッキ（リンクから登録したデッキ。端末に保存）
+const MY_KEY="conan-sim-mydecks";
+function loadMyDecks(){try{return JSON.parse(localStorage.getItem(MY_KEY)||"[]")}catch(e){return []}}
+function saveMyDecks(a){try{localStorage.setItem(MY_KEY,JSON.stringify(a))}catch(e){}}
+function shareIdOf(s){s=(s||"").trim();const m=s.match(/(?:deck\/|share_id=|deck=)([A-Za-z0-9_-]{4,})/);return m?m[1]:s.replace(/[^A-Za-z0-9_-]/g,"")}
+function deckGroups(){return [["プリセット","p",PRESETS],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]],["マイデッキ","m",loadMyDecks()]]}
+function deckByKey(v){const [g,k]=String(v).split(":");const grp=deckGroups().find(x=>x[1]===g);return grp&&grp[2][+k]}
 async function fetchShareDeck(id){
   const r=await fetch(`https://conan-tcg-app.com/api/deck/share?share_id=${encodeURIComponent(id)}`,{headers:{Accept:"application/json"}});
   if(!r.ok)throw new Error("HTTP "+r.status);
@@ -539,8 +559,8 @@ function hl(s){return esc(s).replace(/(【[^】]+】|〚[^〛]+〛)/g,'<span cla
 function modal(build){
   return new Promise(res=>{
     const bg=document.getElementById("modal-bg"),m=document.getElementById("modal");
-    m.innerHTML="";bg.hidden=false;
-    const done=v=>{bg.hidden=true;m.innerHTML="";res(v)};
+    m.innerHTML="";bg.hidden=false;document.documentElement.classList.add("modalopen");
+    const done=v=>{bg.hidden=true;m.innerHTML="";document.documentElement.classList.remove("modalopen");res(v)};
     build(m,done);
     const f=m.querySelector("button");if(f)f.focus();
   });
@@ -610,7 +630,9 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
 }
 async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
 function win(p,why){if(G.over)return;G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
-  ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"もう一度（同じデッキ）",value:"again",primary:true},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(v=>{if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()})}
+  const endMenu=()=>ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"フィードバックを書く",value:"fb",primary:true},{label:"もう一度（同じデッキ）",value:"again"},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(async v=>{
+    if(v==="fb"){await feedbackPage(G.rec);endMenu()}else if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()});
+  if(!window.SIM_FAST)endMenu()}
 function lose(p,why){win(opp(p),`${p.name} の敗北: ${why}`)}
 
 // ===== 対戦記録（将来のフィードバック機能用に、行動とその時に選べた選択肢を残す） =====
@@ -641,6 +663,32 @@ function saveRecord(w,why){
   r.final=G.P.map(p=>({ev:p.ev.length,file:p.file.length,field:p.field.length,hand:p.hand.length,deck:p.deck.length,solved:p.solved}));
   if(window.SIM_FAST&&!window.SIM_SAVE)return;
   try{const all=loadRecords();all.push(r);while(all.length>REC_MAX)all.shift();localStorage.setItem(REC_KEY,JSON.stringify(all))}catch(e){}
+}
+
+// ===== 対戦後のフィードバック（改善点・CPUへのアドバイス） =====
+// 対戦記録に一緒に保存し、GitHubのIssueとしても送れる（Claudeが後で読める）
+const FB_REPO="SSSSeEd/conan-sim";
+function feedbackPage(rec){
+  return modal((m,done)=>{
+    const old=rec&&rec.feedback||{};
+    const sum=rec?`${rec.names[0]}（${rec.decks[0]}） vs ${rec.names[1]}（${rec.decks[1]}）・${rec.turns||"?"}ターン・${rec.winner!=null?rec.names[rec.winner]+" の勝ち":"途中"}`:"";
+    m.insertAdjacentHTML("beforeend",`<div class="mt">フィードバック</div>
+      <div class="mb" style="font-size:12px;color:var(--ink-dim)">${esc(sum)}\n書いた内容はこの対戦の記録と一緒に保存されます。「GitHubに送る」を押すと、Claudeが次の作業で読めるように送信画面が開きます。</div>
+      <label class="fbl">アプリの改善点・バグ<textarea id="fbApp" rows="4" placeholder="例: アクションの後に画面が戻らない、カードの効果が違う など">${esc(old.app||"")}</textarea></label>
+      <label class="fbl">CPUへのアドバイス<textarea id="fbCpu" rows="4" placeholder="例: 2ターン目にパスしないで、このカードを先に出すべき など">${esc(old.cpu||"")}</textarea></label>
+      <div class="opts"><button class="primary" id="fbSave">保存</button><button id="fbGh">保存してGitHubに送る</button><button id="fbClose">閉じる</button></div>`);
+    const save=()=>{const fb={app:m.querySelector("#fbApp").value.trim(),cpu:m.querySelector("#fbCpu").value.trim(),at:new Date().toISOString()};
+      if(rec){rec.feedback=fb;try{const all=loadRecords();const i=all.findIndex(r=>r.start===rec.start);if(i>=0){all[i].feedback=fb;localStorage.setItem(REC_KEY,JSON.stringify(all))}}catch(e){}}
+      return fb};
+    m.querySelector("#fbSave").onclick=()=>{save();toast("保存しました");done(true)};
+    m.querySelector("#fbClose").onclick=()=>done(false);
+    m.querySelector("#fbGh").onclick=()=>{const fb=save();
+      const acts=rec?rec.acts.filter(a=>!rec.cpu[a.who]).slice(-30).map(a=>`- ${a.t}T ${a.kind}${a.card?" "+a.card.nm:""}${a.target?" → "+(a.target.nm||a.target):""}`).join("\n"):"";
+      const body=`## 対戦\n${sum}\n${rec?"決着: "+(rec.why||"")+"\n先攻: "+rec.names[rec.first]:""}\n\n## アプリの改善点・バグ\n${fb.app||"（なし）"}\n\n## CPUへのアドバイス\n${fb.cpu||"（なし）"}\n\n<details><summary>自分の行動（最後の30件）</summary>\n\n${acts}\n</details>\n\n<details><summary>デッキ</summary>\n\n\`\`\`\n${rec?rec.deckLists.join("\n---\n"):""}\n\`\`\`\n</details>`;
+      const title=`[フィードバック] ${(fb.app||fb.cpu||"対戦の感想").split("\n")[0].slice(0,40)}`;
+      const url=`https://github.com/${FB_REPO}/issues/new?labels=feedback&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body.slice(0,6000))}`;
+      window.open(url,"_blank");done(true)};
+  });
 }
 
 // ===== 一手戻す（自分のターン中だけ） =====
@@ -749,13 +797,13 @@ async function useFromHand(p,x,viaHint=false){
   const r=playableReason(p,x,viaHint);if(r){toast(r);return false}
   recAct(p,viaHint?"hintUse":"use",x);
   const c=C(x);
-  if(p.cpu&&!window.SIM_FAST){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
+  if(!window.SIM_FAST&&!(c.t==="イベント"&&FX.automated(x))){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
   if(c.t==="キャラ"){
     if(p.field.length>=5){
       const t=p.cpu?[p.field.slice().sort((a,b)=>(C(a).lv||0)-(C(b).lv||0))[0]]:await chooseCards("スイッチ","現場が5体です。リムーブして入れ替えるキャラを選んでください。",p.field,{min:1,max:1});
       if(!t.length)return false;removeCard(t[0],"スイッチ");
     }
-    detach(x);x.st="a";x.fresh=true;p.field.push(x);
+    detach(x);x.st=FX.entersSleeping(x)?"s":"a";x.fresh=true;p.field.push(x);
     if(!viaHint)p.usedHand=true;
     log(`${p.name} は ${c.nm}（Lv${c.lv}）を登場させた${viaHint?"（ネクストヒント）":""}`);
     render();await runQueue();await FX.enter(p,x);
@@ -854,7 +902,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
     else{const g=await chooseCards(`${o.name}: ガード`,`${C(x).nm}（AP${apOf(x)}）が${kind==="case"?"事件":C(target).nm+"（AP"+apOf(target)+"）"}にアクション。アクティブなキャラをスリープしてガードできます。`,guards,{min:0,max:1,okLabel:"ガード"});guard=g[0]||null}
   }
   if(guard){if(guard.st==="a")guard.st="s";log(`${o.name} の ${C(guard).nm}（AP${apOf(guard)}）がガード`);
-    if(o.cpu){render();await cutin(guard,`${o.name}: ガード`,`${C(guard).nm}（AP${apOf(guard)}）`,{who:o})}await contact(p,x,guard)}
+    {render();await cutin(guard,`${o.name}: ガード`,`${C(guard).nm}（AP${apOf(guard)}）`,{who:o})}await contact(p,x,guard)}
   else if(kind==="chara")await contact(p,x,target);
   else{
     const e=o.ev.pop();log(`${o.name} の証拠を1つリムーブ`);
@@ -879,22 +927,34 @@ function revealCard(x,title,sub,hit){
     setTimeout(rm,hit?2600:1900);
   })}
 // 帯の演出（タップで早送り）。SIM_FAST のときは出さない（テスト用）
-function cutin(x,title,sub,{who=null,kind="",ms=1300}={}){
+// 演出の速さ（≡メニューで変更・端末に保存）。人が対戦しているときだけ使う
+const SPEEDS={slow:{label:"ゆっくり",m:1.5},normal:{label:"ふつう",m:1},fast:{label:"はやい",m:.6}};
+function speedKey(){try{return localStorage.getItem("conan-sim-speed")||"slow"}catch(e){return "slow"}}
+function pace(){if(window.SIM_FAST)return 0;if(G&&G.cfg&&G.cfg.cpu0)return 1;return (SPEEDS[speedKey()]||SPEEDS.slow).m}
+function cutin(x,title,sub,{who=null,kind="",ms=1300,fx=null}={}){
   if(!G||window.SIM_FAST)return Promise.resolve();
+  ms=Math.round(ms*pace());
   return new Promise(res=>{
-    const d=document.createElement("div");d.className="cutin "+(kind||(who&&who.idx===0?"me":"op"));
-    d.innerHTML=`<div class="band">${x?'<div class="ccard"></div>':""}<div><div class="ct">${esc(title)}</div>${sub?`<div class="cs">${esc(sub)}</div>`:""}</div></div>`;
+    const d=document.createElement("div");d.className="cutin "+(kind||(who&&who.idx===0?"me":"op"))+(fx?" fx":"");
+    d.innerHTML=`<div class="band">${x?'<div class="ccard"></div>':""}<div class="ctx"><div class="ct">${esc(title)}</div>${sub?`<div class="cs">${esc(sub)}</div>`:""}${fx?`<div class="fxt">${hl(fx)}</div>`:""}</div></div><div class="tap">タップで次へ</div>`;
     if(x)d.querySelector(".ccard").appendChild(cardEl(x));
     document.body.appendChild(d);
     let t;const end=()=>{if(d.classList.contains("out"))return;clearTimeout(t);d.classList.add("out");setTimeout(()=>{d.remove();res()},220)};
     d.onclick=end;t=setTimeout(end,ms);
   })}
-// 相手(CPU)の行動を見せる: 行動するカードと対象を光らせ、帯で知らせる
+// 効果を使ったことを、カードと効果文で大きく見せる（effects.js から呼ばれる）
+async function showFx(p,x,kind,text,{after=false}={}){
+  if(!G||window.SIM_FAST||!x)return;
+  const t=String(text||"").trim();
+  render();
+  await cutin(x,`${p.name}: ${C(x).nm}`,`【${kind}】の効果${after?"が発動":"を使う"}`,{who:p,fx:t.slice(0,220),ms:Math.min(4200,1500+t.length*28)});
+}
+// 行動を見せる: 行動するカードと対象を光らせ、帯で知らせる（自分の行動も同じように見せる）
 async function showCpu(p,x,title,sub,target){
-  if(!p.cpu||window.SIM_FAST)return;
+  if(window.SIM_FAST)return;
   G.ui.act={a:x,t:target&&target!=="case"?target:null};render();
-  await cutin(x,`${p.name}: ${title}`,sub,{who:p});
-  await sleep(250);
+  await cutin(x,`${p.name}: ${title}`,sub,{who:p,ms:p.cpu?1300:900});
+  await sleep(250*pace());
 }
 function clearAct(){if(G&&G.ui.act){G.ui.act=null;render()}}
 async function hirameki(o,e){
@@ -926,7 +986,9 @@ async function contact(p,a,d){ // p=ターンプレイヤー(攻撃側)
   const won=A>=D;
   for(const x of [ct.a,ct.d])x.apC=0;
   G.contact=null;
-  if(won){removeCard(ct.d,"コンタクト",{by:p});render();await FX.contactWin(p,ct.a,ct.d)}else log("　アクションした側のAPが低いので何も起きない","n");
+  if(won){await cutin(ct.d,"リムーブ！",`${C(ct.a).nm} AP${A} ≧ ${C(ct.d).nm} AP${D}`,{who:p,ms:1100});
+    removeCard(ct.d,"コンタクト",{by:p});render();await FX.contactWin(p,ct.a,ct.d)}
+  else{await cutin(ct.d,"防いだ！",`${C(ct.a).nm} AP${A} ＜ ${C(ct.d).nm} AP${D}`,{who:o,ms:1100});log("　アクションした側のAPが低いので何も起きない","n")}
   render();await runQueue();
 }
 async function contactRight(q,ct,tp){
@@ -946,7 +1008,7 @@ async function contactRight(q,ct,tp){
   }
   if(!choice){log(`${q.name} はパス`,"n");return false}
   const x=choice.x;
-  if(q.cpu){render();await cutin(x,`${q.name}: ${choice.how==="cut"?"カットイン":"変装"}`,choice.how==="cut"?(C(x).ci||"").split("\n")[0]:`${C(mine).nm} → ${C(x).nm}`,{who:q})}
+  {render();await cutin(x,`${q.name}: ${choice.how==="cut"?"カットイン":"変装"}`,choice.how==="cut"?(C(x).ci||"").split("\n")[0]:`${C(mine).nm} → ${C(x).nm}`,{who:q})}
   if(choice.how==="cut"){
     const v=cutinAp(x,q);detach(x);q.rm.push(x);
     if(v!=null){mine.apC+=v;log(`${q.name} はカットイン ${C(x).nm}: ${C(mine).nm} AP＋${v}（AP${apOf(mine)}）`)}
@@ -981,7 +1043,7 @@ function cpuContact(q,mine,theirs,cuts,tp){
   return null;
 }
 async function cpuTurn(p){
-  const step=async ms=>{if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8)};
+  const step=async ms=>{if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8*pace())};
   await step(600);
   const o=opp(p);
   // 1) 事件解決
@@ -1013,7 +1075,7 @@ async function cpuTurn(p){
     for(const x of [...p.field,p.caseC,...p.hand]){
       for(const ab of FX.abilities(p,x)){
         if(!ab.ok||ab.noAi)continue;if(ab.aiCan&&!ab.aiCan(p,x))continue;
-        await showCpu(p,x,"能力",ab.label);await FX.useAbility(p,x,ab);await step();used=true;break}
+        G.ui.act={a:x,t:null};await FX.useAbility(p,x,ab);await step();used=true;break}
       if(used||G.over)break}
     if(!used||G.over)break}
   if(G.over)return;
@@ -1204,6 +1266,7 @@ function render(){
   b("ネクストヒント",()=>act(()=>nextHint(p)),{cls:"fab tb-hint",disabled:!human||p.noHint||!p.file.some(x=>x!==p.partner)});
   b("ターン終了",()=>{if(G.ui.mode)G.ui.mode=null;endTurn()},{primary:true,cls:"fab tb-end",disabled:!human});
   if(G.cfg.cpu){b(G.showOppHand?"相手の手札を隠す":"相手の手札を見る",()=>{G.showOppHand=!G.showOppHand;render()},{cls:"tb-extra"})}
+  b(`演出: ${(SPEEDS[speedKey()]||SPEEDS.slow).label}`,()=>{const ks=Object.keys(SPEEDS);const n=ks[(ks.indexOf(speedKey())+1)%ks.length];try{localStorage.setItem("conan-sim-speed",n)}catch(e){}toast(`演出の速さ: ${SPEEDS[n].label}`);render()},{cls:"tb-extra"});
   b("降参",async()=>{const v=await ask("降参しますか？","",[{label:"降参する",value:true},{label:"続ける",value:false,primary:true}]);if(v)lose(human?p:me,"降参")},{cls:"tb-extra"});
   b("デッキ選択へ",async()=>{const v=await ask("対戦を中断してデッキ選択に戻りますか？","",[{label:"戻る",value:true},{label:"続ける",value:false,primary:true}]);if(v)showSetup()},{cls:"tb-extra"});
 }
@@ -1296,7 +1359,7 @@ function showSetup(){
     ${[0,1].map(i=>`<div class="box"><b>${i===0?"あなた（下側）":"相手（上側）"}</b>
       <div class="row"><input id="nm${i}" value="${esc(saved["nm"+i]||(i?"相手":"あなた"))}" size="10" aria-label="名前">
       ${i===1?`<label><input type="checkbox" id="cpu1" ${saved.cpu1===false?"":"checked"}> CPUが操作</label>`:`<label><input type="checkbox" id="cpu0"> CPUが操作（観戦）</label>`}</div>
-      <div class="row"><select id="ps${i}" aria-label="初期デッキ">${PRESETS.map((d,k)=>`<option value="${k}" ${k===(i?1:0)?"selected":""}>${esc(d.name)}</option>`).join("")}</select><button data-s="${i}">このデッキを使う</button></div>
+      <div class="row"><select id="ps${i}" aria-label="デッキ一覧">${deckGroups().map(([lab,g,a])=>a.length?`<optgroup label="${esc(lab)}">${a.map((d,k)=>`<option value="${g}:${k}" ${g==="p"&&k===(i?1:0)?"selected":""}>${esc(d.name)}</option>`).join("")}</optgroup>`:"").join("")}</select><button data-s="${i}">このデッキを使う</button></div>
       <div class="row">
         <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button></div>
       <div class="row"><input id="sh${i}" placeholder="共有ID 例: X3zM3U7m" size="16"><button data-f="${i}">conan-tcg-appから読込</button></div>
@@ -1307,13 +1370,15 @@ function showSetup(){
      <button class="primary" id="go" style="font-size:14px;padding:8px 18px">対戦開始</button></div>
    <div class="hint">デッキリストの書き方: 1行に「カードNo x枚数」。パートナーと事件はカードNoを書けば自動で判別します。conan-tcg-app の共有IDでの読込はブラウザから直接通信するため、環境によっては失敗します。その場合はリストを貼り付けてください。<br>
    操作: カードをクリックすると右パネルに操作が出ます。アクション［キャラ］は対象（赤く点滅）をクリック、Escでキャンセル。デッキ・FILE・証拠・リムーブの枚数をクリックすると中身と手動操作が開きます。</div>
+   <div class="box" id="myBox"></div>
    <div class="box" id="recBox"></div>`;
-  renderRecords();
+  renderRecords();renderMyDecks();
   const chk=i=>{const d=parseDeckText(document.getElementById("dk"+i).value);const w=[...d.errors,...validateDeck(d)];const m=document.getElementById("dm"+i);
     if(w.length){m.className="dmsg bad";m.textContent=w.join("\n")}else{m.className="dmsg good";m.textContent=`OK: ${C({n:d.partner}).nm} / ${C({n:d.caseN}).nm} / 40枚`}return {d,w}};
   for(const i of [0,1]){
     const ta=document.getElementById("dk"+i);ta.oninput=()=>chk(i);chk(i);
-    S.querySelector(`[data-s="${i}"]`).onclick=()=>{ta.value=PRESETS[+document.getElementById("ps"+i).value].text;chk(i)};
+    S.querySelector(`[data-s="${i}"]`).onclick=()=>{const d=deckByKey(document.getElementById("ps"+i).value);if(d){ta.value=d.text;chk(i)}};
+    document.getElementById("ps"+i).onchange=()=>S.querySelector(`[data-s="${i}"]`).click();
     S.querySelector(`[data-r="${i}"]`).onclick=()=>{ta.value=randomDeck(document.getElementById("rc"+i).value).text;chk(i)};
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=document.getElementById("sh"+i).value.trim().replace(/.*deck\//,"");const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
@@ -1326,6 +1391,23 @@ function showSetup(){
     startGame(cfg);
   };
 }
+function renderMyDecks(){
+  const B=document.getElementById("myBox");if(!B)return;const my=loadMyDecks();
+  B.innerHTML=`<b>デッキ登録（マイデッキ ${my.length}個）</b>
+   <div class="hint">conan-tcg-app のデッキ共有リンク（または共有ID）を貼って「登録」すると、上のデッキ一覧の「マイデッキ」に追加されます。端末に保存されます。</div>
+   <div class="row"><input id="myUrl" placeholder="共有リンク または ID" style="flex:1;min-width:0"><button id="myAdd" class="primary">登録</button></div>
+   <div class="dmsg" id="myMsg"></div>
+   <div class="reclist">${my.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-mydel="${k}">削除</button></div>`).join("")}</div>`;
+  document.getElementById("myAdd").onclick=async()=>{const id=shareIdOf(document.getElementById("myUrl").value);const m=document.getElementById("myMsg");
+    if(!id){m.className="dmsg bad";m.textContent="リンクを貼ってください";return}
+    m.className="dmsg";m.textContent="読込中…";
+    try{const r=await fetchShareDeck(id);const d=parseDeckText(r.text);const w=[...d.errors,...validateDeck(d)];
+      const a=loadMyDecks();a.push({name:`${r.name||"デッキ"}（${id}）`,text:r.text,id});saveMyDecks(a);
+      m.className=w.length?"dmsg bad":"dmsg good";m.textContent=`登録しました: ${r.name}${w.length?"\n注意: "+w.join(" / "):""}`;
+      const keep=m.textContent,cls=m.className;showSetup();const m2=document.getElementById("myMsg");m2.textContent=keep;m2.className=cls}
+    catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+(e.message==="Cannot read properties of null (reading 'name')"?"そのIDのデッキが見つかりません":e.message)+"）"}};
+  B.querySelectorAll("[data-mydel]").forEach(b=>b.onclick=()=>{const a=loadMyDecks();a.splice(+b.dataset.mydel,1);saveMyDecks(a);showSetup()});
+}
 function renderRecords(){
   const B=document.getElementById("recBox");if(!B)return;
   const all=loadRecords();
@@ -1333,11 +1415,12 @@ function renderRecords(){
   B.innerHTML=`<b>対戦記録（${all.length}件・端末に保存）</b>
    <div class="hint">対戦が終わるたびに、行動・その時に選べた選択肢・ログを自動で保存します（最新${REC_MAX}件）。将来のフィードバック機能の材料になります。</div>
    <div class="reclist">${all.slice().reverse().slice(0,20).map((r,i)=>{const me=r.cpu[0]?null:0;const res=me===null?`${esc(r.names[r.winner])} 勝利`:r.winner===me?"勝ち":"負け";
-     return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span> ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
+     return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span>${r.feedback&&(r.feedback.app||r.feedback.cpu)?" ✎":""} ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
    <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>`;
   B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
     const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;
-    ask("対戦記録",sum+r.log.map(([t,m])=>m).join("\n"),[{label:"閉じる",value:0,primary:true}])});
+    const fbt=r.feedback&&(r.feedback.app||r.feedback.cpu)?`【フィードバック】\n${r.feedback.app?"改善点: "+r.feedback.app+"\n":""}${r.feedback.cpu?"CPUへ: "+r.feedback.cpu+"\n":""}\n`:"";
+    ask("対戦記録",sum+fbt+r.log.map(([t,m])=>m).join("\n"),[{label:"フィードバックを書く",value:"fb"},{label:"閉じる",value:0,primary:true}]).then(async v=>{if(v==="fb"){await feedbackPage(r);renderRecords()}})});
   const ex=document.getElementById("recExp");if(ex)ex.onclick=async()=>{const blob=new Blob([JSON.stringify(all,null,1)],{type:"application/json"});
     const name=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;
     try{const f=new File([blob],name,{type:"application/json"}); // スマホは共有シートで保存
