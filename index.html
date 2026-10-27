@@ -477,7 +477,7 @@ function zoneOf(x){const p=ownerOf(x);if(!p)return null;
   if(p.partner===x)return p.pLoc==="file"?"file":"partner";
   for(const z of ["field","hand","file","ev","rm","deck"])if(p[z].includes(x))return z;
   if(p.caseC===x)return "case";return null}
-function detach(x){x._shown=null;const p=ownerOf(x);for(const z of ["field","hand","file","ev","rm","deck"]){const i=p[z].indexOf(x);if(i>=0){p[z].splice(i,1);return p}}return p}
+function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","hand","file","ev","rm","deck"]){const i=p[z].indexOf(x);if(i>=0){p[z].splice(i,1);return p}}return p}
 
 // 条件タグの判定
 function condOk(tag,p){
@@ -1338,7 +1338,10 @@ function renderRecords(){
   B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
     const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;
     ask("対戦記録",sum+r.log.map(([t,m])=>m).join("\n"),[{label:"閉じる",value:0,primary:true}])});
-  const ex=document.getElementById("recExp");if(ex)ex.onclick=()=>{const blob=new Blob([JSON.stringify(all,null,1)],{type:"application/json"});
+  const ex=document.getElementById("recExp");if(ex)ex.onclick=async()=>{const blob=new Blob([JSON.stringify(all,null,1)],{type:"application/json"});
+    const name=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;
+    try{const f=new File([blob],name,{type:"application/json"}); // スマホは共有シートで保存
+      if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia("(pointer:coarse)").matches){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove()};
   const cl=document.getElementById("recClr");if(cl)cl.onclick=async()=>{if(await ask("対戦記録を全部消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){try{localStorage.removeItem(REC_KEY)}catch(e){}renderRecords()}};
 }
