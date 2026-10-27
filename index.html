@@ -549,7 +549,7 @@ function ask(title,body,options){ // options:[{label,value,primary}]
     for(const op of options){const b=document.createElement("button");b.textContent=op.label;if(op.primary)b.className="primary";b.onclick=()=>done(op.value);o.appendChild(b)}
   });
 }
-function chooseCards(title,body,cards,{min=0,max=1,okLabel="決定",faceUp=true,can=null}={}){
+function chooseCards(title,body,cards,{min=0,max=1,okLabel="決定",faceUp=true,can=null,tag=null}={}){
   return modal((m,done)=>{
     m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div>${body?`<div class="mb">${hl(body)}</div>`:""}<div class="cards"></div><div class="opts"></div>`);
     const sel=new Set();const box=m.querySelector(".cards");
@@ -557,6 +557,7 @@ function chooseCards(title,body,cards,{min=0,max=1,okLabel="決定",faceUp=true,
     const upd=()=>{ok.disabled=sel.size<min||sel.size>max;ok.textContent=`${okLabel}（${sel.size}）`};
     for(const x of cards){const el=cardEl(x,{faceUp});
       const ow=G&&ownerOf(x);if(ow&&ow.field.includes(x))el.insertAdjacentHTML("beforeend",`<span class="case-tag" style="background:${ow.idx===0?"#2f6fd6":"var(--alert)"}">${esc(ow.name)}</span>`);
+      const tg=tag&&tag(x);if(tg)el.insertAdjacentHTML("beforeend",`<span class="case-tag" style="background:#2e7d4f;top:28px;bottom:auto">${esc(tg)}</span>`);
       if(can&&!can(x)){el.classList.add("ng");el.insertAdjacentHTML("beforeend",'<span class="ngtag">対象外</span>');el.onclick=()=>showDetail(x);box.appendChild(el);continue}
       el.onclick=()=>{
         if(sel.has(x)){sel.delete(x);el.classList.remove("sel")}else{if(max===1){sel.clear();box.querySelectorAll(".sel").forEach(e=>e.classList.remove("sel"))}if(sel.size<max){sel.add(x);el.classList.add("sel")}}upd()};
@@ -625,10 +626,26 @@ async function startGame(cfg){
   for(const p of G.P)log(`${p.name}: パートナー ${C(p.partner).nm} / 事件 ${C(p.caseC).nm}（事件レベル${p.level}）`);
   beginTurn();
 }
+// マリガンの目安: 1ターン目・2ターン目に手札を使えるか（パスはほぼ負けなので最優先）
+// FILE は先攻 1→3枚、後攻 2→4枚 なので、その枚数以下のレベルのカードが要る
+function mullPlan(p){
+  const fs=p.idx===G.first,L1=fs?1:2,L2=fs?3:4;
+  const ok=x=>canPlayColor(C(x),p)&&(C(x).t==="キャラ"||C(x).t==="イベント");
+  const lv=x=>C(x).lv||0;
+  const pick=(max,ex)=>p.hand.filter(x=>ok(x)&&lv(x)<=max&&x!==ex).sort((a,b)=>(C(b).t==="キャラ")-(C(a).t==="キャラ")||lv(b)-lv(a))[0]||null;
+  const k1=pick(L1,null),k2=pick(L2,k1);
+  return {fs,L1,L2,k1,k2};
+}
 async function mulligan(p){
-  let back;
-  if(p.cpu){back=p.hand.filter(x=>(C(x).lv||0)>=7||!canPlayColor(C(x),p))}
-  else{const fs=p.idx===G.first;back=await chooseCards(`${p.name}: マリガン（${fs?"先攻":"後攻"}）`,`【${fs?"先攻":"後攻"}】${p.name} は${fs?"先攻":"後攻"}です（${G.P[G.first].name} が先攻）。事件レベル ${p.level}。\nデッキに戻すカードを選んでください（何枚でも、1回まで）。`,p.hand,{min:0,max:5,okLabel:"戻して引き直す"})}
+  let back;const P=mullPlan(p);
+  if(p.cpu){
+    // 両方そろっていれば重すぎる/色違いだけ戻す。そろわなければ低レベルを残して引き直す
+    if(P.k1&&P.k2)back=p.hand.filter(x=>(C(x).lv||0)>=7||!canPlayColor(C(x),p));
+    else back=p.hand.filter(x=>x!==P.k1&&x!==P.k2&&((C(x).lv||0)>P.L2||!canPlayColor(C(x),p)));
+  }else{
+    const tag=x=>x===P.k1?`${P.fs?1:2}ターン目に使える`:x===P.k2?`次のターンに使える`:null;
+    const msg=P.k1&&P.k2?"1ターン目・2ターン目とも手札を使えます。":!P.k1?`⚠ 最初のターンに使えるカード（レベル${P.L1}以下）がありません。初手パスはかなり不利です。`:`⚠ 2回目のターンに使えるカード（レベル${P.L2}以下）がもう1枚ありません。`;
+    back=await chooseCards(`${p.name}: マリガン（${P.fs?"先攻":"後攻"}）`,`【${P.fs?"先攻":"後攻"}】${p.name} は${P.fs?"先攻":"後攻"}です（${G.P[G.first].name} が先攻）。事件レベル ${p.level}。\nFILEは最初のターン${P.L1}枚、次のターン${P.L2}枚。${msg}\nデッキに戻すカードを選んでください（何枚でも、1回まで）。`,p.hand,{min:0,max:5,okLabel:"戻して引き直す",tag})}
   if(back.length){for(const x of back)detach(x);p.deck.push(...back);shuffle(p.deck);draw(p,back.length);log(`${p.name} はマリガンで${back.length}枚引き直した`)}
   else log(`${p.name} はマリガンしない`);
   render();
