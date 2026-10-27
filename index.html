@@ -652,7 +652,7 @@ async function mulligan(p){
 }
 function beginTurn(){
   if(G.over)return;
-  const p=cur();G.turnNo++;p.usedHand=false;p.hinted=false;p.noHint=false;
+  const p=cur();G.turnNo++;p.usedHand=false;p.hinted=false;p.hintN=0;p.noHint=false;
   log(`— ${G.turnNo}ターン目: ${p.name} —`,"t");
   // オートフェイズ
   if(p.pLoc==="file"){p.file.splice(p.file.indexOf(p.partner),1);p.pLoc="area";log("パートナーがFILEからパートナーエリアに戻った")}
@@ -716,12 +716,11 @@ function noteEffect(p,x,kind){
   else toast(`CPUの ${c.nm} の効果は未自動化です。必要なら手動で処理`);
 }
 async function nextHint(p){
-  if(p.hinted){toast("このターンはもうネクストヒントをした");return}
   if(p.noHint){toast("このターンはネクストヒントできない");return}
   const top=[...p.file].reverse().find(x=>x!==p.partner);
   if(!top){toast("FILEにカードがない");return}
-  p.file.splice(p.file.indexOf(top),1);p.hand.push(top);p.hinted=true;
-  log(`${p.name} はネクストヒント（FILE ${p.file.length}枚）。${p.cpu?"":C(top).nm+" を手札に"}`);
+  p.file.splice(p.file.indexOf(top),1);p.hand.push(top);p.hinted=true;p.hintN=(p.hintN||0)+1;
+  log(`${p.name} はネクストヒント${p.hintN>1?`（このターン${p.hintN}回目）`:""}（FILE ${p.file.length}枚）。${p.cpu?"":C(top).nm+" を手札に"}`);
   render();
   if(p.cpu)return top;
   const ok=p.hand.filter(y=>!playableReason(p,y,true));
@@ -937,9 +936,12 @@ async function cpuTurn(p){
   if(pick1){await useFromHand(p,pick1);await step()}
   if(G.over)return;
   const fileCards=()=>p.file.filter(x=>x!==p.partner).length;
-  if(!p.noHint&&!p.hinted&&(!pick1&&fileCards()>=4||pick1&&fileCards()>=6&&p.field.length<4)){
-    await nextHint(p);await step();
-    const c2=best(true);if(c2){await useFromHand(p,c2,true);await step()}
+  // ネクストヒントは何回でも可。FILEが減るので、FILEに余裕があるときだけ続ける
+  for(let n=0;n<4&&!G.over&&!p.noHint;n++){
+    const fc=fileCards(),got=p.hintN>0;
+    if(!(!pick1&&!got&&fc>=4||fc>=6&&p.field.length<4||got&&fc>=5&&p.field.length<2))break;
+    if(!await nextHint(p))break;await step();
+    const c2=best(true);if(c2){await useFromHand(p,c2,true);await step();pick1=pick1||c2}
   }
   if(G.over)return;
   // 2.5) 宣言能力
@@ -1128,13 +1130,13 @@ function render(){
   const T=document.getElementById("topbar");T.innerHTML="";
   const p=cur();
   T.insertAdjacentHTML("beforeend",`<h1>コナンTCG 卓上シミュレータ</h1><span class="phase">${G.over?"終了":`${G.turnNo}T ${esc(p.name)}`}</span>
-   <span class="meta" style="color:var(--ink-dim)">${G.over?"":`手札の使用 ${p.usedHand?"済":"可"}・ネクストヒント ${p.hinted?"済":"可"}`}</span>`);
+   <span class="meta" style="color:var(--ink-dim)">${G.over?"":`手札の使用 ${p.usedHand?"済":"可"}・ネクストヒント ${p.hintN?p.hintN+"回":"可"}`}</span>`);
   const human=!p.cpu&&!G.over;
   const b=(l,f,o={})=>{const e=document.createElement("button");e.textContent=l;if(o.primary)e.className="primary";if(o.cls)e.classList.add(...o.cls.split(" "));e.disabled=!!o.disabled;e.onclick=f;T.appendChild(e)};
   const R=document.documentElement;
   b("ログ",()=>{R.classList.toggle("logopen");R.classList.remove("menuopen");const L=document.getElementById("log");L.scrollTop=L.scrollHeight},{cls:"tb-only"});
   b("≡",()=>{R.classList.toggle("menuopen");R.classList.remove("logopen")},{cls:"tb-only"});
-  b("ネクストヒント",()=>nextHint(p),{cls:"fab tb-hint",disabled:!human||p.hinted||!p.file.some(x=>x!==p.partner)});
+  b("ネクストヒント",()=>nextHint(p),{cls:"fab tb-hint",disabled:!human||p.noHint||!p.file.some(x=>x!==p.partner)});
   b("ターン終了",()=>{if(G.ui.mode)G.ui.mode=null;endTurn()},{primary:true,cls:"fab tb-end",disabled:!human});
   if(G.cfg.cpu){b(G.showOppHand?"相手の手札を隠す":"相手の手札を見る",()=>{G.showOppHand=!G.showOppHand;render()},{cls:"tb-extra"})}
   b("降参",async()=>{const v=await ask("降参しますか？","",[{label:"降参する",value:true},{label:"続ける",value:false,primary:true}]);if(v)lose(human?p:me,"降参")},{cls:"tb-extra"});
@@ -1149,7 +1151,7 @@ function renderGuide(){
     const steps=[];
     if(!p.usedHand&&!p.hinted)steps.push(p.hand.some(x=>!playableReason(p,x,false))?"① 緑枠の手札をクリックして使う（ネクストヒントも可）":"① 使える手札がない → ネクストヒントも検討");
     else if(!p.hinted)steps.push("① 手札の使用は済み（ネクストヒントはまだ使える）");
-    else steps.push("① ネクストヒント済み（手札の使用は不可）");
+    else steps.push("① ネクストヒント中（何回でも可・FILEが減るので注意）");
     const ready=p.field.filter(x=>canAct(x,p,"reason")||canAct(x,p,"chara")||canAct(x,p,"case")).length+(p.pLoc==="area"&&p.partner.st==="a"?1:0);
     steps.push(ready?`② 緑枠の現場・パートナー（${ready}枚）をクリックして推理／アクション`:"② 動けるカードはもうない");
     if(p.solved&&p.ev.length>=p.level&&p.pLoc==="area"&&p.partner.st==="a")steps.push("★ パートナーで事件解決できます！");
