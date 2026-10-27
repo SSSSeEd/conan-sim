@@ -684,7 +684,7 @@ function feedbackPage(rec){
     m.querySelector("#fbClose").onclick=()=>done(false);
     m.querySelector("#fbGh").onclick=()=>{const fb=save();
       const acts=rec?rec.acts.filter(a=>!rec.cpu[a.who]).slice(-30).map(a=>`- ${a.t}T ${a.kind}${a.card?" "+a.card.nm:""}${a.target?" → "+(a.target.nm||a.target):""}`).join("\n"):"";
-      const body=`## 対戦\n${sum}\n${rec?"決着: "+(rec.why||"")+"\n先攻: "+rec.names[rec.first]:""}\n\n## アプリの改善点・バグ\n${fb.app||"（なし）"}\n\n## CPUへのアドバイス\n${fb.cpu||"（なし）"}\n\n<details><summary>自分の行動（最後の30件）</summary>\n\n${acts}\n</details>\n\n<details><summary>デッキ</summary>\n\n\`\`\`\n${rec?rec.deckLists.join("\n---\n"):""}\n\`\`\`\n</details>`;
+      const body=`## 対戦\n${sum}\n${rec?"決着: "+(rec.why||"")+"\n先攻: "+rec.names[rec.first]:""}\n\n## アプリの改善点・バグ\n${fb.app||"（なし）"}\n\n## CPUへのアドバイス\n${fb.cpu||"（なし）"}\n\n<details><summary>自分の行動（最後の30件）</summary>\n\n${acts}\n</details>\n\n<details><summary>ログ（最後の60行）</summary>\n\n\`\`\`\n${rec?rec.log.slice(-60).map(x=>x[1]).join("\n"):""}\n\`\`\`\n</details>\n\n<details><summary>デッキ</summary>\n\n\`\`\`\n${rec?rec.deckLists.join("\n---\n"):""}\n\`\`\`\n</details>`;
       const title=`[フィードバック] ${(fb.app||fb.cpu||"対戦の感想").split("\n")[0].slice(0,40)}`;
       const url=`https://github.com/${FB_REPO}/issues/new?labels=feedback&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body.slice(0,6000))}`;
       window.open(url,"_blank");done(true)};
