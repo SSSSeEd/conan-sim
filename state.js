@@ -41,7 +41,7 @@ function condOk(tag,p){
 }
 // 常在キーワード（行頭の条件タグを満たした〚〛）
 function staticKw(x,p){
-  const out={rush:false,rushC:false,rushE:false,swift:false,bullet:false,misread:0};
+  const out={rush:false,rushC:false,rushE:false,swift:false,bullet:false,misread:0,noGuard:false,guardSleep:false,mustGuard:false};
   const c=C(x);
   for(const line of (c.f||"").split("\n")){
     let s=line.trim(),ok=true,m;
@@ -51,11 +51,28 @@ function staticKw(x,p){
       if(k==="突撃")out.rush=true;else if(k==="突撃［キャラ］")out.rushC=true;else if(k==="突撃［事件］")out.rushE=true;
       else if(k==="迅速")out.swift=true;else if(k==="ブレット")out.bullet=true;
       else if((m=k.match(/^ミスリード(\d+)/)))out.misread+=+m[1];}
+    if(/^このキャラは[^「」（]*ガードできない/.test(s))out.noGuard=true;
+    if(/^このキャラはスリープ状態でもガードできる/.test(s))out.guardSleep=true;
   }
-  for(const k of x.kw){if(k==="突撃")out.rush=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true}
+  for(const k of x.kw){if(k==="突撃")out.rush=true;if(k==="突撃［キャラ］")out.rushC=true;if(k==="突撃［事件］")out.rushE=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true;if(k==="必ずガード")out.mustGuard=true}
   return out;
 }
+// カットインのAP。他のカードから与えられたカットイン（工藤新一 B07003 など）も含めて一番大きい値
 function cutinAp(x,p){
+  const own=ownCutinAp(x,p),g=window.FX?FX.grantedCutin(p,x):null;
+  return g!=null&&(own==null||g>own)?g:own;
+}
+// 今使えるカットインか（行頭の条件タグを満たす行があるか）
+function cutinUsable(x,p){
+  if(window.FX&&FX.grantedCutin(p,x)!=null)return true;
+  return ownCutinOk(x,p);
+}
+function ownCutinOk(x,p){
+  const t=C(x).ci;if(!t)return false;
+  return t.split("\n").some(line=>{if(!line.includes("【カットイン】"))return false;
+    let s=line.replace("【カットイン】",""),m;while((m=s.match(/^【([^】]+)】/))){if(condOk(m[1],p)===false)return false;s=s.slice(m[0].length)}return true});
+}
+function ownCutinAp(x,p){
   const t=C(x).ci;if(!t)return null;
   let best=null;
   for(const line of t.split("\n")){
