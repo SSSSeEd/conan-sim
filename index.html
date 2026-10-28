@@ -1057,7 +1057,7 @@ async function contactRight(q,ct,tp){
 // ================= CPU =================
 // CPUの考え方（issue #1 のアドバイス）。cfg.ai1[idx] が true なら旧CPU
 // 旧CPUとの200戦比較: hint 59.5%（採用）/ cut 42.0%・reason 51.0%（不採用、window.AI_OFF=[] で試せる）
-const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||["cut","reason"]).includes(f));
+const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||["cut","reason"]).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 function cpuGuard(o,atk,target,guards){
   const A=apOf(atk);
@@ -1091,6 +1091,12 @@ async function cpuTurn(p){
       if(c.t==="キャラ"&&p.field.length>=5)v-=30;
       return v};
     return cs.sort((a,b)=>score(b)-score(a))[0]||null};
+  // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする
+  if(ai2(p,"assist")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
+    const lvOf=x=>x?(C(x).lv||0):-1;const now=best(false);
+    p.file.push(p.partner);const after=best(false);p.file.pop();
+    if(after&&lvOf(after)>lvOf(now)){await assist(p);await step()}
+  }
   let pick1=best(false);
   if(pick1){await useFromHand(p,pick1);await step()}
   if(G.over)return;
