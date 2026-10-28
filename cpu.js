@@ -2,11 +2,20 @@
 // ================= CPU =================
 // CPUの考え方（issue #1 のアドバイス）。cfg.ai1[idx] が true なら旧CPU
 // 旧CPUとの200戦比較: hint 59.5%（採用）/ cut 42.0%・reason 51.0%（不採用、window.AI_OFF=[] で試せる）
-const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||["cut","reason"]).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
+// SeEdさんのアンケート回答から（2026-10-28、旧CPUとの対戦）: case2+act2 58.8%（400戦、採用）
+//   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2"];
+const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 function cpuGuard(o,atk,target,guards){
   const A=apOf(atk);
   const strong=guards.filter(g=>apOf(g)>A).sort((a,b)=>apOf(a)-apOf(b));
+  if(ai2(o,"guard2")){ // SeEd: 序盤や不利にならない事件アクションは通す。守る価値のないキャラは守らない
+    const p=opp(o);
+    if(target==="case"){const gap=(p.ev.length+1)-(o.ev.length-1);if(G.turnNo<=4&&gap<2||gap<2&&!p.solved)return null;return strong[0]||null}
+    if(apOf(target)>A)return null;
+    if(!(strongChar(target)||(C(target).lv||0)>=5||target===o.partner))return null;
+    return strong[0]||null}
   if(target==="case")return strong[0]||null;
   if(apOf(target)>A)return null; // 対象が勝てるならガード不要
   return strong[0]||null;
@@ -15,11 +24,21 @@ function cpuContact(q,mine,theirs,cuts,tp){
   const need=q===tp?apOf(theirs)-apOf(mine):apOf(theirs)-apOf(mine)+1; // 攻撃側は同値で勝ち
   if(need<=0)return null;
   // 守る（倒す）価値があるときだけカットインを切る
+  if(ai2(q,"cut2")){const key=q===tp?theirs:mine;const lv=C(key).lv||0; // SeEd: 序盤はほぼ切らない。Lv6〜9を倒す・守るときに使う
+    if(!(lv>=6||key===q.partner||G.turnNo>4&&strongChar(key)))return null}
   if(ai2(q,"cut")){const key=q===tp?theirs:mine;if(!(strongChar(key)||(C(key).lv||0)>=7||key===q.partner))return null}
   const c=cuts.map(x=>({x,v:cutinAp(x,q)})).filter(o=>o.v!=null&&o.v>=need).sort((a,b)=>a.v-b.v);
   if(c.length)return {x:c[0].x,how:"cut"};
   return null;
 }
+// SeEd の基準: レベル → 登場時の効果 → 除去 → ドロー。現場5体なら強いカードだけ入れ替える
+function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
+  const rm=/リムーブする|デッキの下|スタン/.test(f);
+  if(c.t==="イベント")v+=rm?15:4;
+  if(c.t==="キャラ"){if(/【登場時】/.test(f)&&FX.automated(x))v+=/【登場時】[^\n]*(リムーブ|スタン)/.test(f)?12:8;
+    if(/引く|ドロー/.test(f))v+=3;
+    if(p.field.length>=5){const lo=Math.min(...p.field.map(y=>C(y).lv||0));if(!((c.lv||0)>=6||(c.lv||0)>=lo+3))return -999}}
+  return v}
 async function cpuTurn(p){
   const g0=G; // 途中で新しい対戦が始まったら、古いCPUの手番はそこで止める
   const step=async ms=>{if(G!==g0)await new Promise(()=>{});if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8*pace())};
@@ -30,6 +49,7 @@ async function cpuTurn(p){
   // 2) 手札の使用（基本方針: 毎ターン必ず使う。相手のキャラを減らす効果を優先）
   const best=viaHint=>{
     const cs=p.hand.filter(x=>!playableReason(p,x,viaHint)&&(C(x).t==="キャラ"||FX.eventAi(p,x)));
+    if(ai2(p,"play2"))return cs.map(x=>[x,score2(p,x)]).filter(a=>a[1]>-500).sort((a,b)=>b[1]-a[1]).map(a=>a[0])[0]||null;
     const score=x=>{const c=C(x);let v=(c.lv||0)*10;
       if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
       if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.automated(x))v+=25;
@@ -71,7 +91,8 @@ async function cpuTurn(p){
   // 3) キャラへのアクション（勝てる相手）
   for(;;){
     const atks=p.field.filter(x=>canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
-    const tg=o.field.filter(y=>y.st!=="a").sort((a,b)=>(C(b).lv||0)-(C(a).lv||0));
+    let tg=o.field.filter(y=>y.st!=="a").sort((a,b)=>(C(b).lv||0)-(C(a).lv||0));
+    if(ai2(p,"act2"))tg=tg.filter(y=>lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6).sort((a,b)=>lpOf(b)-lpOf(a)||(strongChar(b)-strongChar(a))||(C(b).lv||0)-(C(a).lv||0)); // SeEd: LP高い→効果→レベル。倒す価値のないキャラは狙わない
     let done=false;
     for(const t of tg){const a=atks.find(x=>apOf(x)>=apOf(t));if(a){await declareAction(p,a,t);await step();done=true;break}}
     if(!done||G.over)break;
@@ -80,6 +101,8 @@ async function cpuTurn(p){
   // 4) 事件へのアクション / 推理
   const keep=p.field.length>=3?1:0;
   let actors=p.field.filter(x=>x.st==="a").sort((a,b)=>lpOf(b)-lpOf(a));
+  if(ai2(p,"rsnw"))actors.sort((a,b)=>(C(a).lv||0)-(C(b).lv||0)||lpOf(b)-lpOf(a)); // SeEd: 弱いキャラから動かし、強いキャラを起こして残す
+  const oppNear=o.solved&&o.ev.length>=o.level-2; // 相手が次のターンに勝ちそう
   let left=actors.length;
   for(const x of actors){
     if(G.over)return;
@@ -88,6 +111,7 @@ async function cpuTurn(p){
       const late=p.ev.length>=p.level-2;
       const threat=o.field.some(y=>y.st!=="x"&&apOf(y)>=apOf(x));
       if(!late&&threat&&(strongChar(x)||G.turnNo<=4)){continue}}
+    if(o.ev.length>0&&canAct(x,p,"case")&&(ai2(p,"end2")&&oppNear||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
     if(lpOf(x)>=1&&canAct(x,p,"reason")){await reason(p,x);left--;await step();continue}
     if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");left--;await step()}
   }

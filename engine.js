@@ -145,7 +145,8 @@ function mullPlan(p){
 }
 async function mulligan(p){
   let back;const P=mullPlan(p);
-  if(p.cpu){
+  if(p.cpu&&ai2(p,"mull2")&&!P.k1)back=[...p.hand]; // SeEd: 1ターン目に出せるカードが無ければ全部引き直す
+  else if(p.cpu){
     // 両方そろっていれば重すぎる/色違いだけ戻す。そろわなければ低レベルを残して引き直す
     if(P.k1&&P.k2)back=p.hand.filter(x=>(C(x).lv||0)>=7||!canPlayColor(C(x),p));
     else back=p.hand.filter(x=>x!==P.k1&&x!==P.k2&&((C(x).lv||0)>P.L2||!canPlayColor(C(x),p)));
