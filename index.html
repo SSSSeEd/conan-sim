@@ -691,21 +691,30 @@ function feedbackPage(rec){
     const old=rec&&rec.feedback||{};
     const sum=rec?`${rec.names[0]}（${rec.decks[0]}） vs ${rec.names[1]}（${rec.decks[1]}）・${rec.turns||"?"}ターン・${rec.winner!=null?rec.names[rec.winner]+" の勝ち":"途中"}`:"";
     m.insertAdjacentHTML("beforeend",`<div class="mt">フィードバック</div>
-      <div class="mb" style="font-size:12px;color:var(--ink-dim)">${esc(sum)}\n書いた内容はこの対戦の記録と一緒に保存されます。「GitHubに送る」を押すと、Claudeが次の作業で読めるように送信画面が開きます。</div>
+      <div class="mb" style="font-size:12px;color:var(--ink-dim)">${rec?esc(sum)+"\n書いた内容はこの対戦の記録と一緒に保存されます。":"アプリ全体への要望・バグ報告です。"}「GitHubに送る」を押すと、Claudeが次の作業で読めるように送信画面が開きます。${rec?"対戦ログなどの詳細はクリップボードにコピーされるので、開いた画面の本文の最後に貼り付けてください。":""}</div>
       <label class="fbl">アプリの改善点・バグ<textarea id="fbApp" rows="4" placeholder="例: アクションの後に画面が戻らない、カードの効果が違う など">${esc(old.app||"")}</textarea></label>
       <label class="fbl">CPUへのアドバイス<textarea id="fbCpu" rows="4" placeholder="例: 2ターン目にパスしないで、このカードを先に出すべき など">${esc(old.cpu||"")}</textarea></label>
-      <div class="opts"><button class="primary" id="fbSave">保存</button><button id="fbGh">保存してGitHubに送る</button><button id="fbClose">閉じる</button></div>`);
+      <div class="opts"><button class="primary" id="fbSave">保存</button><button id="fbGh">${rec?"保存して":""}GitHubに送る</button><button id="fbClose">閉じる</button></div>`);
     const save=()=>{const fb={app:m.querySelector("#fbApp").value.trim(),cpu:m.querySelector("#fbCpu").value.trim(),at:new Date().toISOString()};
       if(rec){rec.feedback=fb;try{const all=loadRecords();const i=all.findIndex(r=>r.start===rec.start);if(i>=0){all[i].feedback=fb;localStorage.setItem(REC_KEY,JSON.stringify(all))}}catch(e){}}
       return fb};
     m.querySelector("#fbSave").onclick=()=>{save();toast("保存しました");done(true)};
     m.querySelector("#fbClose").onclick=()=>done(false);
-    m.querySelector("#fbGh").onclick=()=>{const fb=save();
+    m.querySelector("#fbGh").onclick=async()=>{const fb=save();
       const acts=rec?rec.acts.filter(a=>!rec.cpu[a.who]).slice(-30).map(a=>`- ${a.t}T ${a.kind}${a.card?" "+a.card.nm:""}${a.target?" → "+(a.target.nm||a.target):""}`).join("\n"):"";
-      const body=`## 対戦\n${sum}\n${rec?"決着: "+(rec.why||"")+"\n先攻: "+rec.names[rec.first]:""}\n\n## アプリの改善点・バグ\n${fb.app||"（なし）"}\n\n## CPUへのアドバイス\n${fb.cpu||"（なし）"}\n\n<details><summary>自分の行動（最後の30件）</summary>\n\n${acts}\n</details>\n\n<details><summary>ログ（最後の60行）</summary>\n\n\`\`\`\n${rec?rec.log.slice(-60).map(x=>x[1]).join("\n"):""}\n\`\`\`\n</details>\n\n<details><summary>デッキ</summary>\n\n\`\`\`\n${rec?rec.deckLists.join("\n---\n"):""}\n\`\`\`\n</details>`;
+      const main=`${rec?`## 対戦\n${sum}\n決着: ${rec.why||""}\n先攻: ${rec.names[rec.first]}\n\n`:""}## アプリの改善点・バグ\n${fb.app||"（なし）"}\n\n## CPUへのアドバイス\n${fb.cpu||"（なし）"}`;
+      let detail=rec?`<details><summary>自分の行動（最後の30件）</summary>\n\n${acts}\n</details>\n\n<details><summary>ログ（最後の60行）</summary>\n\n\`\`\`\n${rec.log.slice(-60).map(x=>x[1]).join("\n")}\n\`\`\`\n</details>\n\n<details><summary>デッキ</summary>\n\n\`\`\`\n${rec.deckLists.join("\n---\n")}\n\`\`\`\n</details>`:"";
+      // URLが長すぎると開けないので、本文は短く切る（日本語は1文字で約9バイトになる）
+      let body=main+(detail?"\n\n## 対戦ログ\n（ここにコピーした対戦ログを貼り付け）\n":"");
       const title=`[フィードバック] ${(fb.app||fb.cpu||"対戦の感想").split("\n")[0].slice(0,40)}`;
-      const url=`https://github.com/${FB_REPO}/issues/new?labels=feedback&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body.slice(0,6000))}`;
-      window.open(url,"_blank");done(true)};
+      const mk=b=>`https://github.com/${FB_REPO}/issues/new?labels=feedback&title=${encodeURIComponent(title)}&body=${encodeURIComponent(b)}`;
+      if(mk(body).length>7000){ // 長すぎるときは本文ごとクリップボードへ回す
+        detail=main+(detail?"\n\n"+detail:"");body=`${rec?sum+"\n\n":""}（本文が長いのでコピーしました。ここに貼り付けてください）\n`}
+      window.open(mk(body),"_blank"); // ポップアップがブロックされないよう、コピーより先に開く
+      if(detail){let copied=false;try{await navigator.clipboard.writeText(detail);copied=true}catch(e){}
+        if(copied)toast("内容をコピーしました。送信画面の「貼り付け」と書いた所に貼ってください");
+        else await ask("コピーできませんでした","下の内容を選んでコピーし、送信画面に貼り付けてください。\n\n"+detail,[{label:"OK",value:1,primary:true}])}
+      done(true)};
   });
 }
 
@@ -1389,7 +1398,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       <div class="dmsg" id="dm${i}"></div></div>`).join("")}
    </div>
    <div class="row"><label>先攻: <select id="first"><option value="rand">ランダム</option><option value="0">あなた</option><option value="1">相手</option></select></label>
-     <button class="primary" id="go" style="font-size:14px;padding:8px 18px">対戦開始</button></div>
+     <button class="primary" id="go" style="font-size:14px;padding:8px 18px">対戦開始</button><button id="fbTop" style="margin-left:auto">フィードバックを送る</button></div>
    <div class="hint">デッキリストの書き方: 1行に「カードNo x枚数」。パートナーと事件はカードNoを書けば自動で判別します。conan-tcg-app の共有IDでの読込はブラウザから直接通信するため、環境によっては失敗します。その場合はリストを貼り付けてください。<br>
    操作: カードをクリックすると右パネルに操作が出ます。アクション［キャラ］は対象（赤く点滅）をクリック、Escでキャンセル。デッキ・FILE・証拠・リムーブの枚数をクリックすると中身と手動操作が開きます。</div>
    <div class="box" id="myBox"></div>
@@ -1405,6 +1414,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=document.getElementById("sh"+i).value.trim().replace(/.*deck\//,"");const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
   }
+  document.getElementById("fbTop").onclick=()=>feedbackPage(null);
   document.getElementById("go").onclick=()=>{
     const a=chk(0),b=chk(1);
     if(!a.d.partner||!a.d.caseN||!b.d.partner||!b.d.caseN||a.d.main.length<10||b.d.main.length<10){toast("デッキを確認してください");return}
