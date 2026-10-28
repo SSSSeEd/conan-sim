@@ -1,5 +1,5 @@
 // オフライン用: 同じ場所のファイルを端末に保存し、通信できないときも遊べるようにする
-const V="v9";
+const V="v10";
 const CORE=["./", "index.html", "cards.js", "effects.js", "decks.js", "manifest.json", "icon-192.png", "icon-512.png", "icon-180.png"];
 const IMGS=["img/A-01.json", "img/A-02.json", "img/A-03.json", "img/CT-D01.json", "img/CT-D02.json", "img/CT-D03.json", "img/CT-D04.json", "img/CT-D05.json", "img/CT-D06.json", "img/CT-D07.json", "img/CT-D08.json", "img/CT-D09.json", "img/CT-D10.json", "img/CT-D11.json", "img/CT-P01.json", "img/CT-P02.json", "img/CT-P03.json", "img/CT-P04.json", "img/CT-P05.json", "img/CT-P06.json", "img/CT-P07.json", "img/CT-P08.json", "img/CT-P09.json", "img/CT-P10.json", "img/CT-P11.json", "img/PR.json", "img/SP.json"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
