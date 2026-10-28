@@ -228,6 +228,18 @@ html.compact #modal{padding:12px;max-height:85vh}
 html.compact #modal .card{width:62px;height:85px}
 html.compact #setup textarea{height:140px}
 @media (prefers-reduced-motion:reduce){html.compact #detail{transition:none}}
+/* PC横長: 先攻を左・後攻を右に並べる */
+html.lr #board{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"mid mid" "L R";align-content:start;gap:8px 10px}
+html.lr #mid{grid-area:mid;min-width:0;width:100%}
+html.lr #meSide{grid-area:L}html.lr #oppSide{grid-area:R}
+html.lr #board.p1first #meSide{grid-area:R}html.lr #board.p1first #oppSide{grid-area:L}
+html.lr .side,html.lr .side.opp{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"sp piles" "field field" "file file" "hand hand";justify-content:stretch;padding:6px;border:1px solid var(--line);border-radius:8px;align-content:start}
+html.lr .slots{gap:8px}
+html.lr .special{justify-content:flex-start}
+html.lr .pinfo{grid-template-columns:repeat(3,64px)}
+.pname .ord{display:none;margin-right:6px;padding:0 6px;border-radius:999px;font-size:11px;background:#24384a;color:var(--ink)}
+html.lr .pname .ord{display:inline-block}
+html.lr .side.active-turn .pname .ord{background:var(--manila);color:var(--manila-ink)}
 
 /* ===== スマホ縦（ポケポケ風） ===== */
 #topbar .tb-only{display:none}
@@ -1252,6 +1264,7 @@ function render(){
   const me=G.P[0],cp=G.P[1];
   document.getElementById("oppSide").replaceChildren(sideEl(cp,true));
   document.getElementById("meSide").replaceChildren(sideEl(me,false));
+  document.getElementById("board").classList.toggle("p1first",G.first===1);
   renderGuide();
   const T=document.getElementById("topbar");T.innerHTML="";
   const p=cur();
@@ -1267,6 +1280,7 @@ function render(){
   b("ターン終了",()=>{if(G.ui.mode)G.ui.mode=null;endTurn()},{primary:true,cls:"fab tb-end",disabled:!human});
   if(G.cfg.cpu){b(G.showOppHand?"相手の手札を隠す":"相手の手札を見る",()=>{G.showOppHand=!G.showOppHand;render()},{cls:"tb-extra"})}
   b(`演出: ${(SPEEDS[speedKey()]||SPEEDS.slow).label}`,()=>{const ks=Object.keys(SPEEDS);const n=ks[(ks.indexOf(speedKey())+1)%ks.length];try{localStorage.setItem("conan-sim-speed",n)}catch(e){}toast(`演出の速さ: ${SPEEDS[n].label}`);render()},{cls:"tb-extra"});
+  if(!R.classList.contains("compact"))b(`配置: ${R.classList.contains("lr")?"左右":"上下"}`,()=>{let n="lr";try{n=(localStorage.getItem("conan-sim-layout")||"lr")==="lr"?"tb":"lr";localStorage.setItem("conan-sim-layout",n)}catch(e){}applyCompact();render();if(n==="lr"&&!R.classList.contains("lr"))toast("画面幅が足りないので上下のままです")},{cls:"tb-extra"});
   b("降参",async()=>{const v=await ask("降参しますか？","",[{label:"降参する",value:true},{label:"続ける",value:false,primary:true}]);if(v)lose(human?p:me,"降参")},{cls:"tb-extra"});
   b("デッキ選択へ",async()=>{const v=await ask("対戦を中断してデッキ選択に戻りますか？","",[{label:"戻る",value:true},{label:"続ける",value:false,primary:true}]);if(v)showSetup()},{cls:"tb-extra"});
 }
@@ -1311,7 +1325,7 @@ function sideEl(p,top){
   for(let i=p.field.length;i<5;i++){const d=document.createElement("div");d.className="slot";sl.appendChild(d)}
   // 右: 山札類（カードを置いた見た目）
   const inf=document.createElement("div");inf.className="pinfo";
-  inf.innerHTML=`<div class="pname">${esc(p.name)}${p.cpu?"（CPU）":""}</div>`;
+  inf.innerHTML=`<div class="pname"><span class="ord">${G.first===p.idx?"先攻":"後攻"}</span>${esc(p.name)}${p.cpu?"（CPU）":""}</div>`;
   const pile=(cls,label,n,kind,inner)=>{const w=document.createElement("div");
     const d=document.createElement("div");d.className="stack "+cls+(n?"":" empty");d.tabIndex=0;d.title=label;
     const depth=Math.min(6,Math.ceil(n/6));d.style.boxShadow=Array.from({length:depth},(_,i)=>`${i+1}px ${i+1}px 0 #0b141b`).join(",")||"none";
@@ -1335,7 +1349,7 @@ function sideEl(p,top){
   const fz=document.createElement("div");fz.className="fzwrap";
   const fileRow=row("file","FILE",p.file,9,7,"解決編","");
   const evRow=row("ev","証拠",p.ev,Math.max(p.level,7),p.level,"勝利","evz");
-  if(top)fz.append(evRow,fileRow);else fz.append(fileRow,evRow);
+  if(top&&!document.documentElement.classList.contains("lr"))fz.append(evRow,fileRow);else fz.append(fileRow,evRow);
   // 手札
   const hd=document.createElement("div");hd.className="hand";
   if(showHand){const fan=!top&&document.documentElement.classList.contains("portrait"),hn=p.hand.length,
@@ -1432,6 +1446,8 @@ function renderRecords(){
 function applyCompact(){const r=document.documentElement;const mq=window.matchMedia("(max-width: 760px), (max-height: 520px)").matches;
   const was=r.classList.contains("compact");r.classList.toggle("compact",mq);r.classList.toggle("portrait",mq&&window.innerHeight>window.innerWidth);
   document.getElementById("detail").classList.toggle("zoom",mq);
+  let lay="lr";try{lay=localStorage.getItem("conan-sim-layout")||"lr"}catch(e){}
+  r.classList.toggle("lr",!mq&&window.innerWidth>=1280&&lay==="lr");
   if(G&&was!==mq)render()}
 // 空白をタップ: アクションの対象選びや選択中のカードをキャンセル
 document.addEventListener("click",e=>{if(!G||!document.getElementById("modal-bg").hidden)return;
