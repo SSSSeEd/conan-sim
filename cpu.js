@@ -4,6 +4,7 @@
 // 旧CPUとの200戦比較: hint 59.5%（採用）/ cut 42.0%・reason 51.0%（不採用、window.AI_OFF=[] で試せる）
 // SeEdさんのアンケート回答から（2026-10-28、旧CPUとの対戦）: case2+act2 58.8%（400戦、採用）
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
+//   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2"];
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
@@ -35,7 +36,7 @@ function cpuContact(q,mine,theirs,cuts,tp){
 function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
   const rm=/リムーブする|デッキの下|スタン/.test(f);
   if(c.t==="イベント")v+=rm?15:4;
-  if(c.t==="キャラ"){if(/【登場時】/.test(f)&&FX.automated(x))v+=/【登場時】[^\n]*(リムーブ|スタン)/.test(f)?12:8;
+  if(c.t==="キャラ"){if(/【登場時】/.test(f)&&FX.has(x,"enter"))v+=/【登場時】[^\n]*(リムーブ|スタン)/.test(f)?12:8;
     if(/引く|ドロー/.test(f))v+=3;
     if(p.field.length>=5){const lo=Math.min(...p.field.map(y=>C(y).lv||0));if(!((c.lv||0)>=6||(c.lv||0)>=lo+3))return -999}}
   return v}
@@ -52,7 +53,7 @@ async function cpuTurn(p){
     if(ai2(p,"play2"))return cs.map(x=>[x,score2(p,x)]).filter(a=>a[1]>-500).sort((a,b)=>b[1]-a[1]).map(a=>a[0])[0]||null;
     const score=x=>{const c=C(x);let v=(c.lv||0)*10;
       if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
-      if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.automated(x))v+=25;
+      if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.has(x,"enter"))v+=25;
       if(c.t==="キャラ"&&p.field.length>=5)v-=30;
       return v};
     return cs.sort((a,b)=>score(b)-score(a))[0]||null};
@@ -91,6 +92,11 @@ async function cpuTurn(p){
   // 3) キャラへのアクション（勝てる相手）
   for(;;){
     const atks=p.field.filter(x=>canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
+    // 「必ずガードする」相手のキャラがいれば、APで勝てるキャラでアクションしてガードさせる
+    const fg=o.field.find(y=>staticKw(y,o).mustGuard&&canGuardNow(o,y));
+    if(fg){const a=p.field.filter(x=>x.st==="a"&&!staticKw(x,p).bullet&&apOf(x)>=apOf(fg)).sort((a,b)=>apOf(a)-apOf(b))
+        .find(x=>canAct(x,p,"chara")&&o.field.some(y=>y.st!=="a")||canAct(x,p,"case")&&o.ev.length>0);
+      if(a){await declareAction(p,a,canAct(a,p,"chara")&&o.field.find(y=>y.st!=="a")||"case");await step();if(G.over)break;continue}}
     let tg=o.field.filter(y=>y.st!=="a").sort((a,b)=>(C(b).lv||0)-(C(a).lv||0));
     if(ai2(p,"act2"))tg=tg.filter(y=>lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6).sort((a,b)=>lpOf(b)-lpOf(a)||(strongChar(b)-strongChar(a))||(C(b).lv||0)-(C(a).lv||0)); // SeEd: LP高い→効果→レベル。倒す価値のないキャラは狙わない
     let done=false;

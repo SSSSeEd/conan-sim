@@ -298,11 +298,18 @@ async function declareAction(p,x,target){ // target: inst or "case"
   x.st="s";
   log(`${p.name} の ${C(x).nm}（AP${apOf(x)}）がアクション → ${kind==="case"?"事件":C(target).nm}`);
   render();await FX.onAction(p,x);
+  // ガードまでにアクションしたキャラや対象が現場を離れたら、アクションはそこで終わる
+  if(!p.field.includes(x)||kind==="chara"&&!o.field.includes(target)){log("　アクションしたキャラか対象が現場を離れたので、アクション終了","n");render();await runQueue();clearAct();render();return}
   const kw=staticKw(x,p);
   let guard=null;
-  const guards=o.field.filter(y=>y.st==="a"||(y.st==="s"&&FX.canGuardSleeping(y)));
+  const guards=o.field.filter(y=>{const k=staticKw(y,o);return !k.noGuard&&(y.st==="a"||y.st==="s"&&(k.guardSleep||FX.canGuardSleeping(y)))});
+  const forced=guards.filter(y=>staticKw(y,o).mustGuard); // 「ガードできる場合、必ずガードする」
   if(!kw.bullet&&guards.length){
-    if(o.cpu)guard=cpuGuard(o,x,target,guards);
+    if(forced.length){
+      if(o.cpu)guard=forced.slice().sort((a,b)=>apOf(b)-apOf(a))[0];
+      else{const g=await chooseCards(`${o.name}: ガード（必ずガード）`,`${C(x).nm}（AP${apOf(x)}）のアクション。「必ずガードする」キャラがいるので、そのキャラでガードします。`,forced,{min:1,max:1,okLabel:"ガード"});guard=g[0]||forced[0]}
+    }
+    else if(o.cpu)guard=cpuGuard(o,x,target,guards);
     else{const g=await chooseCards(`${o.name}: ガード`,`${C(x).nm}（AP${apOf(x)}）が${kind==="case"?"事件":C(target).nm+"（AP"+apOf(target)+"）"}にアクション。アクティブなキャラをスリープしてガードできます。`,guards,{min:0,max:1,okLabel:"ガード"});guard=g[0]||null}
   }
   if(guard){if(guard.st==="a")guard.st="s";log(`${o.name} の ${C(guard).nm}（AP${apOf(guard)}）がガード`);
@@ -385,6 +392,8 @@ async function contact(p,a,d){ // p=ターンプレイヤー(攻撃側)
   const r1=await turnOf(order[0]);
   const r2=await turnOf(order[1]);
   if(!r1&&r2)await turnOf(order[0]);
+  // コンタクト中のキャラが現場を離れたら、APの判定はしない
+  if(!p.field.includes(ct.a)||!o.field.includes(ct.d)){for(const x of [ct.a,ct.d])x.apC=0;G.contact=null;log("　コンタクト中のキャラが現場を離れたので、コンタクト終了","n");render();await runQueue();return}
   const A=apOf(ct.a),D=apOf(ct.d);
   log(`判定: ${C(ct.a).nm} AP${A} vs ${C(ct.d).nm} AP${D}`);
   const won=A>=D;
@@ -398,7 +407,8 @@ async function contact(p,a,d){ // p=ターンプレイヤー(攻撃側)
 async function contactRight(q,ct,tp){
   if(G.over)return false;
   const mine=q===tp?ct.a:ct.d,theirs=q===tp?ct.d:ct.a;
-  const cuts=FX.noCutin(mine)?[]:q.hand.filter(x=>C(x).ci);
+  if(!q.field.includes(mine)||!opp(q).field.includes(theirs))return false;
+  const cuts=FX.noCutin(mine)||q!==tp&&FX.cutinLocked(tp,ct.a)?[]:q.hand.filter(x=>cutinUsable(x,q)); // 条件（自分ターン中など）を満たすものだけ
   const dis=q.hand.filter(x=>C(x).t==="キャラ"&&C(x).dg&&disguiseOk(x,q));
   if(!cuts.length&&!dis.length)return false;
   let choice=null;
@@ -407,17 +417,20 @@ async function contactRight(q,ct,tp){
     const opts=[...cuts,...dis];
     const sel=await chooseCards(`${q.name}: コンタクト中の行動`,`自分 ${C(mine).nm} AP${apOf(mine)} / 相手 ${C(theirs).nm} AP${apOf(theirs)}\nカットインか変装を1枚使えます（パス可）。`,opts,{min:0,max:1,okLabel:"使う"});
     if(sel.length){const x=sel[0];
-      if(C(x).ci&&C(x).dg&&dis.includes(x)){choice={x,how:await ask("どちらで使う？","",[{label:"カットイン",value:"cut",primary:true},{label:"変装",value:"dis"}])}}
-      else choice={x,how:C(x).ci?"cut":"dis"}}
+      if(cuts.includes(x)&&dis.includes(x)){choice={x,how:await ask("どちらで使う？","",[{label:"カットイン",value:"cut",primary:true},{label:"変装",value:"dis"}])}}
+      else choice={x,how:cuts.includes(x)?"cut":"dis"}}
   }
   if(!choice){log(`${q.name} はパス`,"n");return false}
   const x=choice.x;
-  {render();await cutin(x,`${q.name}: ${choice.how==="cut"?"カットイン":"変装"}`,choice.how==="cut"?(C(x).ci||"").split("\n")[0]:`${C(mine).nm} → ${C(x).nm}`,{who:q})}
+  {render();await cutin(x,`${q.name}: ${choice.how==="cut"?"カットイン":"変装"}`,choice.how==="cut"?((C(x).ci||"").split("\n")[0]||`AP＋${FX.grantedCutin(q,x)}`):`${C(mine).nm} → ${C(x).nm}`,{who:q})}
   if(choice.how==="cut"){
-    const v=cutinAp(x,q);detach(x);q.rm.push(x);
+    // 与えられたカットイン（AP＋1000）と自分のカットインの両方があれば、どちらか1つを使う
+    const gv=FX.grantedCutin(q,x),own=ownCutinOk(x,q);let useOwn=own;
+    if(own&&gv!=null)useOwn=q.cpu?(ownCutinAp(x,q)??-1)>=gv:await ask("どちらのカットインを使う？","",[{label:(C(x).ci||"").split("\n")[0].slice(0,40),value:true,primary:true},{label:`AP＋${gv}（与えられたカットイン）`,value:false}]);
+    const v=useOwn?ownCutinAp(x,q):gv;detach(x);q.rm.push(x);
     if(v!=null){mine.apC+=v;log(`${q.name} はカットイン ${C(x).nm}: ${C(mine).nm} AP＋${v}（AP${apOf(mine)}）`)}
     else{log(`${q.name} はカットイン ${C(x).nm}: ${C(x).ci.replace(/\n/g," ")}`);if(!FX.has(x,"cutin"))toast("カットイン効果を手動で処理")}
-    await FX.cutin(q,x,mine);
+    await FX.cutin(q,x,mine,useOwn);
   }else{
     detach(x);const fi=q.field.indexOf(mine);
     Object.assign(x,{st:mine.st,apM:mine.apM,apT:mine.apT,apC:mine.apC,lpM:mine.lpM,lpT:mine.lpT,kw:mine.kw.slice(),fresh:mine.fresh});
