@@ -228,6 +228,12 @@ html.compact #modal{padding:12px;max-height:85vh}
 html.compact #modal .card{width:62px;height:85px}
 html.compact #setup textarea{height:140px}
 @media (prefers-reduced-motion:reduce){html.compact #detail{transition:none}}
+/* CPU同士の観戦中: スクロールと「観戦をやめる」以外は操作できない */
+html.spectate #topbar button:not(.tb-quit){display:none!important}
+html.spectate #topbar .tb-quit{display:inline-block!important}
+html.spectate .card,html.spectate .stack,html.spectate .filez{cursor:default}
+.spec-tag{display:none}
+html.spectate .spec-tag{display:inline-block;font-size:11px;padding:2px 10px;border-radius:999px;background:#24384a;color:var(--ink);border:1px solid var(--line)}
 /* PC横長: 先攻を左・後攻を右に並べる */
 html.lr #board{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"mid mid" "L R";align-content:start;gap:8px 10px}
 html.lr #mid{grid-area:mid;min-width:0;width:100%}
@@ -1273,6 +1279,8 @@ function render(){
   const human=!p.cpu&&!G.over;
   const b=(l,f,o={})=>{const e=document.createElement("button");e.textContent=l;if(o.primary)e.className="primary";if(o.cls)e.classList.add(...o.cls.split(" "));e.disabled=!!o.disabled;e.onclick=f;T.appendChild(e)};
   const R=document.documentElement;
+  const spec=!!(G.cfg.cpu0&&G.cfg.cpu&&!G.over);R.classList.toggle("spectate",spec);
+  if(spec)T.insertAdjacentHTML("beforeend",'<span class="spec-tag">観戦中（操作できません）</span>');
   b("ログ",()=>{R.classList.toggle("logopen");R.classList.remove("menuopen");const L=document.getElementById("log");L.scrollTop=L.scrollHeight},{cls:"tb-only"});
   b("≡",()=>{R.classList.toggle("menuopen");R.classList.remove("logopen")},{cls:"tb-only"});
   b("↶ 戻す",undo,{cls:"tb-undo",disabled:!human||!G.undo.length});
@@ -1282,7 +1290,7 @@ function render(){
   b(`演出: ${(SPEEDS[speedKey()]||SPEEDS.slow).label}`,()=>{const ks=Object.keys(SPEEDS);const n=ks[(ks.indexOf(speedKey())+1)%ks.length];try{localStorage.setItem("conan-sim-speed",n)}catch(e){}toast(`演出の速さ: ${SPEEDS[n].label}`);render()},{cls:"tb-extra"});
   if(!R.classList.contains("compact"))b(`配置: ${R.classList.contains("lr")?"左右":"上下"}`,()=>{let n="lr";try{n=(localStorage.getItem("conan-sim-layout")||"lr")==="lr"?"tb":"lr";localStorage.setItem("conan-sim-layout",n)}catch(e){}applyCompact();render();if(n==="lr"&&!R.classList.contains("lr"))toast("画面幅が足りないので上下のままです")},{cls:"tb-extra"});
   b("降参",async()=>{const v=await ask("降参しますか？","",[{label:"降参する",value:true},{label:"続ける",value:false,primary:true}]);if(v)lose(human?p:me,"降参")},{cls:"tb-extra"});
-  b("デッキ選択へ",async()=>{const v=await ask("対戦を中断してデッキ選択に戻りますか？","",[{label:"戻る",value:true},{label:"続ける",value:false,primary:true}]);if(v)showSetup()},{cls:"tb-extra"});
+  b(R.classList.contains("spectate")?"観戦をやめる":"デッキ選択へ",async()=>{const v=await ask("対戦を中断してデッキ選択に戻りますか？","",[{label:"戻る",value:true},{label:"続ける",value:false,primary:true}]);if(v)showSetup()},{cls:"tb-extra tb-quit"});
 }
 function renderGuide(){
   const g=document.getElementById("guide");const p=cur();let cls="",h="",t="";
@@ -1363,7 +1371,7 @@ function sideEl(p,top){
 document.addEventListener("keydown",e=>{if(e.key!=="Escape"||!G||!document.getElementById("modal-bg").hidden)return;if(G.ui.mode){G.ui.mode=null;render();toast("キャンセル")}else if(_sel)clearSel()});
 
 // ================= セットアップ画面 =================
-function showSetup(){
+function showSetup(){document.documentElement.classList.remove("spectate");
   G=null;
   document.getElementById("app").hidden=true;const S=document.getElementById("setup");S.hidden=false;
   let saved={};try{saved=JSON.parse(localStorage.getItem("conan-sim-setup")||"{}")}catch(e){}
@@ -1473,6 +1481,11 @@ for(const ev of ["pointerup","pointercancel"])document.addEventListener(ev,()=>{
 document.addEventListener("click",e=>{if(LP.fired){LP.fired=false;e.stopPropagation();e.preventDefault()}},true); // 長押し後のタップは無効
 document.addEventListener("contextmenu",e=>{if(e.target.closest(".card"))e.preventDefault()});
 document.getElementById("detail").addEventListener("click",e=>{if(e.target.id==="detail"||e.target.classList.contains("zoomcard"))clearSel()});
+// 観戦中はクリック・長押し・キー操作を止める（スクロールはそのまま）
+const spectating=()=>document.documentElement.classList.contains("spectate")&&G&&!G.over;
+const specOk=t=>t.closest&&t.closest(".tb-quit,#modal-bg");
+for(const ev of ["click","dblclick","contextmenu","pointerdown","mousedown"])document.addEventListener(ev,e=>{if(!spectating()||specOk(e.target))return;e.stopImmediatePropagation();if(ev!=="pointerdown"&&ev!=="mousedown")e.preventDefault()},true);
+document.addEventListener("keydown",e=>{if(!spectating()||specOk(e.target))return;if(/^(Arrow|Page|Home|End| )/.test(e.key)&&!e.target.closest("button"))return;e.stopImmediatePropagation();e.preventDefault()},true);
 applyCompact();window.addEventListener("resize",()=>{applyCompact();if(G)render()});
 showSetup();
 </script>
