@@ -74,7 +74,7 @@ async function cpuTurn(p){
   // 探索（search.js）: 試しの手番で選ばれた組み合わせ。本番の手番のはじめに組み合わせを試して選ぶ
   const plan=(G.sim?(G.sim.planFor===p.idx?G.sim.plan:null):(searchOn(p)?await chooseTurnPlan(p):null))||{};
   if(G!==g0)return;
-  if(!G.sim&&window.FIND_COMBOS){await findCombos(p);if(G!==g0)return}
+  if(!G.sim&&window.FIND_COMBOS&&(G.cfg.findFor==null||G.cfg.findFor===p.idx)){await findCombos(p);if(G!==g0)return}
   const o=opp(p);
   // 1) 事件解決
   if(p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level){solve(p);return}

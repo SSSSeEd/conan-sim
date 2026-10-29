@@ -1,10 +1,10 @@
 "use strict";
-// ================= 探索（試作） =================
+// ================= 探索 =================
 // CPUの手番のはじめに、盤面をコピーして「出すカード」と「ネクストヒントをするか」の組み合わせを試す。
 // 試しの手番は相手の次のターンの終わりまで進めて点数をつけ、いちばん良かった組み合わせで本番の手番を行う。
-// 動くのは window.SEARCH が true か、cfg.search[席] が true のときだけ（普段はオフ）。
+// 対戦相手のCPU（席1）では普段からオン。cfg.search[席] で席ごとに切り替え、window.SEARCH=true なら全部の席でオン。
 // 試しの手番では相手もCPUとして動く。相手の手札は見えないので、手札とデッキを混ぜて配り直してから試す
-function searchOn(p){return !!(window.SEARCH||G.cfg.search&&G.cfg.search[p.idx])}
+function searchOn(p){if(window.SEARCH)return true;const s=G.cfg.search;return s?!!s[p.idx]:p.idx===1&&!G.cfg.cpu0}
 
 // 盤面の点数（me から見て）。勝ち負けが最優先、次に証拠、現場、手札、FILE
 function evalState(me){
