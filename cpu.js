@@ -23,6 +23,11 @@ function cpuGuard(o,atk,target,guards){
 }
 function cpuContact(q,mine,theirs,cuts,tp){
   const need=q===tp?apOf(theirs)-apOf(mine):apOf(theirs)-apOf(mine)+1; // 攻撃側は同値で勝ち
+  // コンボ: スコッチ B10086 のコンタクト中にバーボンのカットイン → スコッチが起きて、もう一度アクションできる
+  if(q===tp&&idOf(mine)==="1141"&&partnerIs(q,"黒")&&!turnCount(mine,"scotch")){
+    const o=opp(q),bb=cuts.filter(x=>C(x).nm.includes("バーボン")&&cutinAp(x,q)!=null&&cutinAp(x,q)>=need).sort((a,b)=>cutinAp(a,q)-cutinAp(b,q))[0];
+    const next=o.field.some(y=>y!==theirs&&y.st!=="a"&&apOf(y)<=apOf(mine))||o.ev.length>0;
+    if(bb&&next)return {x:bb,how:"cut"}}
   if(need<=0)return null;
   // 守る（倒す）価値があるときだけカットインを切る
   if(ai2(q,"cut2")){const key=q===tp?theirs:mine;const lv=C(key).lv||0; // SeEd: 序盤はほぼ切らない。Lv6〜9を倒す・守るときに使う
