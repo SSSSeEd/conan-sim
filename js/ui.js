@@ -160,7 +160,7 @@ function render(){
   b(`演出: ${(SPEEDS[speedKey()]||SPEEDS.slow).label}`,()=>{const ks=Object.keys(SPEEDS);const n=ks[(ks.indexOf(speedKey())+1)%ks.length];try{localStorage.setItem("conan-sim-speed",n)}catch(e){}toast(`演出の速さ: ${SPEEDS[n].label}`);render()},{cls:"tb-extra"});
   if(!R.classList.contains("compact"))b(`配置: ${R.classList.contains("lr")?"左右":"上下"}`,()=>{let n="lr";try{n=(localStorage.getItem("conan-sim-layout")||"lr")==="lr"?"tb":"lr";localStorage.setItem("conan-sim-layout",n)}catch(e){}applyCompact();render();if(n==="lr"&&!R.classList.contains("lr"))toast("画面幅が足りないので上下のままです")},{cls:"tb-extra"});
   b("降参",async()=>{const v=await ask("降参しますか？","",[{label:"降参する",value:true},{label:"続ける",value:false,primary:true}]);if(v)lose(human?p:me,"降参")},{cls:"tb-extra"});
-  b(R.classList.contains("spectate")?"観戦をやめる":"デッキ選択へ",async()=>{const v=await ask("対戦を中断してデッキ選択に戻りますか？","",[{label:"戻る",value:true},{label:"続ける",value:false,primary:true}]);if(v)showSetup()},{cls:"tb-extra tb-quit"});
+  b(R.classList.contains("spectate")?"観戦をやめる":"デッキ選択へ",async()=>{const v=await ask("対戦を中断してデッキ選択に戻りますか？",R.classList.contains("spectate")?"":"デッキ選択の画面の「続きから」で再開できます。",[{label:"戻る",value:true},{label:"続ける",value:false,primary:true}]);if(v)showSetup()},{cls:"tb-extra tb-quit"});
 }
 function renderGuide(){
   const g=document.getElementById("guide");const p=cur();let cls="",h="",t="";

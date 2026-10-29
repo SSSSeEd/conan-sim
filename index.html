@@ -7,7 +7,7 @@
 // 自前の置き場所（GitHub Pages など）で開いたときだけ、ホーム画面のWebアプリとオフラインを有効にする
 if(location.protocol.startsWith("http")&&!/claude/.test(location.hostname)){
   for(const [k,v] of [["apple-mobile-web-app-capable","yes"],["mobile-web-app-capable","yes"],["apple-mobile-web-app-status-bar-style","black-translucent"],["apple-mobile-web-app-title","コナンTCG"]]){const m=document.createElement("meta");m.name=k;m.content=v;document.head.appendChild(m)}
-  for(const [r,h] of [["manifest","manifest.json"],["apple-touch-icon","icon-180.png"]]){const l=document.createElement("link");l.rel=r;l.href=h;document.head.appendChild(l)}
+  for(const [r,h] of [["manifest","manifest.json"],["apple-touch-icon","icons/icon-180.png"]]){const l=document.createElement("link");l.rel=r;l.href=h;document.head.appendChild(l)}
   if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
 </script>
@@ -26,16 +26,16 @@ if(location.protocol.startsWith("http")&&!/claude/.test(location.hostname)){
 <div id="modal-bg" hidden><div id="modal" role="dialog" aria-modal="true"></div></div>
 <div id="toast" hidden></div>
 
-<script src="cards.js"></script>
-<script src="effects.js"></script>
-<script src="decks.js"></script>
-<script src="data.js"></script>
-<script src="state.js"></script>
-<script src="engine.js"></script>
-<script src="cpu.js"></script>
-<script src="search.js"></script>
-<script src="dialogs.js"></script>
-<script src="show.js"></script>
-<script src="ui.js"></script>
-<script src="setup.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/decks.js"></script>
+<script src="js/data.js"></script>
+<script src="js/state.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/cpu.js"></script>
+<script src="js/search.js"></script>
+<script src="js/dialogs.js"></script>
+<script src="js/show.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/setup.js"></script>
 </body></html>

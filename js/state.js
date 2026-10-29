@@ -92,6 +92,7 @@ function canPlayColor(card,p){const cc=C(p.caseC).c||"";return colorsOf(card.c).
 
 // ================= ログ =================
 // 記録に残してから画面に出す（画面への表示は ui.js の uiLog）
-function log(msg,cls){if(G&&G.rec)G.rec.log.push([G.turnNo,msg]);if(G&&G.sim)return; // 探索中の試しの手番は画面に出さない
+function log(msg,cls){if(G&&G.rec){G.rec.log.push([G.turnNo,msg]);(G.logC=G.logC||[]).push(cls||"")} // logC: 再開したときにログの色を戻す用
+  if(G&&G.sim)return; // 探索中の試しの手番は画面に出さない
   uiLog(msg,cls)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));

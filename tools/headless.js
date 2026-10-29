@@ -23,7 +23,7 @@ function load({seed=1,files=FILES,init={}}={}){
   w.window=w;w.self=w;w.globalThis=w;
   const ctx=vm.createContext(w);
   vm.runInContext("Math.random=__rnd",Object.assign(ctx,{__rnd:rnd}));
-  for(const f of files)vm.runInContext(fs.readFileSync(path.join(ROOT,f),"utf8"),ctx,{filename:f});
+  for(const f of files)vm.runInContext(fs.readFileSync(path.join(ROOT,"js",f),"utf8"),ctx,{filename:f});
   vm.runInContext(UI_STUB,ctx,{filename:"headless-ui"});
   // let/const で宣言された G などはグローバルのプロパティにならないので、取り出し口を作る
   vm.runInContext("globalThis.__G=()=>G;globalThis.__setG=v=>{G=v}",ctx);
