@@ -1,46 +1,35 @@
-// ブラウザなしでゲームを動かす（Node だけ）。画面の部品はすべて「何もしないダミー」に置き換える
+// ブラウザなしでゲームを動かす（Node だけ）。読み込むのはゲーム処理のファイルだけで、画面の関数は何もしない版に置き換える
 // const H=require("./headless");const w=H.load({seed:1});await H.play(w,{decks:[..],...}) → {winner:0/1/null,turns,over}
 // const/let のグローバル（PRESETS, G など）は w.ev("PRESETS") で読む
+// ゲーム処理のファイルが画面（document）に触ると、ここで document が無いのでエラーになる（分け方が崩れていないかの確認を兼ねる）
 const fs=require("fs"),path=require("path"),vm=require("vm");
 const ROOT=path.resolve(__dirname,"..");
-const FILES=["cards.js","effects.js","decks.js","data.js","state.js","engine.js","cpu.js","search.js","ui.js","setup.js"];
-// どんなプロパティを読んでも書いても壊れない要素
-function stubEl(){const kids=[];const el=new Proxy(function(){},{
-  get(t,k){if(k in t)return t[k];
-    if(k==="children"||k==="childNodes")return kids;
-    if(k==="classList")return {add(){},remove(){},toggle(){},contains(){return false}};
-    if(k==="style"||k==="dataset")return t[k]={};
-    if(k==="appendChild")return c=>{kids.push(c);return c};
-    if(k==="lastChild")return {remove(){kids.pop()}};
-    if(k==="querySelector"||k==="closest")return ()=>stubEl();
-    if(k==="querySelectorAll"||k==="getElementsByClassName")return ()=>[];
-    if(k==="getBoundingClientRect")return ()=>({x:0,y:0,width:0,height:0,top:0,left:0,right:0,bottom:0});
-    if(typeof k==="symbol")return undefined;
-    if(k==="hidden"||k==="checked"||k==="disabled")return false;
-    if(k==="value"||k==="innerHTML"||k==="textContent"||k==="id"||k==="className")return "";
-    return ()=>stubEl()},
-  set(t,k,v){t[k]=v;return true},apply(){return stubEl()}});return el}
+const FILES=["cards.js","effects.js","decks.js","data.js","state.js","engine.js","cpu.js","search.js"];
+// 画面側（ui.js / dialogs.js / show.js）の関数のうち、ゲーム処理から呼ばれるもの
+const UI_STUB=`
+function render(){}function uiLog(){}function logCount(){return 0}function uiNewGame(){}function uiUndo(){}function showEndMenu(){}
+function toast(){}function cutin(){return Promise.resolve()}function revealCard(){return Promise.resolve()}
+async function showFx(){}async function showCpu(){}function clearAct(){if(G&&G.ui)G.ui.act=null}function pace(){return 0}
+// 人の操作を待つ画面。CPU同士なら呼ばれないはず
+function needHuman(n){return ()=>{throw new Error(n+": 人の操作が必要な画面が呼ばれた")}}
+const ask=needHuman("ask"),chooseCards=needHuman("chooseCards"),orderCards=needHuman("orderCards");`;
 function load({seed=1,files=FILES,init={}}={}){
   let x=seed>>>0;const rnd=()=>{x=(x*1664525+1013904223)>>>0;return x/4294967296};
-  const els={};const store={};const warns=[];
-  const document={getElementById:id=>els[id]||(els[id]=stubEl()),createElement:()=>stubEl(),body:stubEl(),documentElement:stubEl(),
-    querySelector:()=>stubEl(),querySelectorAll:()=>[],addEventListener(){},removeEventListener(){}};
-  const w={document,console:{...console,log(){},warn:(...a)=>warns.push(a.map(String).join(" "))},setTimeout:(f,ms,...a)=>setImmediate(f,...a),clearTimeout(){},setInterval:()=>0,clearInterval(){},
+  const store={};const warns=[];
+  const w={console:{...console,log(){},warn:(...a)=>warns.push(a.map(String).join(" "))},setTimeout:(f,ms,...a)=>setImmediate(f,...a),clearTimeout(){},
     localStorage:{getItem:k=>k in store?store[k]:null,setItem:(k,v)=>{store[k]=String(v)},removeItem:k=>{delete store[k]}},
-    location:{protocol:"file:",hostname:"",href:"file:///"},navigator:{userAgent:"node",clipboard:{writeText:async()=>{}}},
-    addEventListener(){},removeEventListener(){},matchMedia:()=>({matches:false,addEventListener(){}}),
-    requestAnimationFrame:f=>setImmediate(f),Image:function(){return stubEl()},structuredClone,innerWidth:1280,innerHeight:800,performance,
+    location:{protocol:"file:",hostname:"",href:"file:///"},structuredClone,
     SIM_TURBO:1,SIM_FAST:1,...init};
   w.window=w;w.self=w;w.globalThis=w;
   const ctx=vm.createContext(w);
   vm.runInContext("Math.random=__rnd",Object.assign(ctx,{__rnd:rnd}));
   for(const f of files)vm.runInContext(fs.readFileSync(path.join(ROOT,f),"utf8"),ctx,{filename:f});
+  vm.runInContext(UI_STUB,ctx,{filename:"headless-ui"});
   // let/const で宣言された G などはグローバルのプロパティにならないので、取り出し口を作る
   vm.runInContext("globalThis.__G=()=>G",ctx);
   ctx.rnd=rnd; // ゲーム内と同じ乱数（台本側で使う）
   ctx.warns=warns; // console.warn の中身（探索の失敗など）
   ctx.ev=code=>vm.runInContext(code,ctx);
-  ctx.render=()=>{}; // 画面の描き直しは不要（いちばん重い処理）
   return ctx}
 // 1試合。cfg は startGame と同じ（cpu/cpu0 は自動で true）。勝者の席か、決着しなければ null
 async function play(w,cfg,{maxTurns=40}={}){

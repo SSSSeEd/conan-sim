@@ -90,61 +90,8 @@ function disguiseOk(x,p){
 }
 function canPlayColor(card,p){const cc=C(p.caseC).c||"";return colorsOf(card.c).every(ch=>cc.includes(ch))}
 
-// ================= ログ・UI補助 =================
+// ================= ログ =================
+// 記録に残してから画面に出す（画面への表示は ui.js の uiLog）
 function log(msg,cls){if(G&&G.rec)G.rec.log.push([G.turnNo,msg]);if(G&&G.sim)return; // 探索中の試しの手番は画面に出さない
-  const d=document.createElement("div");if(!cls&&G){const nm=msg.replace(/^\[手動\] /,"");if(nm.startsWith(G.P[0].name))cls="me";else if(nm.startsWith(G.P[1].name))cls="op"}if(cls)d.className=cls;d.textContent=msg;const L=document.getElementById("log");L.appendChild(d);L.scrollTop=L.scrollHeight}
-function toast(msg){if(G&&G.sim)return;const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
+  uiLog(msg,cls)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function esc(s){return String(s??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]))}
-function hl(s){return esc(s).replace(/(【[^】]+】|〚[^〛]+〛)/g,'<span class="k">$1</span>')}
-
-// モーダル（Promise）
-function modal(build){
-  return new Promise(res=>{
-    const bg=document.getElementById("modal-bg"),m=document.getElementById("modal");
-    m.innerHTML="";bg.hidden=false;document.documentElement.classList.add("modalopen");
-    const done=v=>{bg.hidden=true;m.innerHTML="";document.documentElement.classList.remove("modalopen");res(v)};
-    build(m,done);
-    const f=m.querySelector("button");if(f)f.focus();
-  });
-}
-function ask(title,body,options){ // options:[{label,value,primary}]
-  return modal((m,done)=>{
-    m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div>${body?`<div class="mb">${hl(body)}</div>`:""}<div class="opts"></div>`);
-    const o=m.querySelector(".opts");
-    for(const op of options){const b=document.createElement("button");b.textContent=op.label;if(op.primary)b.className="primary";b.onclick=()=>done(op.value);o.appendChild(b)}
-  });
-}
-function chooseCards(title,body,cards,{min=0,max=1,okLabel="決定",faceUp=true,can=null,tag=null}={}){
-  return modal((m,done)=>{
-    m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div>${body?`<div class="mb">${hl(body)}</div>`:""}<div class="cards"></div><div class="opts"></div>`);
-    const sel=new Set();const box=m.querySelector(".cards");
-    const ok=document.createElement("button");ok.className="primary";ok.textContent=okLabel;
-    const upd=()=>{ok.disabled=sel.size<min||sel.size>max;ok.textContent=`${okLabel}（${sel.size}）`};
-    for(const x of cards){const el=cardEl(x,{faceUp});
-      const ow=G&&ownerOf(x);if(ow&&ow.field.includes(x))el.insertAdjacentHTML("beforeend",`<span class="case-tag" style="background:${ow.idx===0?"#2f6fd6":"var(--alert)"}">${esc(ow.name)}</span>`);
-      const tg=tag&&tag(x);if(tg)el.insertAdjacentHTML("beforeend",`<span class="case-tag" style="background:#2e7d4f;top:28px;bottom:auto">${esc(tg)}</span>`);
-      if(can&&!can(x)){el.classList.add("ng");el.insertAdjacentHTML("beforeend",'<span class="ngtag">対象外</span>');el.onclick=()=>showDetail(x);box.appendChild(el);continue}
-      el.onclick=()=>{
-        if(sel.has(x)){sel.delete(x);el.classList.remove("sel")}else{if(max===1){sel.clear();box.querySelectorAll(".sel").forEach(e=>e.classList.remove("sel"))}if(sel.size<max){sel.add(x);el.classList.add("sel")}}upd()};
-      box.appendChild(el)}
-    ok.onclick=()=>done([...sel]);m.querySelector(".opts").appendChild(ok);upd();
-    if(min===0){const n=document.createElement("button");n.textContent="選ばない";n.onclick=()=>done([]);m.querySelector(".opts").appendChild(n)}
-  });
-}
-
-// 好きな順番でデッキの下へ: タップした順に 1,2,3… と番号を付ける（1 が上、最後が一番下）
-function orderCards(title,cards){
-  if(cards.length<2)return Promise.resolve(cards.slice());
-  return modal((m,done)=>{
-    m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div><div class="mb">デッキの下に戻す順番を、カードをタップして決めてください。①が上（先に引く側）、最後の番号がデッキの一番下になります。もう一度タップで取り消し。</div><div class="cards"></div><div class="opts"></div>`);
-    const ord=[];const box=m.querySelector(".cards");const els=new Map();
-    const ok=document.createElement("button");ok.className="primary";
-    const upd=()=>{for(const [x,el] of els){const i=ord.indexOf(x);el.classList.toggle("sel",i>=0);const t=el.querySelector(".ordn");if(t)t.remove();if(i>=0)el.insertAdjacentHTML("beforeend",`<span class="ordn">${i+1}</span>`)}
-      ok.disabled=ord.length!==cards.length;ok.textContent=ord.length===cards.length?"この順番で戻す":`あと${cards.length-ord.length}枚`};
-    for(const x of cards){const el=cardEl(x);els.set(x,el);el.onclick=()=>{const i=ord.indexOf(x);if(i>=0)ord.splice(i,1);else ord.push(x);upd()};box.appendChild(el)}
-    ok.onclick=()=>done(ord.slice());m.querySelector(".opts").appendChild(ok);
-    const as=document.createElement("button");as.textContent="表示の順のまま";as.onclick=()=>done(cards.slice());m.querySelector(".opts").appendChild(as);upd();
-  });
-}
-

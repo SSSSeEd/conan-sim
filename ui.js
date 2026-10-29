@@ -240,3 +240,24 @@ function sideEl(p,top){
 }
 document.addEventListener("keydown",e=>{if(e.key!=="Escape"||!G||!document.getElementById("modal-bg").hidden)return;if(G.ui.mode){G.ui.mode=null;render();toast("キャンセル")}else if(_sel)clearSel()});
 
+// ================= ゲーム処理から呼ばれる画面の更新 =================
+function uiLog(msg,cls){
+  const d=document.createElement("div");if(!cls&&G){const nm=msg.replace(/^\[手動\] /,"");if(nm.startsWith(G.P[0].name))cls="me";else if(nm.startsWith(G.P[1].name))cls="op"}if(cls)d.className=cls;d.textContent=msg;const L=document.getElementById("log");L.appendChild(d);L.scrollTop=L.scrollHeight}
+function logCount(){return document.getElementById("log").children.length}
+// 新しい対戦の盤面を用意する（startGame から）
+function uiNewGame(){
+  document.getElementById("setup").hidden=true;document.getElementById("app").hidden=false;
+  document.getElementById("board").innerHTML=`<div id="oppSide"></div><div id="mid"><div id="guide"></div><div id="log" aria-live="polite"></div></div><div id="meSide"></div>`;
+  _sel=null;document.getElementById("selPane").innerHTML=SEL_HINT;document.getElementById("hoverPane").innerHTML="";
+}
+// 一手戻したあと: ログを戻した位置まで消し、選択を外す
+function uiUndo(logN){
+  const L=document.getElementById("log");while(L.children.length>logN)L.lastChild.remove();
+  _sel=null;
+  document.getElementById("detail").classList.remove("open");document.getElementById("selPane").innerHTML=SEL_HINT;
+  render();toast("一手戻しました");
+}
+function showEndMenu(p,why){ // 対戦が終わったときのメニュー
+  const endMenu=()=>ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"フィードバックを書く",value:"fb",primary:true},{label:"もう一度（同じデッキ）",value:"again"},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(async v=>{
+    if(v==="fb"){await feedbackPage(G.rec);endMenu()}else if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()});
+  endMenu()}
