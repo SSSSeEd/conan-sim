@@ -26,7 +26,7 @@ function load({seed=1,files=FILES,init={}}={}){
   for(const f of files)vm.runInContext(fs.readFileSync(path.join(ROOT,f),"utf8"),ctx,{filename:f});
   vm.runInContext(UI_STUB,ctx,{filename:"headless-ui"});
   // let/const で宣言された G などはグローバルのプロパティにならないので、取り出し口を作る
-  vm.runInContext("globalThis.__G=()=>G",ctx);
+  vm.runInContext("globalThis.__G=()=>G;globalThis.__setG=v=>{G=v}",ctx);
   ctx.rnd=rnd; // ゲーム内と同じ乱数（台本側で使う）
   ctx.warns=warns; // console.warn の中身（探索の失敗など）
   ctx.ev=code=>vm.runInContext(code,ctx);
