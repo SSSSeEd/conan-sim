@@ -9,6 +9,8 @@
 
 公開URL: https://sssseed.github.io/conan-sim/
 
+反映は main へのマージだけ（GitHub Pages）。ほかの場所へのコピーや、sw.js の版数を上げる作業は要らない。
+
 ## 開発用ツール（Node 22、ブラウザ不要）
 - `node tools/test.js [試合数]` 動作確認（デッキの読み込みと、CPU同士の対戦がエラーなしで決着するか）。PRごとに GitHub Actions でも走る
 - `node tools/vs.js 試合数 seed A B` CPUの比較実験（base / combo / search）。100戦で1秒前後（探索ありは数秒）

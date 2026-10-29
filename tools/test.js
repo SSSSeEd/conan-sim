@@ -7,6 +7,11 @@ process.on("unhandledRejection",e=>{console.log("FAIL 対戦中のエラー\n   
 (async()=>{
   const w=H.load({seed:1});
   const decks=[...w.ev("PRESETS"),...w.ENV_DECKS.decks];
+  await ok("index.html が読むファイルがすべてオフライン用（sw.js の CORE）に入っている",()=>{
+    const fs=require("fs"),path=require("path");const html=fs.readFileSync(path.join(H.ROOT,"index.html"),"utf8");
+    const core=require("vm").runInNewContext(fs.readFileSync(path.join(H.ROOT,"sw.js"),"utf8")+";CORE",{self:{addEventListener(){}}});
+    const used=[...html.matchAll(/(?:src|href)="([^":]+)"/g)].map(m=>m[1]);
+    for(const f of used)assert.ok(core.includes(f),`${f} が CORE にない`)});
   await ok(`デッキ ${decks.length}個が読める`,()=>{for(const d of decks){const r=w.parseDeckText(d.text);
     assert.ok(!r.errors.length,`${d.name}: ${r.errors.join(" / ")}`);assert.ok(r.partner&&r.caseN,`${d.name}: パートナーか事件がない`)}});
   await ok(`CPU同士 ${N}戦（探索あり・なし）`,async()=>{let draws=0;
