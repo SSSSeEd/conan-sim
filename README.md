@@ -3,9 +3,14 @@
 名探偵コナンTCGの練習用シミュレータ（個人用）。GitHub Pages で公開し、iPhoneのホーム画面に追加してWebアプリとして使う。
 
 - `index.html` 本体（PCとスマホで画面が自動で切り替わる）
-- `cards.js` カードデータ / `effects.js` カード効果
+- `style.css` 見た目
+- `js/` プログラム（index.html が読み込む）
+  - ゲーム処理: `state.js`（盤面とルールの判定）/ `engine.js`（進行）/ `cpu.js` `search.js`（CPU）/ `effects.js`（カード効果）。document には触らない
+  - 画面: `ui.js`（盤面）/ `dialogs.js`（通知・選択の画面）/ `show.js`（演出）/ `setup.js`（デッキ選択）
+  - データ: `cards.js`（カード）/ `decks.js` `data.js`（デッキ）
 - `img/*.json` 縮小したカード画像（パック単位）
-- `manifest.json` `sw.js` `icon-*.png` Webアプリ・オフライン用
+- `manifest.json` `sw.js` `icons/` Webアプリ・オフライン用（sw.js はアプリ全体を見るため一番上に置く）
+- `tools/` `tests/` 開発用（下記）
 
 公開URL: https://sssseed.github.io/conan-sim/
 
