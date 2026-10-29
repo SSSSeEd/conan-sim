@@ -47,8 +47,11 @@ function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
   return v}
 async function cpuTurn(p){
   const g0=G; // 途中で新しい対戦が始まったら、古いCPUの手番はそこで止める
-  const step=async ms=>{if(G!==g0)await new Promise(()=>{});if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8*pace())};
+  const step=async ms=>{if(G!==g0)await new Promise(()=>{});if(G.sim)return;if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8*pace())};
   await step(600);
+  // 探索（search.js）: 試しの手番で選ばれた組み合わせ。本番の手番のはじめに組み合わせを試して選ぶ
+  const plan=(G.sim?(G.sim.planFor===p.idx?G.sim.plan:null):(searchOn(p)?await chooseTurnPlan(p):null))||{};
+  if(G!==g0)return;
   const o=opp(p);
   // 1) 事件解決
   if(p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level){solve(p);return}
@@ -68,12 +71,12 @@ async function cpuTurn(p){
     p.file.push(p.partner);const after=best(false);p.file.pop();
     if(after&&lvOf(after)>lvOf(now)){await assist(p);await step()}
   }
-  let pick1=best(false);
+  let pick1=plan.play==="none"?null:plan.play?p.hand.find(x=>x.n===plan.play&&!playableReason(p,x,false))||best(false):best(false);
   if(pick1){await useFromHand(p,pick1);await step()}
   if(G.over)return;
   const fileCards=()=>p.file.filter(x=>x!==p.partner).length;
   // ネクストヒントは何回でも可。FILEが減るので、FILEに余裕があるときだけ続ける
-  for(let n=0;n<4&&!G.over&&!p.noHint;n++){
+  for(let n=0;n<4&&!G.over&&!p.noHint&&plan.hint!==false;n++){
     const fc=fileCards(),got=p.hintN>0;
     if(ai2(p,"hint")){ // コンボ（ヒント後のFILEいっぱいの高レベルを使える）があるときだけ
       const after=p.file.length-1,top=[...p.file].reverse().find(x=>x!==p.partner);
@@ -136,6 +139,7 @@ async function cpuTurn(p){
   }
   if(G.over)return;
   log(`${p.name} はターン終了`,"n");await step(300);
+  if(G.sim){await simTurnEnd();return}
   endTurn();
 }
 

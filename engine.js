@@ -23,7 +23,7 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
 async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
-function win(p,why){if(G.over)return;G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
+function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
   const endMenu=()=>ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"フィードバックを書く",value:"fb",primary:true},{label:"もう一度（同じデッキ）",value:"again"},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(async v=>{
     if(v==="fb"){await feedbackPage(G.rec);endMenu()}else if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()});
   if(!window.SIM_FAST)endMenu()}
@@ -173,7 +173,7 @@ function beginTurn(){
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
   G.phase="main";render();
-  if(p.cpu)cpuTurn(p);
+  if(p.cpu){const t=cpuTurn(p);if(G.sim)G.sim.next=t}
 }
 async function endTurn(){
   if(G.over||G.ending)return;
@@ -201,7 +201,7 @@ async function useFromHand(p,x,viaHint=false){
   const r=playableReason(p,x,viaHint);if(r){toast(r);return false}
   recAct(p,viaHint?"hintUse":"use",x);
   const c=C(x);
-  if(!window.SIM_FAST&&!(c.t==="イベント"&&FX.automated(x))){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
+  if(!window.SIM_FAST&&!G.sim&&!(c.t==="イベント"&&FX.automated(x))){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
   if(c.t==="キャラ"){
     if(p.field.length>=5){
       const t=p.cpu?[p.field.slice().sort((a,b)=>(C(a).lv||0)-(C(b).lv||0))[0]]:await chooseCards("スイッチ","現場が5体です。リムーブして入れ替えるキャラを選んでください。",p.field,{min:1,max:1});
@@ -326,7 +326,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
 }
 // 証拠をめくって見せる（タップで早送り）
 function revealCard(x,title,sub,hit){
-  if(window.SIM_TURBO)return Promise.resolve();
+  if(window.SIM_TURBO||G&&G.sim)return Promise.resolve();
   return new Promise(res=>{
     const d=document.createElement("div");d.id="reveal";if(hit)d.classList.add("hit");
     d.innerHTML=`<div class="rvt">${esc(title)}</div><div class="flip"><div class="fin"><div class="face back"></div><div class="face front"></div></div></div><div class="rvs"></div>`;
@@ -343,7 +343,7 @@ const SPEEDS={slow:{label:"ゆっくり",m:1.5},normal:{label:"ふつう",m:1},f
 function speedKey(){try{return localStorage.getItem("conan-sim-speed")||"slow"}catch(e){return "slow"}}
 function pace(){if(window.SIM_FAST)return 0;if(G&&G.cfg&&G.cfg.cpu0)return 1;return (SPEEDS[speedKey()]||SPEEDS.slow).m}
 function cutin(x,title,sub,{who=null,kind="",ms=1300,fx=null}={}){
-  if(!G||window.SIM_FAST)return Promise.resolve();
+  if(!G||window.SIM_FAST||G.sim)return Promise.resolve();
   ms=Math.round(ms*pace());
   return new Promise(res=>{
     const d=document.createElement("div");d.className="cutin "+(kind||(who&&who.idx===0?"me":"op"))+(fx?" fx":"");
@@ -355,14 +355,14 @@ function cutin(x,title,sub,{who=null,kind="",ms=1300,fx=null}={}){
   })}
 // 効果を使ったことを、カードと効果文で大きく見せる（effects.js から呼ばれる）
 async function showFx(p,x,kind,text,{after=false}={}){
-  if(!G||window.SIM_FAST||!x)return;
+  if(!G||window.SIM_FAST||G.sim||!x)return;
   const t=String(text||"").trim();
   render();
   await cutin(x,`${p.name}: ${C(x).nm}`,`【${kind}】の効果${after?"が発動":"を使う"}`,{who:p,fx:t.slice(0,220),ms:Math.min(4200,1500+t.length*28)});
 }
 // 行動を見せる: 行動するカードと対象を光らせ、帯で知らせる（自分の行動も同じように見せる）
 async function showCpu(p,x,title,sub,target){
-  if(window.SIM_FAST)return;
+  if(window.SIM_FAST||G.sim)return;
   G.ui.act={a:x,t:target&&target!=="case"?target:null};render();
   await cutin(x,`${p.name}: ${title}`,sub,{who:p,ms:p.cpu?1300:900});
   await sleep(250*pace());
