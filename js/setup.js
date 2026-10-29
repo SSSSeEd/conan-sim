@@ -6,6 +6,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
   let saved={};try{saved=JSON.parse(localStorage.getItem("conan-sim-setup")||"{}")}catch(e){}
   S.innerHTML=`<div><h1 style="font-size:24px">コナンTCG 卓上シミュレータ</h1>
    <div class="hint">ルールマニュアル Ver.2.5 準拠の進行（オート・手札の使用・ネクストヒント・推理・アクション・ガード・コンタクト・ミスリード・ヒラメキ・リフレッシュ・事件解決）を自動で処理します。カード個別の効果は表示のみで、右パネルの手動操作で処理します。収録カード ${window.CARD_DB.length} 枚。</div></div>
+   ${resumeBox()}
    <div class="cols">
     ${[0,1].map(i=>`<div class="box"><b>${i===0?"あなた（下側）":"相手（上側）"}</b>
       <div class="row"><input id="nm${i}" value="${esc(saved["nm"+i]||(i?"相手":"あなた"))}" size="10" aria-label="名前">
@@ -24,6 +25,8 @@ function showSetup(){document.documentElement.classList.remove("spectate");
    <div class="box" id="myBox"></div>
    <div class="box" id="recBox"></div>`;
   renderRecords();renderMyDecks();
+  const rs=document.getElementById("resume");if(rs)rs.onclick=()=>{const v=loadSave();if(v)resumeGame(v);else showSetup()};
+  const rd=document.getElementById("resumeDel");if(rd)rd.onclick=async()=>{if(await ask("途中の対戦を消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){clearSave();showSetup()}};
   const chk=i=>{const d=parseDeckText(document.getElementById("dk"+i).value);const w=[...d.errors,...validateDeck(d)];const m=document.getElementById("dm"+i);
     if(w.length){m.className="dmsg bad";m.textContent=w.join("\n")}else{m.className="dmsg good";m.textContent=`OK: ${C({n:d.partner}).nm} / ${C({n:d.caseN}).nm} / 40枚`}return {d,w}};
   for(const i of [0,1]){
@@ -43,6 +46,13 @@ function showSetup(){document.documentElement.classList.remove("spectate");
     startGame(cfg);
   };
 }
+// 途中の対戦（接続切れ・リロードで中断したもの）
+function saveLabel(s){const m=s.meta,d=new Date(s.at);
+  return `${m.turnNo}ターン目（${m.turnName}の番）・${m.names[0]}（${m.decks[0]}） vs ${m.names[1]}（${m.decks[1]}）・${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}
+function resumeBox(){const s=loadSave();if(!s)return "";
+  return `<div class="box"><b>途中の対戦があります</b><div class="hint">${esc(saveLabel(s))}</div>
+   <div class="row"><button class="primary" id="resume">続きから</button><button id="resumeDel">消す</button></div>
+   <div class="hint">新しく対戦を始めると、この対戦は消えます。</div></div>`}
 function renderMyDecks(){
   const B=document.getElementById("myBox");if(!B)return;const my=loadMyDecks();
   B.innerHTML=`<b>デッキ登録（マイデッキ ${my.length}個）</b>
@@ -118,3 +128,4 @@ for(const ev of ["click","dblclick","contextmenu","pointerdown","mousedown"])doc
 document.addEventListener("keydown",e=>{if(!spectating()||specOk(e.target))return;if(/^(Arrow|Page|Home|End| )/.test(e.key)&&!e.target.closest("button"))return;e.stopImmediatePropagation();e.preventDefault()},true);
 applyCompact();window.addEventListener("resize",()=>{applyCompact();if(G)render()});
 showSetup();
+{const s=loadSave();if(s)ask("前回の対戦が途中です",saveLabel(s),[{label:"続きから",value:true,primary:true},{label:"ニューゲーム",value:false}]).then(v=>{if(v)resumeGame(s)})}
