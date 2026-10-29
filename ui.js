@@ -136,7 +136,7 @@ async function peekDeck(p){
   render();
 }
 function render(){
-  if(!G)return;
+  if(!G||G.sim)return;
   const me=G.P[0],cp=G.P[1];
   document.getElementById("oppSide").replaceChildren(sideEl(cp,true));
   document.getElementById("meSide").replaceChildren(sideEl(me,false));

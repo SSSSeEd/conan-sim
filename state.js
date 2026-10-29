@@ -91,8 +91,9 @@ function disguiseOk(x,p){
 function canPlayColor(card,p){const cc=C(p.caseC).c||"";return colorsOf(card.c).every(ch=>cc.includes(ch))}
 
 // ================= ログ・UI補助 =================
-function log(msg,cls){if(G&&G.rec)G.rec.log.push([G.turnNo,msg]);const d=document.createElement("div");if(!cls&&G){const nm=msg.replace(/^\[手動\] /,"");if(nm.startsWith(G.P[0].name))cls="me";else if(nm.startsWith(G.P[1].name))cls="op"}if(cls)d.className=cls;d.textContent=msg;const L=document.getElementById("log");L.appendChild(d);L.scrollTop=L.scrollHeight}
-function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
+function log(msg,cls){if(G&&G.rec)G.rec.log.push([G.turnNo,msg]);if(G&&G.sim)return; // 探索中の試しの手番は画面に出さない
+  const d=document.createElement("div");if(!cls&&G){const nm=msg.replace(/^\[手動\] /,"");if(nm.startsWith(G.P[0].name))cls="me";else if(nm.startsWith(G.P[1].name))cls="op"}if(cls)d.className=cls;d.textContent=msg;const L=document.getElementById("log");L.appendChild(d);L.scrollTop=L.scrollHeight}
+function toast(msg){if(G&&G.sim)return;const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function esc(s){return String(s??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]))}
 function hl(s){return esc(s).replace(/(【[^】]+】|〚[^〛]+〛)/g,'<span class="k">$1</span>')}

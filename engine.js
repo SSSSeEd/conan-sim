@@ -23,7 +23,7 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
 async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
-function win(p,why){if(G.over)return;G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
+function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
   const endMenu=()=>ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"フィードバックを書く",value:"fb",primary:true},{label:"もう一度（同じデッキ）",value:"again"},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(async v=>{
     if(v==="fb"){await feedbackPage(G.rec);endMenu()}else if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()});
   if(!window.SIM_FAST)endMenu()}
@@ -46,14 +46,31 @@ function recOptions(p){ // その場で選べた行動
 }
 function recState(p){const o=opp(p);return {file:p.file.length,ev:p.ev.length,level:p.level,solved:p.solved,hand:p.hand.length,deck:p.deck.length,
   field:p.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oField:o.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oEv:o.ev.length,oFile:o.file.length}}
+// 記録は人の席だけ。やった行動と、ターンごとの「できたのにやらなかったこと」（rec.miss）を残す（1試合数KB）
 function recAct(p,kind,x,target){
-  if(!G||!G.rec||G.over)return;
-  G.rec.acts.push({t:G.turnNo,who:p.idx,kind,card:cardRef(x),target:target==="case"?"事件":cardRef(target),opts:recOptions(p),state:recState(p)});
+  if(!G||!G.rec||G.over||p.cpu)return;
+  G.rec.acts.push({t:G.turnNo,who:p.idx,kind,card:cardRef(x),target:target==="case"?"事件":cardRef(target)});
+  if(kind==="end")recMiss(p);
+}
+// ターンのはじめに選べたこと（beginTurn から）
+function recTurnStart(p){
+  if(!G||!G.rec||p.cpu)return;
+  G.rec._start={t:G.turnNo,o:recOptions(p),stuck:p.hand.filter(x=>playableReason(p,x,false)).map(x=>C(x).nm),s:recState(p)};
+}
+function recMiss(p){
+  const st=G.rec._start;if(!st||st.t!==G.turnNo)return;
+  const did=G.rec.acts.filter(a=>a.t===G.turnNo&&a.who===p.idx),used=did.filter(a=>a.kind==="use"||a.kind==="hintUse").map(a=>a.card&&a.card.nm);
+  const o=recOptions(p),s=st.s;
+  const m={t:G.turnNo,s:{file:s.file,ev:s.ev,oEv:s.oEv,hand:s.hand,field:s.field.length,oField:s.oField.length},
+    play:st.o.hand.filter(nm=>!used.includes(nm)),stuck:st.stuck,reason:o.reason,actChara:o.targets.length?o.actChara:[],actCase:o.actCase,
+    hint:!did.some(a=>a.kind==="hint")&&st.o.hint,assist:o.assist&&!p.solved};
+  for(const k of Object.keys(m))if(Array.isArray(m[k])&&!m[k].length||m[k]===false)delete m[k];
+  (G.rec.miss=G.rec.miss||[]).push(m);delete G.rec._start;
 }
 function loadRecords(){try{return JSON.parse(localStorage.getItem(REC_KEY)||"[]")}catch(e){return []}}
 function saveRecord(w,why){
   if(!G||!G.rec)return;
-  const r=G.rec;r.end=new Date().toISOString();r.winner=w.idx;r.why=why;r.turns=G.turnNo;
+  const r=G.rec;delete r._start;r.end=new Date().toISOString();r.winner=w.idx;r.why=why;r.turns=G.turnNo;
   r.final=G.P.map(p=>({ev:p.ev.length,file:p.file.length,field:p.field.length,hand:p.hand.length,deck:p.deck.length,solved:p.solved}));
   if(window.SIM_FAST&&!window.SIM_SAVE)return;
   try{const all=loadRecords();all.push(r);while(all.length>REC_MAX)all.shift();localStorage.setItem(REC_KEY,JSON.stringify(all))}catch(e){}
@@ -122,7 +139,7 @@ async function startGame(cfg){
   document.getElementById("board").innerHTML=`<div id="oppSide"></div><div id="mid"><div id="guide"></div><div id="log" aria-live="polite"></div></div><div id="meSide"></div>`;
   _sel=null;document.getElementById("selPane").innerHTML=SEL_HINT;document.getElementById("hoverPane").innerHTML="";
   G.first=cfg.first==="rand"?Math.floor(Math.random()*2):+cfg.first;
-  G.rec={v:1,start:new Date().toISOString(),names:[...cfg.names],cpu:[!!cfg.cpu0,!!cfg.cpu],decks:cfg.decks.map(deckLabel),
+  G.rec={v:2,start:new Date().toISOString(),names:[...cfg.names],cpu:[!!cfg.cpu0,!!cfg.cpu],decks:cfg.decks.map(deckLabel),
     deckLists:cfg.decks.map(deckToText),first:G.first,log:[],acts:[]};
   G.turn=G.first;
   for(const p of G.P)p.level=caseLevel(p,p.idx===G.first);
@@ -172,8 +189,8 @@ function beginTurn(){
   const firstTurn=G.turnNo===1;
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
-  G.phase="main";render();
-  if(p.cpu)cpuTurn(p);
+  G.phase="main";recTurnStart(p);render();
+  if(p.cpu){const t=cpuTurn(p);if(G.sim)G.sim.next=t}
 }
 async function endTurn(){
   if(G.over||G.ending)return;
@@ -201,7 +218,7 @@ async function useFromHand(p,x,viaHint=false){
   const r=playableReason(p,x,viaHint);if(r){toast(r);return false}
   recAct(p,viaHint?"hintUse":"use",x);
   const c=C(x);
-  if(!window.SIM_FAST&&!(c.t==="イベント"&&FX.automated(x))){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
+  if(!window.SIM_FAST&&!G.sim&&!(c.t==="イベント"&&FX.automated(x))){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
   if(c.t==="キャラ"){
     if(p.field.length>=5){
       const t=p.cpu?[p.field.slice().sort((a,b)=>(C(a).lv||0)-(C(b).lv||0))[0]]:await chooseCards("スイッチ","現場が5体です。リムーブして入れ替えるキャラを選んでください。",p.field,{min:1,max:1});
@@ -326,7 +343,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
 }
 // 証拠をめくって見せる（タップで早送り）
 function revealCard(x,title,sub,hit){
-  if(window.SIM_TURBO)return Promise.resolve();
+  if(window.SIM_TURBO||G&&G.sim)return Promise.resolve();
   return new Promise(res=>{
     const d=document.createElement("div");d.id="reveal";if(hit)d.classList.add("hit");
     d.innerHTML=`<div class="rvt">${esc(title)}</div><div class="flip"><div class="fin"><div class="face back"></div><div class="face front"></div></div></div><div class="rvs"></div>`;
@@ -343,7 +360,7 @@ const SPEEDS={slow:{label:"ゆっくり",m:1.5},normal:{label:"ふつう",m:1},f
 function speedKey(){try{return localStorage.getItem("conan-sim-speed")||"slow"}catch(e){return "slow"}}
 function pace(){if(window.SIM_FAST)return 0;if(G&&G.cfg&&G.cfg.cpu0)return 1;return (SPEEDS[speedKey()]||SPEEDS.slow).m}
 function cutin(x,title,sub,{who=null,kind="",ms=1300,fx=null}={}){
-  if(!G||window.SIM_FAST)return Promise.resolve();
+  if(!G||window.SIM_FAST||G.sim)return Promise.resolve();
   ms=Math.round(ms*pace());
   return new Promise(res=>{
     const d=document.createElement("div");d.className="cutin "+(kind||(who&&who.idx===0?"me":"op"))+(fx?" fx":"");
@@ -355,14 +372,14 @@ function cutin(x,title,sub,{who=null,kind="",ms=1300,fx=null}={}){
   })}
 // 効果を使ったことを、カードと効果文で大きく見せる（effects.js から呼ばれる）
 async function showFx(p,x,kind,text,{after=false}={}){
-  if(!G||window.SIM_FAST||!x)return;
+  if(!G||window.SIM_FAST||G.sim||!x)return;
   const t=String(text||"").trim();
   render();
   await cutin(x,`${p.name}: ${C(x).nm}`,`【${kind}】の効果${after?"が発動":"を使う"}`,{who:p,fx:t.slice(0,220),ms:Math.min(4200,1500+t.length*28)});
 }
 // 行動を見せる: 行動するカードと対象を光らせ、帯で知らせる（自分の行動も同じように見せる）
 async function showCpu(p,x,title,sub,target){
-  if(window.SIM_FAST)return;
+  if(window.SIM_FAST||G.sim)return;
   G.ui.act={a:x,t:target&&target!=="case"?target:null};render();
   await cutin(x,`${p.name}: ${title}`,sub,{who:p,ms:p.cpu?1300:900});
   await sleep(250*pace());
