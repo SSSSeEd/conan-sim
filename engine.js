@@ -46,14 +46,31 @@ function recOptions(p){ // その場で選べた行動
 }
 function recState(p){const o=opp(p);return {file:p.file.length,ev:p.ev.length,level:p.level,solved:p.solved,hand:p.hand.length,deck:p.deck.length,
   field:p.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oField:o.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oEv:o.ev.length,oFile:o.file.length}}
+// 記録は人の席だけ。やった行動と、ターンごとの「できたのにやらなかったこと」（rec.miss）を残す（1試合数KB）
 function recAct(p,kind,x,target){
-  if(!G||!G.rec||G.over)return;
-  G.rec.acts.push({t:G.turnNo,who:p.idx,kind,card:cardRef(x),target:target==="case"?"事件":cardRef(target),opts:recOptions(p),state:recState(p)});
+  if(!G||!G.rec||G.over||p.cpu)return;
+  G.rec.acts.push({t:G.turnNo,who:p.idx,kind,card:cardRef(x),target:target==="case"?"事件":cardRef(target)});
+  if(kind==="end")recMiss(p);
+}
+// ターンのはじめに選べたこと（beginTurn から）
+function recTurnStart(p){
+  if(!G||!G.rec||p.cpu)return;
+  G.rec._start={t:G.turnNo,o:recOptions(p),stuck:p.hand.filter(x=>playableReason(p,x,false)).map(x=>C(x).nm),s:recState(p)};
+}
+function recMiss(p){
+  const st=G.rec._start;if(!st||st.t!==G.turnNo)return;
+  const did=G.rec.acts.filter(a=>a.t===G.turnNo&&a.who===p.idx),used=did.filter(a=>a.kind==="use"||a.kind==="hintUse").map(a=>a.card&&a.card.nm);
+  const o=recOptions(p),s=st.s;
+  const m={t:G.turnNo,s:{file:s.file,ev:s.ev,oEv:s.oEv,hand:s.hand,field:s.field.length,oField:s.oField.length},
+    play:st.o.hand.filter(nm=>!used.includes(nm)),stuck:st.stuck,reason:o.reason,actChara:o.targets.length?o.actChara:[],actCase:o.actCase,
+    hint:!did.some(a=>a.kind==="hint")&&st.o.hint,assist:o.assist&&!p.solved};
+  for(const k of Object.keys(m))if(Array.isArray(m[k])&&!m[k].length||m[k]===false)delete m[k];
+  (G.rec.miss=G.rec.miss||[]).push(m);delete G.rec._start;
 }
 function loadRecords(){try{return JSON.parse(localStorage.getItem(REC_KEY)||"[]")}catch(e){return []}}
 function saveRecord(w,why){
   if(!G||!G.rec)return;
-  const r=G.rec;r.end=new Date().toISOString();r.winner=w.idx;r.why=why;r.turns=G.turnNo;
+  const r=G.rec;delete r._start;r.end=new Date().toISOString();r.winner=w.idx;r.why=why;r.turns=G.turnNo;
   r.final=G.P.map(p=>({ev:p.ev.length,file:p.file.length,field:p.field.length,hand:p.hand.length,deck:p.deck.length,solved:p.solved}));
   if(window.SIM_FAST&&!window.SIM_SAVE)return;
   try{const all=loadRecords();all.push(r);while(all.length>REC_MAX)all.shift();localStorage.setItem(REC_KEY,JSON.stringify(all))}catch(e){}
@@ -122,7 +139,7 @@ async function startGame(cfg){
   document.getElementById("board").innerHTML=`<div id="oppSide"></div><div id="mid"><div id="guide"></div><div id="log" aria-live="polite"></div></div><div id="meSide"></div>`;
   _sel=null;document.getElementById("selPane").innerHTML=SEL_HINT;document.getElementById("hoverPane").innerHTML="";
   G.first=cfg.first==="rand"?Math.floor(Math.random()*2):+cfg.first;
-  G.rec={v:1,start:new Date().toISOString(),names:[...cfg.names],cpu:[!!cfg.cpu0,!!cfg.cpu],decks:cfg.decks.map(deckLabel),
+  G.rec={v:2,start:new Date().toISOString(),names:[...cfg.names],cpu:[!!cfg.cpu0,!!cfg.cpu],decks:cfg.decks.map(deckLabel),
     deckLists:cfg.decks.map(deckToText),first:G.first,log:[],acts:[]};
   G.turn=G.first;
   for(const p of G.P)p.level=caseLevel(p,p.idx===G.first);
@@ -172,7 +189,7 @@ function beginTurn(){
   const firstTurn=G.turnNo===1;
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
-  G.phase="main";render();
+  G.phase="main";recTurnStart(p);render();
   if(p.cpu){const t=cpuTurn(p);if(G.sim)G.sim.next=t}
 }
 async function endTurn(){
