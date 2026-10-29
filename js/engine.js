@@ -23,7 +23,7 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
 async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
-function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
+function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);clearSave();render();
   if(!window.SIM_FAST)showEndMenu(p,why)}
 function lose(p,why){win(opp(p),`${p.name} の敗北: ${why}`)}
 
@@ -84,17 +84,53 @@ function pushUndo(){
 function undo(){
   if(!G||G.busy||!G.undo.length||cur().cpu||G.over)return;
   const u=G.undo.pop();Object.assign(G,u.s);UID=u.uid;
-  G.rec.log.length=u.recL;G.rec.acts.length=u.recA;
+  G.rec.log.length=u.recL;G.rec.acts.length=u.recA;if(G.logC)G.logC.length=u.recL;
   G.ui.mode=null;G.ui.act=null;
-  uiUndo(u.logN);
+  uiUndo(u.logN);saveGame();
 }
 async function act(fn){ // 人の行動: 戻せるように保存してから実行
   pushUndo();G.busy=(G.busy||0)+1;
-  try{await fn()}finally{if(G)G.busy=Math.max(0,(G.busy||1)-1)}
+  try{await fn()}finally{if(G){G.busy=Math.max(0,(G.busy||1)-1);saveGame()}}
+}
+
+// ===== 中断した対戦の保存と再開（接続切れ・リロード・アプリを閉じたとき用） =====
+// 落ち着いた時点（ターンのはじめ・人の行動が終わったあと）だけ端末に保存する。CPUのターン中に切れたら、そのターンのはじめからやり直す
+const SAVE_KEY="conan-sim-save";
+// 同じカードを指す参照（効果の待ち行列など）を保ったまま JSON にする
+function packRefs(root){const ids=new Map();
+  const f=v=>{if(v===null||typeof v!=="object")return v;
+    if(ids.has(v))return {$r:ids.get(v)};const id=ids.size;ids.set(v,id);
+    if(Array.isArray(v))return {$i:id,$a:v.map(f)};
+    const o={$i:id};for(const k in v)o[k]=f(v[k]);return o};
+  return f(root)}
+function unpackRefs(root){const ids=[];
+  const f=v=>{if(v===null||typeof v!=="object")return v;
+    if("$r" in v)return ids[v.$r];
+    if("$a" in v){const a=[];ids[v.$i]=a;for(const x of v.$a)a.push(f(x));return a}
+    const o={};ids[v.$i]=o;for(const k in v)if(k!=="$i")o[k]=f(v[k]);return o};
+  return f(root)}
+function snapshotGame(){
+  return {v:1,at:new Date().toISOString(),uid:UID,meta:{turnNo:G.turnNo,turnName:cur().name,names:G.P.map(p=>p.name),decks:G.rec.decks},
+    g:packRefs({cfg:G.cfg,P:G.P,turn:G.turn,turnNo:G.turnNo,first:G.first,queue:G.queue,phase:G.phase,rec:G.rec,logC:G.logC||[],showOppHand:G.showOppHand})}
+}
+function saveGame(){
+  if(!G||G.sim||G.over||G.busy||G.ending||G.contact||G.phase!=="main"||window.SIM_FAST&&!window.SIM_SAVE)return;
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(snapshotGame()))}catch(e){}
+}
+function clearSave(){try{localStorage.removeItem(SAVE_KEY)}catch(e){}}
+function loadSave(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");return s&&s.v===1&&s.g?s:null}catch(e){return null}}
+function resumeGame(s){
+  UID=s.uid;
+  G={...unpackRefs(s.g),over:false,ui:{mode:null},undo:[],busy:0};
+  uiNewGame();
+  G.rec.log.forEach(([t,m],i)=>uiLog(m,G.logC[i]||undefined));
+  uiLog("— 中断したところから再開 —","t");
+  render();
+  const p=cur();if(p.cpu){const t=cpuTurn(p);if(G.sim)G.sim.next=t}
 }
 
 async function startGame(cfg){
-  UID=1;
+  UID=1;clearSave();
   G={cfg,P:[mkPlayer(0,cfg.names[0],cfg.decks[0],!!cfg.cpu0),mkPlayer(1,cfg.names[1],cfg.decks[1],cfg.cpu)],turn:0,turnNo:0,first:0,over:false,ui:{mode:null},queue:[],undo:[],busy:0,showOppHand:!cfg.cpu||!!cfg.cpu0};
   uiNewGame();
   G.first=cfg.first==="rand"?Math.floor(Math.random()*2):+cfg.first;
@@ -148,7 +184,7 @@ function beginTurn(){
   const firstTurn=G.turnNo===1;
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
-  G.phase="main";recTurnStart(p);render();
+  G.phase="main";recTurnStart(p);render();saveGame();
   if(p.cpu){const t=cpuTurn(p);if(G.sim)G.sim.next=t}
 }
 async function endTurn(){
