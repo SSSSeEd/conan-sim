@@ -24,9 +24,7 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
 }
 async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
 function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
-  const endMenu=()=>ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"フィードバックを書く",value:"fb",primary:true},{label:"もう一度（同じデッキ）",value:"again"},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(async v=>{
-    if(v==="fb"){await feedbackPage(G.rec);endMenu()}else if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()});
-  if(!window.SIM_FAST)endMenu()}
+  if(!window.SIM_FAST)showEndMenu(p,why)}
 function lose(p,why){win(opp(p),`${p.name} の敗北: ${why}`)}
 
 // ===== 対戦記録（将来のフィードバック機能用に、行動とその時に選べた選択肢を残す） =====
@@ -76,56 +74,19 @@ function saveRecord(w,why){
   try{const all=loadRecords();all.push(r);while(all.length>REC_MAX)all.shift();localStorage.setItem(REC_KEY,JSON.stringify(all))}catch(e){}
 }
 
-// ===== 対戦後のフィードバック（改善点・CPUへのアドバイス） =====
-// 対戦記録に一緒に保存し、GitHubのIssueとしても送れる（Claudeが後で読める）
-const FB_REPO="SSSSeEd/conan-sim";
-function feedbackPage(rec){
-  return modal((m,done)=>{
-    const old=rec&&rec.feedback||{};
-    const sum=rec?`${rec.names[0]}（${rec.decks[0]}） vs ${rec.names[1]}（${rec.decks[1]}）・${rec.turns||"?"}ターン・${rec.winner!=null?rec.names[rec.winner]+" の勝ち":"途中"}`:"";
-    m.insertAdjacentHTML("beforeend",`<div class="mt">フィードバック</div>
-      <div class="mb" style="font-size:12px;color:var(--ink-dim)">${rec?esc(sum)+"\n書いた内容はこの対戦の記録と一緒に保存されます。":"アプリ全体への要望・バグ報告です。"}「GitHubに送る」を押すと、Claudeが次の作業で読めるように送信画面が開きます。${rec?"対戦ログなどの詳細はクリップボードにコピーされるので、開いた画面の本文の最後に貼り付けてください。":""}</div>
-      <label class="fbl">アプリの改善点・バグ<textarea id="fbApp" rows="4" placeholder="例: アクションの後に画面が戻らない、カードの効果が違う など">${esc(old.app||"")}</textarea></label>
-      <label class="fbl">CPUへのアドバイス<textarea id="fbCpu" rows="4" placeholder="例: 2ターン目にパスしないで、このカードを先に出すべき など">${esc(old.cpu||"")}</textarea></label>
-      <div class="opts"><button class="primary" id="fbSave">保存</button><button id="fbGh">${rec?"保存して":""}GitHubに送る</button><button id="fbClose">閉じる</button></div>`);
-    const save=()=>{const fb={app:m.querySelector("#fbApp").value.trim(),cpu:m.querySelector("#fbCpu").value.trim(),at:new Date().toISOString()};
-      if(rec){rec.feedback=fb;try{const all=loadRecords();const i=all.findIndex(r=>r.start===rec.start);if(i>=0){all[i].feedback=fb;localStorage.setItem(REC_KEY,JSON.stringify(all))}}catch(e){}}
-      return fb};
-    m.querySelector("#fbSave").onclick=()=>{save();toast("保存しました");done(true)};
-    m.querySelector("#fbClose").onclick=()=>done(false);
-    m.querySelector("#fbGh").onclick=async()=>{const fb=save();
-      const acts=rec?rec.acts.filter(a=>!rec.cpu[a.who]).slice(-30).map(a=>`- ${a.t}T ${a.kind}${a.card?" "+a.card.nm:""}${a.target?" → "+(a.target.nm||a.target):""}`).join("\n"):"";
-      const main=`${rec?`## 対戦\n${sum}\n決着: ${rec.why||""}\n先攻: ${rec.names[rec.first]}\n\n`:""}## アプリの改善点・バグ\n${fb.app||"（なし）"}\n\n## CPUへのアドバイス\n${fb.cpu||"（なし）"}`;
-      let detail=rec?`<details><summary>自分の行動（最後の30件）</summary>\n\n${acts}\n</details>\n\n<details><summary>ログ（最後の60行）</summary>\n\n\`\`\`\n${rec.log.slice(-60).map(x=>x[1]).join("\n")}\n\`\`\`\n</details>\n\n<details><summary>デッキ</summary>\n\n\`\`\`\n${rec.deckLists.join("\n---\n")}\n\`\`\`\n</details>`:"";
-      // URLが長いとGitHubが500を返す（未ログイン時はログイン画面へのリダイレクトで更に長くなる）ので短く保つ
-      let body=main+(detail?"\n\n## 対戦ログ\n（ここにコピーした対戦ログを貼り付け）\n":"");
-      const title=`[フィードバック] ${(fb.app||fb.cpu||"対戦の感想").split("\n")[0].slice(0,40)}`;
-      const mk=b=>`https://github.com/${FB_REPO}/issues/new?labels=feedback&title=${encodeURIComponent(title)}&body=${encodeURIComponent(b)}`;
-      if(mk(body).length>2000){ // 長すぎるときは本文ごとクリップボードへ回す
-        detail=main+(detail?"\n\n"+detail:"");body=`${rec?sum+"\n\n":""}（本文が長いのでコピーしました。ここに貼り付けてください）\n`}
-      window.open(mk(body),"_blank"); // ポップアップがブロックされないよう、コピーより先に開く
-      if(detail){let copied=false;try{await navigator.clipboard.writeText(detail);copied=true}catch(e){}
-        if(copied)toast("内容をコピーしました。送信画面の「貼り付け」と書いた所に貼ってください");
-        else await ask("コピーできませんでした","下の内容を選んでコピーし、送信画面に貼り付けてください。\n\n"+detail,[{label:"OK",value:1,primary:true}])}
-      done(true)};
-  });
-}
-
 // ===== 一手戻す（自分のターン中だけ） =====
 function pushUndo(){
   if(!G||G.over||cur().cpu)return;
   try{G.undo.push({s:structuredClone({P:G.P,turn:G.turn,turnNo:G.turnNo,queue:G.queue,phase:G.phase}),uid:UID,
-    logN:document.getElementById("log").children.length,recL:G.rec.log.length,recA:G.rec.acts.length});
+    logN:logCount(),recL:G.rec.log.length,recA:G.rec.acts.length});
     if(G.undo.length>30)G.undo.shift()}catch(e){console.warn(e)}
 }
 function undo(){
   if(!G||G.busy||!G.undo.length||cur().cpu||G.over)return;
   const u=G.undo.pop();Object.assign(G,u.s);UID=u.uid;
-  const L=document.getElementById("log");while(L.children.length>u.logN)L.lastChild.remove();
   G.rec.log.length=u.recL;G.rec.acts.length=u.recA;
-  G.ui.mode=null;G.ui.act=null;_sel=null;
-  document.getElementById("detail").classList.remove("open");document.getElementById("selPane").innerHTML=SEL_HINT;
-  render();toast("一手戻しました");
+  G.ui.mode=null;G.ui.act=null;
+  uiUndo(u.logN);
 }
 async function act(fn){ // 人の行動: 戻せるように保存してから実行
   pushUndo();G.busy=(G.busy||0)+1;
@@ -135,9 +96,7 @@ async function act(fn){ // 人の行動: 戻せるように保存してから実
 async function startGame(cfg){
   UID=1;
   G={cfg,P:[mkPlayer(0,cfg.names[0],cfg.decks[0],!!cfg.cpu0),mkPlayer(1,cfg.names[1],cfg.decks[1],cfg.cpu)],turn:0,turnNo:0,first:0,over:false,ui:{mode:null},queue:[],undo:[],busy:0,showOppHand:!cfg.cpu||!!cfg.cpu0};
-  document.getElementById("setup").hidden=true;document.getElementById("app").hidden=false;
-  document.getElementById("board").innerHTML=`<div id="oppSide"></div><div id="mid"><div id="guide"></div><div id="log" aria-live="polite"></div></div><div id="meSide"></div>`;
-  _sel=null;document.getElementById("selPane").innerHTML=SEL_HINT;document.getElementById("hoverPane").innerHTML="";
+  uiNewGame();
   G.first=cfg.first==="rand"?Math.floor(Math.random()*2):+cfg.first;
   G.rec={v:2,start:new Date().toISOString(),names:[...cfg.names],cpu:[!!cfg.cpu0,!!cfg.cpu],decks:cfg.decks.map(deckLabel),
     deckLists:cfg.decks.map(deckToText),first:G.first,log:[],acts:[]};
@@ -341,50 +300,6 @@ async function declareAction(p,x,target){ // target: inst or "case"
   if(!G.over)await FX.actionEnd(p,x);
   clearAct();render();
 }
-// 証拠をめくって見せる（タップで早送り）
-function revealCard(x,title,sub,hit){
-  if(window.SIM_TURBO||G&&G.sim)return Promise.resolve();
-  return new Promise(res=>{
-    const d=document.createElement("div");d.id="reveal";if(hit)d.classList.add("hit");
-    d.innerHTML=`<div class="rvt">${esc(title)}</div><div class="flip"><div class="fin"><div class="face back"></div><div class="face front"></div></div></div><div class="rvs"></div>`;
-    d.querySelector(".front").appendChild(cardEl(x));
-    document.body.appendChild(d);
-    const rm=()=>{if(!d.isConnected)return;d.remove();res()};
-    setTimeout(()=>{d.querySelector(".rvs").textContent=sub},1000);
-    d.onclick=()=>{if(d.querySelector(".rvs").textContent)rm();else{d.querySelector(".rvs").textContent=sub;d.querySelectorAll(".fin").forEach(f=>{f.style.animation="none";f.style.transform="rotateY(180deg)"})}};
-    setTimeout(rm,hit?2600:1900);
-  })}
-// 帯の演出（タップで早送り）。SIM_FAST のときは出さない（テスト用）
-// 演出の速さ（≡メニューで変更・端末に保存）。人が対戦しているときだけ使う
-const SPEEDS={slow:{label:"ゆっくり",m:1.5},normal:{label:"ふつう",m:1},fast:{label:"はやい",m:.6}};
-function speedKey(){try{return localStorage.getItem("conan-sim-speed")||"slow"}catch(e){return "slow"}}
-function pace(){if(window.SIM_FAST)return 0;if(G&&G.cfg&&G.cfg.cpu0)return 1;return (SPEEDS[speedKey()]||SPEEDS.slow).m}
-function cutin(x,title,sub,{who=null,kind="",ms=1300,fx=null}={}){
-  if(!G||window.SIM_FAST||G.sim)return Promise.resolve();
-  ms=Math.round(ms*pace());
-  return new Promise(res=>{
-    const d=document.createElement("div");d.className="cutin "+(kind||(who&&who.idx===0?"me":"op"))+(fx?" fx":"");
-    d.innerHTML=`<div class="band">${x?'<div class="ccard"></div>':""}<div class="ctx"><div class="ct">${esc(title)}</div>${sub?`<div class="cs">${esc(sub)}</div>`:""}${fx?`<div class="fxt">${hl(fx)}</div>`:""}</div></div><div class="tap">タップで次へ</div>`;
-    if(x)d.querySelector(".ccard").appendChild(cardEl(x));
-    document.body.appendChild(d);
-    let t;const end=()=>{if(d.classList.contains("out"))return;clearTimeout(t);d.classList.add("out");setTimeout(()=>{d.remove();res()},220)};
-    d.onclick=end;t=setTimeout(end,ms);
-  })}
-// 効果を使ったことを、カードと効果文で大きく見せる（effects.js から呼ばれる）
-async function showFx(p,x,kind,text,{after=false}={}){
-  if(!G||window.SIM_FAST||G.sim||!x)return;
-  const t=String(text||"").trim();
-  render();
-  await cutin(x,`${p.name}: ${C(x).nm}`,`【${kind}】の効果${after?"が発動":"を使う"}`,{who:p,fx:t.slice(0,220),ms:Math.min(4200,1500+t.length*28)});
-}
-// 行動を見せる: 行動するカードと対象を光らせ、帯で知らせる（自分の行動も同じように見せる）
-async function showCpu(p,x,title,sub,target){
-  if(window.SIM_FAST||G.sim)return;
-  G.ui.act={a:x,t:target&&target!=="case"?target:null};render();
-  await cutin(x,`${p.name}: ${title}`,sub,{who:p,ms:p.cpu?1300:900});
-  await sleep(250*pace());
-}
-function clearAct(){if(G&&G.ui.act){G.ui.act=null;render()}}
 async function hirameki(o,e){
   const c=C(e);o.rm.push(e);
   render();await revealCard(e,`ヒラメキチェック（${o.name}）`,c.hr?`${c.nm}【ヒラメキ】あり！`:`${c.nm}（ヒラメキなし）`,!!c.hr);
