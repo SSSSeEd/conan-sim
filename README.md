@@ -8,3 +8,9 @@
 - `manifest.json` `sw.js` `icon-*.png` Webアプリ・オフライン用
 
 公開URL: https://sssseed.github.io/conan-sim/
+
+## 開発用ツール（Node 22、ブラウザ不要）
+- `node tools/test.js [試合数]` 動作確認（デッキの読み込みと、CPU同士の対戦がエラーなしで決着するか）。PRごとに GitHub Actions でも走る
+- `node tools/vs.js 試合数 seed A B` CPUの比較実験（base / combo / search）。100戦で1秒前後（探索ありは数秒）
+- `node tools/find_combos.js デッキ.txt [試合数]` 新しいデッキのコンボ探し
+- `tools/headless.js` 上の3つの土台。画面の部品をダミーにして、ゲームの処理だけを Node で動かす
