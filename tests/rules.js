@@ -99,4 +99,16 @@ module.exports=[
     assert.strictEqual(await w.useFromHand(G.P[0],x),true);
     assert.ok(G.P[0].field.includes(x));assert.strictEqual(x.fresh,true);
     assert.match(w.playableReason(G.P[0],G.P[0].hand[0],false),/もう手札を使用した/)}],
+  ["CPU: アシストしても出すカードが変わらないならアシストしない（FILE3、手札Lv2とLv5）",async w=>{
+    const G=board(w,{p0:{hand:[K.ran,K.conan],file:[K.ran,K.ran,K.ran]}});G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+    await w.cpuTurn(G.P[0]);
+    assert.strictEqual(G.P[0].pLoc,"area");assert.ok(G.P[0].field.some(x=>x.n===K.ran))}],
+  ["CPU: アシストで出すカードが変わるならアシストする（FILE3、手札Lv2とLv4）",async w=>{
+    const G=board(w,{p0:{hand:[K.ran,K.ayumi],file:[K.ran,K.ran,K.ran]}});G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+    await w.cpuTurn(G.P[0]);
+    assert.strictEqual(G.P[0].pLoc,"file");assert.ok(G.P[0].field.some(x=>x.n===K.ayumi))}],
+  ["CPU: 「小さくなった名探偵」は先にアシストしてから使う",async w=>{
+    const G=board(w,{p0:{hand:["B04013",K.conan],file:[K.ran,K.ran,K.ran]}});G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+    await w.cpuTurn(G.P[0]);
+    assert.strictEqual(G.P[0].pLoc,"file");assert.ok(!G.P[0].hand.some(x=>x.n==="B04013"))}],
 ];
