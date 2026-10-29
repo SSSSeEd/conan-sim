@@ -45,3 +45,29 @@ async function chooseTurnPlan(p){
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;
 }
+
+// ================= コンボ探し =================
+// 試しの手番の中で、CPUの判断（カットイン・「はい／いいえ」・宣言能力）を1か所だけ変えてみる。
+// 今のCPUのままの試しと点数を比べ、上がった変え方を集計する（window.COMBOS）
+function explore(p,kind,opts,def,label){
+  const s=G.sim;if(!s||!s.explore||p.idx!==s.planFor||G.turn!==p.idx&&kind!=="カットイン"||opts.length<2)return def;
+  if(s.devs.length||Math.random()>s.explore)return def;
+  const others=opts.map((_,i)=>i).filter(i=>i!==def);const i=others[Math.floor(Math.random()*others.length)];
+  s.devs.push(`${kind}｜${label(opts[i])}`);return i;
+}
+async function simFrom(base,p,explore){
+  const real=G;const g=structuredClone(base);g.sim={plan:{},planFor:p.idx,next:null,stage:0,explore,devs:[]};
+  G=g;let v;
+  try{await cpuTurn(g.P[p.idx]);if(g.sim.next)await g.sim.next;v=evalState(p.idx)}
+  catch(e){console.warn("combo",e);v=null}
+  finally{G=real}
+  return {v,devs:g.sim.devs};
+}
+async function findCombos(p,M=12){
+  const base=structuredClone({...G,rec:null,undo:[],ui:{mode:null}});for(const q of base.P)q.cpu=true;
+  const o=base.P[1-p.idx],pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length);
+  const d0=await simFrom(base,p,0);if(d0.v==null)return;
+  const T=window.COMBOS=window.COMBOS||{};
+  for(let i=0;i<M;i++){const r=await simFrom(base,p,0.35);if(r.v==null||r.devs.length!==1)continue;
+    const k=r.devs[0],g=Math.max(-2000,Math.min(2000,r.v-d0.v)),t=T[k]=T[k]||{n:0,sum:0,up:0};t.n++;t.sum+=g;if(g>0)t.up++}
+}

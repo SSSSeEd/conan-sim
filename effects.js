@@ -34,7 +34,8 @@ async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true}={}){
   return await chooseCards(`${p.name}: ${title}`,body,cards,{min,max,faceUp,okLabel:"決定"});
 }
 async function yes(p,title,body,aiVal=true){
-  if(p.cpu)return typeof aiVal==="function"?aiVal():aiVal;
+  if(p.cpu){const v=!!(typeof aiVal==="function"?aiVal():aiVal);
+    return G.sim&&G.sim.explore?!!explore(p,"はい/いいえ",[false,true],+v,o=>`${o?"はい":"いいえ"}: ${title}／${String(body).slice(0,40)}`):v}
   return await ask(`${p.name}: ${title}`,body,[{label:"はい",value:true,primary:true},{label:"いいえ",value:false}]);
 }
 // 手札を1枚リムーブ（choosePlayer が選ぶ）

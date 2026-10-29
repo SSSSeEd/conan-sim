@@ -5,7 +5,8 @@
 // SeEdさんのアンケート回答から（2026-10-28、旧CPUとの対戦）: case2+act2 58.8%（400戦、採用）
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2"];
+//   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo"];
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 function cpuGuard(o,atk,target,guards){
@@ -21,21 +22,42 @@ function cpuGuard(o,atk,target,guards){
   if(apOf(target)>A)return null; // 対象が勝てるならガード不要
   return strong[0]||null;
 }
+// コンボ探し（search.js の explore）のときは、カットインを切る／切らないを試しに変える
 function cpuContact(q,mine,theirs,cuts,tp){
+  const d=cpuContact0(q,mine,theirs,cuts,tp);
+  if(!(G.sim&&G.sim.explore))return d;
+  const opts=[null,...cuts.filter(x=>cutinAp(x,q)!=null||FX.has(x,"cutin"))];
+  const i=explore(q,"カットイン",opts,Math.max(0,opts.findIndex(o=>o===(d&&d.x))),o=>o?`${C(o).nm}(${o.n})→${C(mine).nm}(${mine.n})・${q===tp?"自分":"相手"}ターン`:`切らない（${C(mine).nm}(${mine.n})）`);
+  return opts[i]?{x:opts[i],how:"cut"}:null;
+}
+// コンボ表（search.js のコンボ探しで、今のCPUより良かった手。プリセット4デッキ400戦の集計から）
+// cut: 手札のこのカードは、APが足りていても条件が合えばカットインする。skip: この能力は使わない
+const COMBO_TABLE=[
+  {cut:"0273",side:"def",ok:(q,mine)=>opp(q).field.some(y=>y.st==="a"&&apOf(y)<=5000),why:"津川秀治: 守るときに相手のAP5000以下をスリープ（次のターンの的にする） 34/38で改善"},
+  {cut:"1141",ok:(q,mine)=>!!C(mine).ci&&hasColor(mine,"黒"),why:"スコッチ: 【カットイン】を持つ【黒】に使って1枚引く 31/37で改善"},
+  {skip:"0092",why:"江戸川コナン D01003: 他のキャラを寝かせて手札交換は損 45/63で改善"},
+];
+function comboCut(q,mine,tp,cuts){
+  if(!ai2(q,"combo"))return null;
+  for(const r of COMBO_TABLE){if(!r.cut||r.side==="def"&&q===tp||r.side==="atk"&&q!==tp)continue;
+    const x=cuts.find(y=>idOf(y)===r.cut);if(x&&r.ok(q,mine))return {x,how:"cut"}}
+  return null}
+const comboSkip=(p,x)=>ai2(p,"combo")&&COMBO_TABLE.some(r=>r.skip===idOf(x));
+function cpuContact0(q,mine,theirs,cuts,tp){
   const need=q===tp?apOf(theirs)-apOf(mine):apOf(theirs)-apOf(mine)+1; // 攻撃側は同値で勝ち
   // コンボ: スコッチ B10086 のコンタクト中にバーボンのカットイン → スコッチが起きて、もう一度アクションできる
   if(q===tp&&idOf(mine)==="1141"&&partnerIs(q,"黒")&&!turnCount(mine,"scotch")){
     const o=opp(q),bb=cuts.filter(x=>C(x).nm.includes("バーボン")&&cutinAp(x,q)!=null&&cutinAp(x,q)>=need).sort((a,b)=>cutinAp(a,q)-cutinAp(b,q))[0];
     const next=o.field.some(y=>y!==theirs&&y.st!=="a"&&apOf(y)<=apOf(mine))||o.ev.length>0;
     if(bb&&next)return {x:bb,how:"cut"}}
-  if(need<=0)return null;
+  if(need<=0)return comboCut(q,mine,tp,cuts);
   // 守る（倒す）価値があるときだけカットインを切る
   if(ai2(q,"cut2")){const key=q===tp?theirs:mine;const lv=C(key).lv||0; // SeEd: 序盤はほぼ切らない。Lv6〜9を倒す・守るときに使う
     if(!(lv>=6||key===q.partner||G.turnNo>4&&strongChar(key)))return null}
   if(ai2(q,"cut")){const key=q===tp?theirs:mine;if(!(strongChar(key)||(C(key).lv||0)>=7||key===q.partner))return null}
   const c=cuts.map(x=>({x,v:cutinAp(x,q)})).filter(o=>o.v!=null&&o.v>=need).sort((a,b)=>a.v-b.v);
   if(c.length)return {x:c[0].x,how:"cut"};
-  return null;
+  return comboCut(q,mine,tp,cuts);
 }
 // SeEd の基準: レベル → 登場時の効果 → 除去 → ドロー。現場5体なら強いカードだけ入れ替える
 function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
@@ -52,6 +74,7 @@ async function cpuTurn(p){
   // 探索（search.js）: 試しの手番で選ばれた組み合わせ。本番の手番のはじめに組み合わせを試して選ぶ
   const plan=(G.sim?(G.sim.planFor===p.idx?G.sim.plan:null):(searchOn(p)?await chooseTurnPlan(p):null))||{};
   if(G!==g0)return;
+  if(!G.sim&&window.FIND_COMBOS){await findCombos(p);if(G!==g0)return}
   const o=opp(p);
   // 1) 事件解決
   if(p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level){solve(p);return}
@@ -92,7 +115,7 @@ async function cpuTurn(p){
     let used=false;
     for(const x of [...p.field,p.caseC,...p.hand]){
       for(const ab of FX.abilities(p,x)){
-        if(!ab.ok||ab.noAi)continue;if(ab.aiCan&&!ab.aiCan(p,x))continue;
+        if(!ab.ok||ab.noAi)continue;{const def=(!ab.aiCan||!!ab.aiCan(p,x))&&!comboSkip(p,x);if(!(G.sim&&G.sim.explore?explore(p,"能力",[false,true],+def,o=>`${o?"使う":"使わない"}: ${C(x).nm}(${x.n}) ${ab.label}`):def))continue}
         G.ui.act={a:x,t:null};await FX.useAbility(p,x,ab);await step();used=true;break}
       if(used||G.over)break}
     if(!used||G.over)break}
