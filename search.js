@@ -3,7 +3,7 @@
 // CPUの手番のはじめに、盤面をコピーして「出すカード」と「ネクストヒントをするか」の組み合わせを試す。
 // 試しの手番は相手の次のターンの終わりまで進めて点数をつけ、いちばん良かった組み合わせで本番の手番を行う。
 // 動くのは window.SEARCH が true か、cfg.search[席] が true のときだけ（普段はオフ）。
-// 注意: 試しの手番では相手もCPUとして動き、相手の手札（カットイン）も見えている
+// 試しの手番では相手もCPUとして動く。相手の手札は見えないので、手札とデッキを混ぜて配り直してから試す
 function searchOn(p){return !!(window.SEARCH||G.cfg.search&&G.cfg.search[p.idx])}
 
 // 盤面の点数（me から見て）。勝ち負けが最優先、次に証拠、現場、手札、FILE
@@ -28,6 +28,8 @@ async function rollout(p,plan){
   const real=G;
   const g=structuredClone({...real,rec:null,undo:[],ui:{mode:null}});
   g.sim={plan,planFor:p.idx,next:null,stage:0};for(const q of g.P)q.cpu=true;
+  // 相手の手札は見えないので、相手の手札とデッキを混ぜて配り直す（同じ枚数）
+  const o=g.P[1-p.idx],pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length);
   G=g;let v;
   try{await cpuTurn(g.P[p.idx]);if(g.sim.next)await g.sim.next;v=evalState(p.idx)}
   catch(e){console.warn("search",e);v=-1e9}
