@@ -15,7 +15,7 @@ function caseLevel(p,first){
   if(!m)return 7;return first?+m[1]:+m[2];
 }
 function colorsOf(s){return [...(s||"")].filter(ch=>COLOR_VAR[ch])}
-function apOf(x){const c=C(x);return (c.ap||0)+x.apM+x.apT+x.apC+(window.FX?FX.apBonus(x):0)}
+function apOf(x){const c=C(x);return (c.ap||0)+x.apM+x.apT+x.apC+(x.apA||0)+(window.FX?FX.apBonus(x):0)}
 function lpOf(x){const c=C(x);return (c.lp||0)+x.lpM+x.lpT}
 function ownerOf(x){for(const p of G.P){if(p.field.includes(x)||p.partner===x||p.hand.includes(x)||p.caseC===x||p.file.includes(x)||p.ev.includes(x)||p.rm.includes(x)||p.deck.includes(x))return p}return null}
 function zoneOf(x){const p=ownerOf(x);if(!p)return null;
@@ -83,6 +83,15 @@ function ownCutinAp(x,p){
     // 犯人 PR158: リムーブエリアにある［犯人］1枚につきAP＋2000（このカードも含める）
     const b=s.match(/^自分のリムーブエリアにある〚カード名［([^］]+)］〛1枚につき、AP[＋+](\d+)（このカードも含める）/);
     if(b)best=Math.max(best||0,+b[2]*(p.rm.filter(y=>y!==x&&C(y).nm===b[1]).length+1));
+    // 黒田兵衛 B05095: 自分の現場にいる［特徴］のキャラ1枚につき
+    const t=s.match(/^自分の現場にいる〚特徴［([^］]+)］〛のキャラ1枚につき、AP[＋+](\d+)/);
+    if(t)best=Math.max(best||0,+t[2]*p.field.filter(y=>(C(y).ct||"").split(",").includes(t[1])).length);
+    // 〚カード名［A］〛か〚［B］〛／〚特徴［T］〛のキャラ に【カットイン】する場合（今コンタクトしている自分のキャラで判定）
+    const mine=G&&G.contact&&(p.field.includes(G.contact.a)?G.contact.a:G.contact.d);
+    const u=s.match(/^((?:〚(?:カード名)?［[^］]+］〛か?)+)に【カットイン】する場合、AP[＋+](\d+)/);
+    if(u&&mine&&[...u[1].matchAll(/［([^］]+)］/g)].some(m=>C(mine).nm.includes(m[1])))best=Math.max(best||0,+u[2]);
+    const v=s.match(/^〚特徴［([^］]+)］〛のキャラに【カットイン】する場合、AP[＋+](\d+)/);
+    if(v&&mine&&(C(mine).ct||"").split(",").includes(v[1]))best=Math.max(best||0,+v[2]);
   }
   return best;
 }

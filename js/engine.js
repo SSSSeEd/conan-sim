@@ -11,7 +11,7 @@ function popDeck(p){if(G.over)return null;const x=p.deck.shift();checkDeck(p);re
 function draw(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.hand.push(x)}}}
 function gainEvidence(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.ev.push(x)}}}
 function toFile(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.file.push(x)}}}
-function resetMods(x){x.apM=0;x.apT=0;x.apC=0;x.lpM=0;x.lpT=0;x.kw=[];x.fresh=false;x.st="a"}
+function resetMods(x){x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a"}
 function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からなら離れたときの効果を予約）
   const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);
   detach(x);resetMods(x);
@@ -194,7 +194,7 @@ async function endTurn(){
   if(G.over)return;
   const ends=[...p.field,...opp(p).field].filter(x=>/ターン終了時/.test(C(x).f||"")&&!FX.automated(x));
   if(ends.length)log(`ターン終了時の能力を確認: ${ends.map(x=>C(x).nm).join("、")}`,"n");
-  for(const q of G.P)for(const x of [...q.field,q.partner]){x.apT=0;x.lpT=0;x.kw=[]}
+  for(const q of G.P)for(const x of [...q.field,q.partner]){x.apT=0;x.apA=0;x.lvT=0;x.lpT=0;x.kw=[];x.nmT=null}
   G.ui.mode=null;G.turn=1-G.turn;beginTurn();
 }
 
@@ -207,7 +207,7 @@ function playableReason(p,x,viaHint){
   const lv=(window.FX&&FX.handLevel(p,x))??(c.lv||0);
   if(lv>p.file.length)return `レベル${lv} > FILE${p.file.length}枚`;
   if(!canPlayColor(c,p))return `事件の色（${C(p.caseC).c}）と合わない`;
-  return null;
+  return (window.FX&&FX.useBlock(p,x))||null;
 }
 async function useFromHand(p,x,viaHint=false){
   const r=playableReason(p,x,viaHint);if(r){toast(r);return false}
@@ -297,19 +297,20 @@ async function reason(p,x){
       render();await cutin(y,"ミスリード！",`${o.name} の ${C(y).nm}：${C(x).nm} の推理 LP−${v}（残りLP${Math.max(0,lp)}）`,{kind:"mis"})}
   }
   const n=Math.max(0,lp);gainEvidence(p,n);log(`${p.name} は証拠を${n}つ得た（証拠${p.ev.length}）`);
+  await FX.onReason(p,x);
   clearAct();render();
 }
 async function declareAction(p,x,target){ // target: inst or "case"
   const kind=target==="case"?"case":"chara";
   if(!canAct(x,p,kind)){toast("アクションできない");return}
   const o=opp(p);
-  if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"))){toast("対象はスリープかスタン状態のキャラ");return}
+  if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||x.kw.includes("アクティブ指定")))){toast("対象はスリープかスタン状態のキャラ");return}
   if(kind==="case"&&o.ev.length===0){toast("相手の証拠が0");return}
   recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);
   x.st="s";
   log(`${p.name} の ${C(x).nm}（AP${apOf(x)}）がアクション → ${kind==="case"?"事件":C(target).nm}`);
-  render();await FX.onAction(p,x);
+  render();await FX.onAction(p,x,kind==="case"?null:target);
   // ガードまでにアクションしたキャラや対象が現場を離れたら、アクションはそこで終わる
   if(!p.field.includes(x)||kind==="chara"&&!o.field.includes(target)){log("　アクションしたキャラか対象が現場を離れたので、アクション終了","n");render();await runQueue();clearAct();render();return}
   const kw=staticKw(x,p);
@@ -352,6 +353,7 @@ async function hirameki(o,e){
 async function contact(p,a,d){ // p=ターンプレイヤー(攻撃側)
   const o=opp(p);const ct={a,d};G.contact=ct;
   log(`コンタクト: ${C(a).nm} AP${apOf(a)} vs ${C(d).nm} AP${apOf(d)}`);
+  await FX.onContact(p,ct);
   render();
   const firstIsDef=apOf(ct.d)<=apOf(ct.a); // 同値は非ターンプレイヤーが1番目
   const order=firstIsDef?[o,p]:[p,o];
