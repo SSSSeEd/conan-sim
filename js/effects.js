@@ -630,6 +630,120 @@ DEF["0921"]={ // シェリー B08085
 DEF["1038"]={ // バーボン B09099
   enter:async p=>{if(opp(p).refreshed){drawN(p,1);await discard(p,1)}else{const o=opp(p);const y=popDeck(o);if(y){o.rm.push(y);log(`　${o.name} のデッキの上の ${C(y).nm} をリムーブ`,"n");checkDeck(o)}}}};
 
+// --- 赤単ハンドレス（手札2枚以下・宮野家） ---
+const handLe=(p,n=2)=>p.hand.length<=n;
+const lv7Count=p=>p.field.filter(y=>lvOf(y)===7).length;
+const solvedLv=n=>({lvSelf:p=>p.solved?n:0}); // 【解決編】現場にいるこのキャラをレベル＋N
+DEF["0794"]={ // 世良真純＆メアリー B07065
+  abilities:[{label:"手札1枚リムーブ: キャラをリムーブ",turn1:true,can:(p,x)=>partnerIs(p,"赤")&&p.hand.length>0&&allChars().some(y=>y!==x),aiCan:p=>oppHas(p,y=>lvOf(y)>=6),
+    run:async(p,x)=>{await discard(p,1);await rmChar(p,y=>y!==x);return true}},
+    {label:"1枚引く（手札2枚以下）",turn1:true,partner:true,can:p=>handLe(p),run:async p=>{drawN(p,1);return true}}]};
+DEF["0796"]={ // 沖矢昴 B07067
+  enter:async(p,x)=>{if(partnerIs(p,"赤")&&opp(p).hand.length>=p.hand.length)await rmChar(p,y=>y!==x&&lvLe(8)(y))},
+  abilities:[{label:"レベル6以上の【赤】をスリープ: レベル7以下をリムーブ",turn1:true,
+    can:(p,x)=>handLe(p)&&x.st!=="a"&&p.field.some(y=>y.st==="a"&&hasColor(y,"赤")&&lvOf(y)>=6),aiCan:(p,x)=>oppHas(p,y=>lvOf(y)>=5&&lvOf(y)<=7)&&p.field.some(y=>y.st==="a"&&hasColor(y,"赤")&&lvOf(y)>=6&&!canAct(y,p,"chara")),
+    run:async(p,x)=>{const cs=p.field.filter(y=>y.st==="a"&&hasColor(y,"赤")&&lvOf(y)>=6);const [c]=await pickCards(p,"コスト: スリープさせる【赤】のキャラ","",cs,{min:1,max:1});if(!c)return false;
+      sleepC(c);await rmChar(p,y=>y!==x&&lvLe(7)(y));return true}}]};
+DEF["0798"]={ // 本堂瑛海 B07069
+  abilities:[{label:"レベル8以下をリムーブ（手札2枚以下）",turn1:true,can:(p,x)=>partnerIs(p,"赤")&&handLe(p)&&allChars().some(y=>y!==x&&lvOf(y)<=8),aiCan:p=>oppHas(p,y=>lvOf(y)>=5&&lvOf(y)<=8),
+    run:async(p,x)=>{await rmChar(p,y=>y!==x&&lvLe(8)(y));return true}},
+    {label:"【スリープ】手札1枚とFILEの上1枚をリムーブ: リムーブエリアのレベル7以下の【赤】を登場",turn1:true,
+    can:(p,x)=>p.file.length>=8&&x.st==="a"&&p.hand.length>0&&p.rm.some(y=>isChar(y)&&hasColor(y,"赤")&&lvOf(y)<=7),aiCan:p=>p.field.length<5,
+    run:async(p,x)=>{sleepCost(x);await discard(p,1);const top=[...p.file].reverse().find(y=>y!==p.partner);if(top){p.file.splice(p.file.indexOf(top),1);p.rm.push(top);log(`　FILEの上の ${C(top).nm} をリムーブ`,"n")}
+      await enterFromRm(p,y=>hasColor(y,"赤")&&lvOf(y)<=7,"登場させる【赤】のキャラ（レベル7以下）");return true}}]};
+DEF["0797"]={ // 羽田秀𠮷 B07068
+  enter:async(p,x)=>{const f=y=>isChar(y)&&hasColor(y,"赤")&&lvOf(y)<=5;if(!partnerIs(p,"赤")||!p.hand.length||!p.rm.some(f))return;
+    if(!await yes(p,"登場時","このキャラをスリープさせ手札を1枚リムーブして、リムーブエリアのレベル5以下の【赤】をスリープ状態で登場させますか？",true))return;
+    sleepC(x);await discard(p,1);const cs=p.rm.filter(f);const [y]=await pickCards(p,"登場させる【赤】のキャラ（レベル5以下）","",cs,{ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});
+    if(y&&await enterByEffect(p,y,"s")&&handLe(p)){activateC(y);activateC(x)}}};
+DEF["0885"]={ // 沖矢昴 B08047
+  endTurn:async p=>{if(p.hand.length<2)drawN(p,2-p.hand.length)},
+  abilities:[{label:"【スリープ】手札が2枚になるまでリムーブ: キャラをリムーブ",can:(p,x)=>partnerIs(p,"赤")&&x.st==="a"&&allChars().some(y=>y!==x),aiCan:p=>p.hand.length<=3&&oppHas(p,y=>lvOf(y)>=6),
+    run:async(p,x)=>{sleepCost(x);if(p.hand.length>2)await discard(p,p.hand.length-2);await rmChar(p,y=>y!==x);return true}}]};
+DEF["0894"]={ // 宮野厚司 B08056
+  abilities:[{label:"【スリープ】: 手札からレベル7以下の［宮野エレーナ］［宮野志保］［宮野明美］を登場",
+    can:(p,x)=>p.file.length>=5&&x.st==="a"&&p.field.length<5&&p.hand.some(y=>isChar(y)&&lvOf(y)<=7&&named("宮野エレーナ","宮野志保","宮野明美")(y)),
+    run:async(p,x)=>{sleepCost(x);await playFromHand(p,y=>lvOf(y)<=7&&named("宮野エレーナ","宮野志保","宮野明美")(y));return true}}]};
+DEF["0896"]={ // 宮野志保 B08058
+  endTurn:async p=>{if(lv7Count(p)<3)return;drawN(p,1);const t=await chooseChar(p,"スタンさせる相手のキャラ",y=>isOpp(p,y));if(t)stunC(t)},
+  enter:async(p,x)=>{const f=y=>y!==x&&y.st!=="a"&&lvOf(y)<=8;if(p.file.length<8||!p.hand.length||!oppHas(p,f))return;
+    if(!await yes(p,"登場時","このキャラをスリープさせ手札を1枚リムーブして、スリープかスタン状態のレベル8以下をデッキの下に移しますか？",true))return;
+    sleepC(x);await discard(p,1);await bottomChar(p,f)}};
+DEF["0799"]={ // 新出智明 B07070
+  enter:async(p,x)=>{if(!handLe(p))return;const t=await chooseChar(p,"AP＋1000と突撃を与える【赤】のキャラ（レベル7以上）",y=>!isOpp(p,y)&&hasColor(y,"赤")&&lvOf(y)>=7,{ai:cs=>cs.filter(y=>y.st==="a").slice(0,1)});
+    if(t){apTurn(t,1000);giveKw(t,"突撃")}}};
+DEF["0895"]={ // 宮野エレーナ B08057
+  ...solvedLv(2),
+  abilities:[{label:"【スリープ】デッキの上から9枚リムーブ: Lv5・4・1をデッキの下へ、3枚なら相手のキャラをデッキの下へ",turn1:true,
+    can:(p,x)=>p.solved&&x.st==="a"&&lv7Count(p)>=3&&p.deck.length>9,aiCan:p=>p.deck.length>18&&opp(p).field.length>0,
+    run:async(p,x)=>{sleepCost(x);millSelf(p,9);let n=0;
+      for(const lv of [5,4,1]){const cs=p.rm.filter(y=>(C(y).lv||0)===lv);const [y]=await pickCards(p,`デッキの下に移すレベル${lv}のカード`,"",cs,{max:1,ai:c=>c.slice(0,1)});if(y){detach(y);p.deck.push(y);n++}}
+      log(`　リムーブエリアから${n}枚をデッキの下へ`,"n");if(n===3)await bottomChar(p,y=>isOpp(p,y));return true}}]};
+DEF["1055"]={...solvedLv(2),enter:async(p,x)=>{if(lv7Count(p)>=3)giveKw(x,"突撃［事件］")}}; // 宮野明美 PR264
+DEF["0888"]={ // 宮野明美 B08050
+  ...solvedLv(3),
+  enter:async p=>{const xs=p.deck.slice(0,3);if(!xs.length)return;log(`　${p.name} はデッキの上から${xs.length}枚を見た`,"n");
+    const fam=named("諸星大","宮野志保","宮野エレーナ","宮野厚司");
+    const [y]=await pickCards(p,"手札に加えるカード（1枚まで）","残りはリムーブエリアへ",xs,{max:1,ai:c=>c.slice().sort((a,b)=>(fam(b)-fam(a))||aiCardValue(p,b)-aiCardValue(p,a)).slice(0,1)});
+    for(const z of xs){detach(z);if(z===y){p.hand.push(z);log(`　${C(z).nm} を手札に`)}else p.rm.push(z)}checkDeck(p);
+    if(y&&!fam(y))await discard(p,1)}};
+DEF["1118"]=solvedLv(5); // 宮野明美 B10059
+DEF["1117"]={}; // 世良真純 B10058（カットイン: ownCutinAp）
+DEF["1120"]={ // 骨董盆は隠せない
+  solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")},
+  abilities:[{label:"手札1枚とデッキの上2枚をリムーブ: AP＋2000か1枚引く",turn1:true,can:p=>p.solved&&p.hand.length>0&&p.deck.length>2,
+    aiCan:p=>myTurn(p)&&p.field.some(y=>y.st==="a"&&canAct(y,p,"chara"))&&p.hand.length>=2,
+    run:async p=>{await discard(p,1);millSelf(p,2);
+      const v=p.cpu?(handLe(p)&&!p.field.some(y=>y.st==="a")?2:1):await ask(`${p.name}: 骨董盆は隠せない`,"1つ選んで行います",[{label:"キャラ1枚をAP＋2000",value:1,primary:true},{label:"1枚引く（手札2枚以下）",value:2}]);
+      if(v===2){if(handLe(p))drawN(p,1)}else{const t=await chooseChar(p,"AP＋2000するキャラ",()=>true,{ai:cs=>cs.filter(y=>!isOpp(p,y)&&y.st==="a").slice(0,1)});if(t)apTurn(t,2000)}return true}}]};
+
+// --- 黄単佐藤高木 ---
+const SATO=named("佐藤美和子","高木渉");
+const allSato=p=>p.field.length>0&&p.field.every(SATO);
+const apLeSelf=x=>y=>y!==x&&apOf(y)<=apOf(x);
+DEF["0899"]={ // 佐藤美和子＆高木渉 B08062
+  onAllyEnter:async(p,self,y)=>{if(y===self||!partnerIs(p,"黄")||!myTurn(p)||turnCount(self,"st")||!SATO(y))return;if(!oppHas(p,apLe(8000)))return;useTurn(self,"st");await rmChar(p,z=>z!==self&&apLe(8000)(z))},
+  apAura:(q,self,y)=>G.turn===q.idx&&q.field.includes(y)&&allSato(q)?1000:0,partnerToo:true};
+DEF["0455"]={ // 佐藤美和子 B04069
+  lpSelf:p=>p.field.filter(y=>hasTrait(y,"警察")).length>=3?1:0,
+  apAura:(q,self,y)=>G.turn===q.idx&&q.field.includes(y)&&named("高木渉")(y)&&condOk("絆高木渉",q)?1000:0,
+  enter:async(p,x)=>{if(partnerIs(p,"黄")&&p.rm.filter(y=>isChar(y)&&hasTrait(y,"警察")).length>=3)await rmChar(p,y=>y!==x&&lvLe(8)(y))}};
+DEF["0910"]={ // 高木渉 B08073
+  endTurn:async(p,x)=>{if(condOk("絆佐藤美和子",p)&&allSato(p)&&x.st!=="a")activateC(x)},
+  abilities:[{label:"【スリープ】: このキャラのAP以下のキャラをリムーブ",can:(p,x)=>x.st==="a"&&allChars().some(apLeSelf(x)),aiCan:(p,x)=>oppHas(p,y=>apLeSelf(x)(y)&&lvOf(y)>=5)&&!canAct(x,p,"chara"),
+    run:async(p,x)=>{sleepCost(x);await rmChar(p,apLeSelf(x));return true}}]};
+DEF["1125"]={ // 高木渉 B10069
+  lpSelf:p=>partnerIs(p,"黄")&&condOk("絆佐藤美和子",p)?1:0,
+  abilities:[{label:"手札の［佐藤美和子］か［高木渉］をリムーブ: このキャラのAP以下をリムーブして1枚引く",turn1:true,can:p=>p.hand.some(SATO),aiCan:(p,x)=>oppHas(p,y=>apLeSelf(x)(y)&&lvOf(y)>=5),
+    run:async(p,x)=>{await discard(p,1,"リムーブする［佐藤美和子］か［高木渉］",p,SATO);await rmChar(p,apLeSelf(x));drawN(p,1);return true}}]};
+DEF["0456"]={ // 高木渉 B04070
+  abilities:[{label:"［佐藤美和子］をスリープ＋手札1枚リムーブ: アクティブにする",turn1:true,noAi:true,
+    can:(p,x)=>condOk("絆佐藤美和子",p)&&x.st!=="a"&&p.hand.length>0&&p.field.some(y=>y.st==="a"&&named("佐藤美和子")(y)),
+    run:async(p,x)=>{const cs=p.field.filter(y=>y.st==="a"&&named("佐藤美和子")(y));const [c]=await pickCards(p,"コスト: スリープさせる［佐藤美和子］","",cs,{min:1,max:1});if(!c)return false;
+      sleepC(c);await discard(p,1);activateC(x);return true}}]};
+DEF["0810"]={ // 高木渉 B07082
+  enter:async(p,x)=>{if(p.field.some(y=>y!==x&&lvOf(y)>=7&&hasTrait(y,"警視庁"))){const cs=p.rm.filter(y=>isChar(y)&&named("佐藤美和子")(y)&&lvOf(y)<=5);
+    const [y]=await pickCards(p,"スリープ状態で登場させる［佐藤美和子］","",cs,{ai:c=>c.slice(0,1)});if(y)await enterByEffect(p,y,"s")}}};
+DEF["1131"]={apAura:(q,self,y)=>G.turn===q.idx&&y!==self&&q.field.includes(y)&&hasColor(y,"黄")&&hasTrait(y,"警視庁")&&condOk("絆高木渉",q)?1000:0}; // 佐藤美和子 B10075
+DEF["0909"]={ // 佐藤美和子 B08072
+  enter:async(p,x)=>{if(condOk("絆高木渉",p)&&p.solved&&allSato(p))await rmChar(p,apLeSelf(x))}};
+DEF["1020"]={apAura:(q,self,y)=>G.turn!==q.idx&&q.field.includes(y)&&named("佐藤美和子")(y)&&condOk("絆佐藤美和子",q)?1000:0}; // 高木渉 B09080
+DEF["1019"]={ // 佐藤美和子 B09079
+  enter:async p=>{const xs=p.deck.slice(0,3);if(!xs.length)return;log(`　${p.name} はデッキの上から${xs.length}枚を見た`,"n");
+    const [y]=await pickCards(p,"手札に加える［高木渉］（1枚まで）","残りはリムーブエリアへ",xs.filter(named("高木渉")),{max:1,ai:c=>c.slice(0,1)});
+    for(const z of xs){detach(z);if(z===y){p.hand.push(z);log(`　${C(z).nm} を手札に`)}else p.rm.push(z)}checkDeck(p)}};
+DEF["0908"]={ // 佐藤正義 B08071
+  abilities:[{label:"このキャラをリムーブ: デッキの上から4枚見て［佐藤美和子］を手札に",can:p=>p.deck.length>0,aiCan:p=>myTurn(p)&&!p.hand.some(named("佐藤美和子")),
+    run:async(p,x)=>{removeCard(x,"コスト");await runQueue();await lookTop(p,4,named("佐藤美和子"),{title:"［佐藤美和子］を1枚まで手札に"});return true}}],
+  cutin:async(p,card,mine)=>{if(mine&&named("佐藤美和子")(mine))drawN(p,1)}};
+DEF["0913"]={ // 揺れる警視庁 1200万人の人質
+  solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")},
+  abilities:[{label:"証拠2つを表に＋キャラ1枚をデッキの下へ: レベル4以下の［佐藤美和子］か［高木渉］をスリープで登場",turn1:true,
+    can:p=>p.solved&&p.field.length>=2&&p.ev.filter(e=>!e.up).length>=2&&p.rm.some(y=>isChar(y)&&SATO(y)&&lvOf(y)<=4),aiCan:p=>p.field.length<5&&allSato(p),
+    run:async p=>{const [c]=await pickCards(p,"コスト: デッキの下に移すキャラ","",allChars(),{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>aiScoreTarget(p,b)-aiScoreTarget(p,a)).slice(0,1)});if(!c)return false;
+      if(!flipEvidence(p,2))return false;toDeckBottom(c);if(!allSato(p))return true;
+      const cs=p.rm.filter(y=>isChar(y)&&SATO(y)&&lvOf(y)<=4);const [y]=await pickCards(p,"スリープ状態で登場させるキャラ","",cs,{ai:c=>c.slice(0,1)});if(y)await enterByEffect(p,y,"s");return true}}]};
+
 // ================= 効果文から自動で組み立てる（同じ書き方のカードはまとめて処理） =================
 // 1行ずつ型に当てはめる。全部の行が分かったカードだけ「自動」にする（分からない行があれば手動のまま）
 const COLS="青|赤|黄|緑|白|黒";
@@ -681,7 +795,7 @@ const LINE_RULES=[
 // 本体で処理している行（キーワード・パートナーの能力・スリープ登場）
 const CORE_LINE=/^(?:【[^】]+】)*(?:〚(?:突撃|迅速|ブレット|ミスリード\d)|【解決編】【事件解決】|【アシスト】|このキャラはスリープ状態で登場する。$|このキャラは(?:スリープ状態でも)?ガードできない。$|このキャラはスリープ状態でもガードできる。$|[^［]+［ID：\d+］はデッキに何枚でも入れることができる。$)/;
 // カットイン（本体の ownCutinAp がAPを足す）。AP＋N のあとに続く効果は cutin フックにする
-const CI_CORE=/^(?:AP[＋+]\d+|自分のリムーブエリアにある〚カード名［[^］]+］〛1枚につき、AP[＋+]\d+（このカードも含める）|自分の現場にいる〚特徴［[^］]+］〛のキャラ1枚につき、AP[＋+]\d+|(?:〚(?:カード名|特徴)?［[^］]+］〛か?)+(?:のキャラ)?に【カットイン】する場合、AP[＋+]\d+)$/;
+const CI_CORE=/^(?:AP[＋+]\d+|自分のリムーブエリアにある〚カード名［[^］]+］〛1枚につき、AP[＋+]\d+（このカードも含める）|自分の現場にいる〚特徴［[^］]+］〛のキャラ1枚につき、AP[＋+]\d+|AP[＋+]\d+、自分の手札が\d枚以下の場合、代わりにAP[＋+]\d+|(?:〚(?:カード名|特徴)?［[^］]+］〛か?)+(?:のキャラ)?に【カットイン】する場合、AP[＋+]\d+)$/;
 const CI_RULES=[
   [new RegExp(`^AP[＋+]\\d+、自分の事件が【(${COLS})】以外の色を持たない場合、カードを(\\d)枚引く。$`),m=>({cutin:async p=>{if(colorsOf(C(p.caseC).c).every(ch=>ch===m[1]))drawN(p,+m[2])}})],
   [/^AP[＋+]\d+、〚特徴［([^］]+)］〛のキャラに【カットイン】した場合、カードを(\d)枚引く。$/,m=>({cutin:async(p,card,mine)=>{if(mine&&hasTrait(mine,m[1]))drawN(p,+m[2])}})],
@@ -763,8 +877,9 @@ const FX={
       log("　コンタクト中のすべてのキャラをリムーブ","n");for(const y of [a,b])removeCard(y,"効果",{by:ownerOf(a),effect:true});await runQueue()}},
   async onReason(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReason&&p.field.includes(y))await fxIf(p,y,"推理",()=>d.onReason(p,y,x))}await runQueue()},
   async onReveal(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReveal&&p.field.includes(y))await fxIf(p,y,"公開",()=>d.onReveal(p,y,x))}},
+  lpBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;const d=def(x);return d&&d.lpSelf?d.lpSelf(p,x)||0:0},
   useBlock(p,x){const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
-  lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
+  lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
     for(const q of G.P)for(const y of q.field){const d=def(y);if(d&&d.lvAura)b+=d.lvAura(q,y,x)||0}return b},
   async actionEnd(p,actor){actor.apA=0;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
   async contactWin(p,winner,victim){const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim))},
@@ -787,7 +902,7 @@ const FX={
     if(G.turn===p.idx&&idOf(x)==="1061")b+=1000; // 沖田総司 PR290
     if(G.contact&&(G.contact.a===x||G.contact.d===x))b+=2000*(x.set||[]).filter(s=>s.up&&idOf(s.c)==="0019").length; // シャッフルロマンス
     const d=def(x);if(d&&d.apSelf)b+=d.apSelf(p,x)||0;
-    for(const q of G.P)for(const y of q.field){const e=def(y);if(e&&e.apAura)b+=e.apAura(q,y,x)||0}
+    for(const q of G.P)for(const y of [...q.field,...(q.pLoc==="area"?[q.partner]:[])]){const e=def(y);if(e&&e.apAura&&(y!==q.partner||e.partnerToo))b+=e.apAura(q,y,x)||0}
     return b},
   keepStun(p){return opp(p).field.some(y=>idOf(y)==="0301"&&partnerIs(opp(p),"白"))}, // 怪盗キッド B03046
   canGuardSleeping:x=>!!(def(x)&&def(x).guardWhileSleeping),

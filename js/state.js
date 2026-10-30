@@ -16,7 +16,7 @@ function caseLevel(p,first){
 }
 function colorsOf(s){return [...(s||"")].filter(ch=>COLOR_VAR[ch])}
 function apOf(x){const c=C(x);return (c.ap||0)+x.apM+x.apT+x.apC+(x.apA||0)+(window.FX?FX.apBonus(x):0)}
-function lpOf(x){const c=C(x);return (c.lp||0)+x.lpM+x.lpT}
+function lpOf(x){const c=C(x);return (c.lp||0)+x.lpM+x.lpT+(window.FX&&FX.lpBonus?FX.lpBonus(x):0)}
 function ownerOf(x){for(const p of G.P){if(p.field.includes(x)||p.partner===x||p.hand.includes(x)||p.caseC===x||p.file.includes(x)||p.ev.includes(x)||p.rm.includes(x)||p.deck.includes(x))return p}return null}
 function zoneOf(x){const p=ownerOf(x);if(!p)return null;
   if(p.partner===x)return p.pLoc==="file"?"file":"partner";
@@ -80,6 +80,9 @@ function ownCutinAp(x,p){
     while((m=s.match(/^【([^】]+)】/))){const r=condOk(m[1],p);if(r===false)ok=false;s=s.slice(m[0].length)}
     if(!ok)continue;
     const a=s.match(/^AP[＋+](\d+)/);if(a)best=Math.max(best||0,+a[1]);
+    // 世良真純 B10058: 自分の手札が2枚以下の場合、代わりにAP＋3000（このカードは手札に数えない）
+    const h=s.match(/^AP[＋+]\d+、自分の手札が(\d)枚以下の場合、代わりにAP[＋+](\d+)/);
+    if(h&&p.hand.filter(y=>y!==x).length<=+h[1])best=Math.max(best||0,+h[2]);
     // 犯人 PR158: リムーブエリアにある［犯人］1枚につきAP＋2000（このカードも含める）
     const b=s.match(/^自分のリムーブエリアにある〚カード名［([^］]+)］〛1枚につき、AP[＋+](\d+)（このカードも含める）/);
     if(b)best=Math.max(best||0,+b[2]*(p.rm.filter(y=>y!==x&&C(y).nm===b[1]).length+1));
