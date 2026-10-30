@@ -15,14 +15,16 @@ function caseLevel(p,first){
   if(!m)return 7;return first?+m[1]:+m[2];
 }
 function colorsOf(s){return [...(s||"")].filter(ch=>COLOR_VAR[ch])}
-function apOf(x){const c=C(x);return (c.ap||0)+x.apM+x.apT+x.apC+(window.FX?FX.apBonus(x):0)}
-function lpOf(x){const c=C(x);return (c.lp||0)+x.lpM+x.lpT}
+function apOf(x){const c=C(x);return (c.ap||0)+x.apM+x.apT+x.apC+(x.apA||0)+(window.FX?FX.apBonus(x):0)}
+function lpOf(x){const c=C(x);return (c.lp||0)+x.lpM+x.lpT+(window.FX&&FX.lpBonus?FX.lpBonus(x):0)}
 function ownerOf(x){for(const p of G.P){if(p.field.includes(x)||p.partner===x||p.hand.includes(x)||p.caseC===x||p.file.includes(x)||p.ev.includes(x)||p.rm.includes(x)||p.deck.includes(x))return p}return null}
 function zoneOf(x){const p=ownerOf(x);if(!p)return null;
   if(p.partner===x)return p.pLoc==="file"?"file":"partner";
   for(const z of ["field","hand","file","ev","rm","deck"])if(p[z].includes(x))return z;
   if(p.caseC===x)return "case";return null}
-function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","hand","file","ev","rm","deck"]){const i=p[z].indexOf(x);if(i>=0){p[z].splice(i,1);return p}}return p}
+function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","hand","file","ev","rm","deck"]){const i=p[z].indexOf(x);if(i>=0){p[z].splice(i,1);
+  if(z==="rm"&&G&&G.queue&&C(x).t==="キャラ")G.queue.push({rmLeft:true,x,p}); // リムーブエリアから離れたときの効果（effects.js の onLeave）
+  return p}}return p}
 
 // 条件タグの判定
 function condOk(tag,p){
@@ -54,7 +56,7 @@ function staticKw(x,p){
     if(/^このキャラは[^「」（]*ガードできない/.test(s))out.noGuard=true;
     if(/^このキャラはスリープ状態でもガードできる/.test(s))out.guardSleep=true;
   }
-  for(const k of x.kw){if(k==="突撃")out.rush=true;if(k==="突撃［キャラ］")out.rushC=true;if(k==="突撃［事件］")out.rushE=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true;if(k==="必ずガード")out.mustGuard=true}
+  for(const k of [...x.kw,...(window.FX&&FX.kwExtra?FX.kwExtra(x,p):[])]){if(k==="突撃")out.rush=true;if(k==="突撃［キャラ］")out.rushC=true;if(k==="突撃［事件］")out.rushE=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true;if(k==="必ずガード")out.mustGuard=true}
   return out;
 }
 // カットインのAP。他のカードから与えられたカットイン（工藤新一 B07003 など）も含めて一番大きい値
@@ -80,6 +82,23 @@ function ownCutinAp(x,p){
     while((m=s.match(/^【([^】]+)】/))){const r=condOk(m[1],p);if(r===false)ok=false;s=s.slice(m[0].length)}
     if(!ok)continue;
     const a=s.match(/^AP[＋+](\d+)/);if(a)best=Math.max(best||0,+a[1]);
+    // 世良真純 B10058: 自分の手札が2枚以下の場合、代わりにAP＋3000（このカードは手札に数えない）
+    const h=s.match(/^AP[＋+]\d+、自分の手札が(\d)枚以下の場合、代わりにAP[＋+](\d+)/);
+    if(h&&p.hand.filter(y=>y!==x).length<=+h[1])best=Math.max(best||0,+h[2]);
+    // 犯人 PR158: リムーブエリアにある［犯人］1枚につきAP＋2000（このカードも含める）
+    const b=s.match(/^自分のリムーブエリアにある〚カード名［([^］]+)］〛1枚につき、AP[＋+](\d+)（このカードも含める）/);
+    if(b)best=Math.max(best||0,+b[2]*(p.rm.filter(y=>y!==x&&C(y).nm===b[1]).length+1));
+    // 黒田兵衛 B05095: 自分の現場にいる［特徴］のキャラ1枚につき
+    const t=s.match(/^自分の現場にいる〚特徴［([^］]+)］〛のキャラ1枚につき、AP[＋+](\d+)/);
+    if(t)best=Math.max(best||0,+t[2]*p.field.filter(y=>(C(y).ct||"").split(",").includes(t[1])).length);
+    // 〚カード名［A］〛か〚［B］〛／〚特徴［T］〛のキャラ に【カットイン】する場合（今コンタクトしている自分のキャラで判定）
+    const mine=G&&G.contact&&(p.field.includes(G.contact.a)?G.contact.a:G.contact.d);
+    const u=s.match(/^((?:〚(?:カード名)?［[^］]+］〛か?)+)に【カットイン】する場合、AP[＋+](\d+)/);
+    if(u&&mine&&[...u[1].matchAll(/［([^］]+)］/g)].some(m=>C(mine).nm.includes(m[1])))best=Math.max(best||0,+u[2]);
+    const v=s.match(/^〚特徴［([^］]+)］〛のキャラに【カットイン】する場合、AP[＋+](\d+)/);
+    const w=s.match(/【(青|赤|黄|緑|白|黒)】のキャラに【カットイン】する場合、AP[＋+](\d+)/); // バーボン PR087（効果の後ろに続く）
+    if(w&&mine&&(C(mine).c||"").includes(w[1]))best=Math.max(best||0,+w[2]);
+    if(v&&mine&&(C(mine).ct||"").split(",").includes(v[1]))best=Math.max(best||0,+v[2]);
   }
   return best;
 }

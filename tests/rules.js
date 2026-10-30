@@ -112,3 +112,4 @@ module.exports=[
     await w.cpuTurn(G.P[0]);
     assert.strictEqual(G.P[0].pLoc,"file");assert.ok(!G.P[0].hand.some(x=>x.n==="B04013"))}],
 ];
+module.exports.board=board; // tests/effects.js でも使う
