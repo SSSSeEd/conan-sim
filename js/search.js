@@ -15,12 +15,17 @@ function evalState(me){
   return ev(p)-ev(o)+side(p)-side(o)+(p.hand.length-o.hand.length)*12+(Math.min(p.file.length,9)-Math.min(o.file.length,9))*6;
 }
 // 試す組み合わせ: 今のCPUのまま / 出せるカードそれぞれ / 何も出さない × ネクストヒントあり・なし
+// アシストしてから出せるカードも試す（plan.assist）。最初の手番は何も出さない組み合わせを試さない（SeEd: 1ターン目は使えるなら使う）
 function turnPlans(p){
-  const base=[{}],seen=new Set();
+  const base=[{}],seen=new Set();const ok=x=>C(x).t==="キャラ"||FX.eventAi(p,x);
   for(const x of p.hand){
-    if(seen.has(x.n)||playableReason(p,x,false)||!(C(x).t==="キャラ"||FX.eventAi(p,x)))continue;
+    if(seen.has(x.n)||playableReason(p,x,false)||!ok(x))continue;
     seen.add(x.n);base.push({play:x.n})}
-  base.push({play:"none"});
+  if(ai2(p,"assist2")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
+    p.file.push(p.partner);
+    for(const x of p.hand){if(seen.has(x.n)||playableReason(p,x,false)||!ok(x))continue;seen.add(x.n);base.push({play:x.n,assist:1})}
+    p.file.pop()}
+  if(!(ai2(p,"assist2")&&G.turnNo<=2&&base.length>1))base.push({play:"none"});
   return base.flatMap(pl=>[pl,{...pl,hint:false}]);
 }
 // 盤面をコピーして1つの組み合わせを試す。終わったら元の盤面に戻す

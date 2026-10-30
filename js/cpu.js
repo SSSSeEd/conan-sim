@@ -89,12 +89,15 @@ async function cpuTurn(p){
       return v};
     return cs.sort((a,b)=>score(b)-score(a))[0]||null};
   // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする
+  // SeEd: 「烏丸蓮耶の影」「小さくなった名探偵」のようにFILEの枚数で出せるレベルが決まるイベントも、先にアシストしてから使う
+  const fileEv=x=>!!x&&C(x).t==="イベント"&&/手札から自分のFILEエリアの枚数以下のレベル/.test(C(x).f||"");
+  const planned=()=>plan.play==="none"?null:plan.play?p.hand.find(x=>x.n===plan.play&&!playableReason(p,x,false))||best(false):best(false);
   if(ai2(p,"assist")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
     const lvOf=x=>x?(C(x).lv||0):-1;const now=best(false);
     p.file.push(p.partner);const after=best(false);p.file.pop();
-    if(after&&lvOf(after)>lvOf(now)){await assist(p);await step()}
+    if(plan.assist||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
   }
-  let pick1=plan.play==="none"?null:plan.play?p.hand.find(x=>x.n===plan.play&&!playableReason(p,x,false))||best(false):best(false);
+  let pick1=planned();
   if(pick1){await useFromHand(p,pick1);await step()}
   if(G.over)return;
   const fileCards=()=>p.file.filter(x=>x!==p.partner).length;

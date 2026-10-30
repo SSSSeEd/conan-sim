@@ -249,8 +249,8 @@ html.compact.portrait #guide br{display:none}
 html.compact.portrait #log{height:38px}
 html.compact.portrait.logopen #log{position:fixed;left:8px;right:8px;top:calc(46px + env(safe-area-inset-top,0px));height:62vh;z-index:40;box-shadow:0 10px 40px rgba(0,0,0,.7);border-color:var(--manila)}
 html.compact.portrait .fab{position:fixed;right:max(10px,env(safe-area-inset-right,0px));z-index:26;box-shadow:0 4px 14px rgba(0,0,0,.55)}
-html.compact.portrait .tb-end{bottom:calc(132px + env(safe-area-inset-bottom,0px));width:70px;height:70px;border-radius:50%!important;padding:0!important;font-size:12px!important;font-weight:700;line-height:1.2}
-html.compact.portrait .tb-hint{bottom:calc(210px + env(safe-area-inset-bottom,0px));border-radius:999px!important;padding:8px 10px!important;font-size:11px!important;background:#1d3446}
+html.compact.portrait .tb-end{bottom:calc(232px + env(safe-area-inset-bottom,0px));width:70px;height:70px;border-radius:50%!important;padding:0!important;font-size:12px!important;font-weight:700;line-height:1.2}
+html.compact.portrait .tb-hint{bottom:calc(310px + env(safe-area-inset-bottom,0px));border-radius:999px!important;padding:8px 10px!important;font-size:11px!important;background:#1d3446}
 html.compact.portrait .fab:disabled{opacity:.35}
 /* 手札は画面下に扇形 */
 html.compact.portrait .side.me .hand{position:fixed;left:0;right:0;bottom:0;z-index:25;height:calc(120px + env(safe-area-inset-bottom,0px));
