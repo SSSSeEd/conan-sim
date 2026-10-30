@@ -5,8 +5,9 @@
 - `index.html` 本体（PCとスマホで画面が自動で切り替わる）
 - `style.css` 見た目
 - `js/` プログラム（index.html が読み込む）
-  - ゲーム処理: `state.js`（盤面とルールの判定）/ `engine.js`（進行）/ `cpu.js` `search.js`（CPU）/ `effects.js`（カード効果）。document には触らない
+  - ゲーム処理: `state.js`（盤面とルールの判定）/ `engine.js`（進行）/ `cpu.js` `search.js`（CPU）/ `effects/`（カード効果、下記）。document には触らない
   - 画面: `ui.js`（盤面）/ `dialogs.js`（通知・選択の画面）/ `show.js`（演出）/ `setup.js`（デッキ選択）
+  - `effects/` カード効果。色ごとのファイル（`white.js` `black.js` `blue.js` `red.js` `yellow.js` `green.js` など）に `DEF["カードID"]={...}` を足す。共通の部品は `core.js`、効果文から自動で組み立てる処理は `auto.js`、本体から呼ばれる入口は `hooks.js`。読み込む順は index.html のとおり
   - データ: `cards.js`（カード）/ `decks.js` `data.js`（デッキ）
 - `img/*.json` 縮小したカード画像（パック単位）
 - `manifest.json` `sw.js` `icons/` Webアプリ・オフライン用（sw.js はアプリ全体を見るため一番上に置く）
