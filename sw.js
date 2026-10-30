@@ -2,7 +2,7 @@
 // V はキャッシュの名前。本体はいつもネット優先で取り直すので、ファイルを更新しても V を上げる必要はない
 // （このファイルのキャッシュの仕組みを変えたときだけ上げる）
 const V="v18";
-const CORE=["./", "index.html", "style.css", "js/data.js", "js/state.js", "js/engine.js", "js/cpu.js", "js/search.js", "js/dialogs.js", "js/show.js", "js/ui.js", "js/setup.js", "js/cards.js", "js/effects.js", "js/decks.js", "manifest.json", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-180.png"];
+const CORE=["./", "index.html", "style.css", "js/data.js", "js/state.js", "js/engine.js", "js/cpu.js", "js/search.js", "js/dialogs.js", "js/show.js", "js/ui.js", "js/setup.js", "js/cards.js", "js/effects/core.js", "js/effects/breakers.js", "js/effects/soccer.js", "js/effects/white.js", "js/effects/black.js", "js/effects/blue.js", "js/effects/blue-black.js", "js/effects/red.js", "js/effects/yellow.js", "js/effects/green.js", "js/effects/misc.js", "js/effects/auto.js", "js/effects/hooks.js", "js/decks.js", "manifest.json", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-180.png"];
 const IMGS=["img/A-01.json", "img/A-02.json", "img/A-03.json", "img/CT-D01.json", "img/CT-D02.json", "img/CT-D03.json", "img/CT-D04.json", "img/CT-D05.json", "img/CT-D06.json", "img/CT-D07.json", "img/CT-D08.json", "img/CT-D09.json", "img/CT-D10.json", "img/CT-D11.json", "img/CT-P01.json", "img/CT-P02.json", "img/CT-P03.json", "img/CT-P04.json", "img/CT-P05.json", "img/CT-P06.json", "img/CT-P07.json", "img/CT-P08.json", "img/CT-P09.json", "img/CT-P10.json", "img/CT-P11.json", "img/PR.json", "img/SP.json"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil((async()=>{

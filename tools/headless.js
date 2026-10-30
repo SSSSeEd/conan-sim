@@ -4,7 +4,9 @@
 // ゲーム処理のファイルが画面（document）に触ると、ここで document が無いのでエラーになる（分け方が崩れていないかの確認を兼ねる）
 const fs=require("fs"),path=require("path"),vm=require("vm");
 const ROOT=path.resolve(__dirname,"..");
-const FILES=["cards.js","effects.js","decks.js","data.js","state.js","engine.js","cpu.js","search.js"];
+// 読み込むファイルは index.html の並びのまま（画面側の4つだけ除く）。ファイルを足したら index.html と sw.js に書けばよい
+const UI_FILES=["js/ui.js","js/dialogs.js","js/show.js","js/setup.js"];
+const FILES=[...fs.readFileSync(path.join(ROOT,"index.html"),"utf8").matchAll(/<script src="([^"]+)"/g)].map(m=>m[1]).filter(f=>!UI_FILES.includes(f));
 // 画面側（ui.js / dialogs.js / show.js）の関数のうち、ゲーム処理から呼ばれるもの
 const UI_STUB=`
 function render(){}function uiLog(){}function logCount(){return 0}function uiNewGame(){}function uiUndo(){}function showEndMenu(){}
@@ -23,7 +25,7 @@ function load({seed=1,files=FILES,init={}}={}){
   w.window=w;w.self=w;w.globalThis=w;
   const ctx=vm.createContext(w);
   vm.runInContext("Math.random=__rnd",Object.assign(ctx,{__rnd:rnd}));
-  for(const f of files)vm.runInContext(fs.readFileSync(path.join(ROOT,"js",f),"utf8"),ctx,{filename:f});
+  for(const f of files)vm.runInContext(fs.readFileSync(path.join(ROOT,f),"utf8"),ctx,{filename:f});
   vm.runInContext(UI_STUB,ctx,{filename:"headless-ui"});
   // let/const で宣言された G などはグローバルのプロパティにならないので、取り出し口を作る
   vm.runInContext("globalThis.__G=()=>G;globalThis.__setG=v=>{G=v}",ctx);
