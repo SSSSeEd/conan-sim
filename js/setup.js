@@ -11,7 +11,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
     ${[0,1].map(i=>`<div class="box"><b>${i===0?"あなた（下側）":"相手（上側）"}</b>
       <div class="row"><input id="nm${i}" value="${esc(saved["nm"+i]||(i?"相手":"あなた"))}" size="10" aria-label="名前">
       ${i===1?`<label><input type="checkbox" id="cpu1" ${saved.cpu1===false?"":"checked"}> CPUが操作</label>`:`<label><input type="checkbox" id="cpu0"> CPUが操作（観戦）</label>`}</div>
-      <div class="row"><select id="ps${i}" aria-label="デッキ一覧">${deckGroups().map(([lab,g,a])=>a.length?`<optgroup label="${esc(lab)}">${a.map((d,k)=>`<option value="${g}:${k}" ${g==="p"&&k===(i?1:0)?"selected":""}>${esc(d.name)}</option>`).join("")}</optgroup>`:"").join("")}</select><button data-s="${i}">このデッキを使う</button></div>
+      <div class="row"><select id="ps${i}" aria-label="デッキ一覧">${deckOptions(i,i===1?saved.cpu1!==false:false)}</select><button data-s="${i}">このデッキを使う</button></div>
       <div class="row">
         <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button></div>
       <div class="row"><input id="sh${i}" placeholder="共有ID 例: X3zM3U7m" size="16"><button data-f="${i}">conan-tcg-appから読込</button></div>
@@ -27,12 +27,17 @@ function showSetup(){document.documentElement.classList.remove("spectate");
   renderRecords();renderMyDecks();
   const rs=document.getElementById("resume");if(rs)rs.onclick=()=>{const v=loadSave();if(v)resumeGame(v);else showSetup()};
   const rd=document.getElementById("resumeDel");if(rd)rd.onclick=async()=>{if(await ask("途中の対戦を消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){clearSave();showSetup()}};
+  const isCpu=i=>document.getElementById("cpu"+i).checked;
   const chk=i=>{const d=parseDeckText(document.getElementById("dk"+i).value);const w=[...d.errors,...validateDeck(d)];const m=document.getElementById("dm"+i);
+    if(!w.length&&isCpu(i)&&!cpuReady(d)){const r=autoRate(d);
+      w.push(`CPUは効果がすべて自動で処理されるデッキだけ使えます（このデッキは ${r.pct}%）。未自動化: ${[...new Set(r.ng.map(c=>c.nm))].join("、")}`)}
     if(w.length){m.className="dmsg bad";m.textContent=w.join("\n")}else{m.className="dmsg good";m.textContent=`OK: ${C({n:d.partner}).nm} / ${C({n:d.caseN}).nm} / 40枚`}return {d,w}};
   for(const i of [0,1]){
     const ta=document.getElementById("dk"+i);ta.oninput=()=>chk(i);chk(i);
     S.querySelector(`[data-s="${i}"]`).onclick=()=>{const d=deckByKey(document.getElementById("ps"+i).value);if(d){ta.value=d.text;chk(i)}};
     document.getElementById("ps"+i).onchange=()=>S.querySelector(`[data-s="${i}"]`).click();
+    document.getElementById("cpu"+i).onchange=()=>{const ps=document.getElementById("ps"+i),v=ps.value;ps.innerHTML=deckOptions(i,isCpu(i));
+      if([...ps.options].some(o=>o.value===v))ps.value=v;chk(i)};
     S.querySelector(`[data-r="${i}"]`).onclick=()=>{ta.value=randomDeck(document.getElementById("rc"+i).value).text;chk(i)};
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=document.getElementById("sh"+i).value.trim().replace(/.*deck\//,"");const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
@@ -41,11 +46,16 @@ function showSetup(){document.documentElement.classList.remove("spectate");
   document.getElementById("go").onclick=()=>{
     const a=chk(0),b=chk(1);
     if(!a.d.partner||!a.d.caseN||!b.d.partner||!b.d.caseN||a.d.main.length<10||b.d.main.length<10){toast("デッキを確認してください");return}
+    if([a,b].some((x,i)=>isCpu(i)&&!cpuReady(x.d))){toast("CPUのデッキは効果がすべて自動のものにしてください");return}
     const cfg={decks:[a.d,b.d],names:[document.getElementById("nm0").value||"あなた",document.getElementById("nm1").value||"相手"],cpu:document.getElementById("cpu1").checked,cpu0:document.getElementById("cpu0").checked,first:document.getElementById("first").value};
     try{localStorage.setItem("conan-sim-setup",JSON.stringify({nm0:cfg.names[0],nm1:cfg.names[1],dk0:document.getElementById("dk0").value,dk1:document.getElementById("dk1").value,cpu1:cfg.cpu}))}catch(e){}
     startGame(cfg);
   };
 }
+// デッキ一覧。CPUが操作する席には、効果がすべて自動で処理されるデッキだけ出す
+function deckOptions(i,cpuOnly){
+  return deckGroups().map(([lab,g,a])=>{const o=a.map((d,k)=>[d,k]).filter(([d])=>!cpuOnly||cpuReady(parseDeckText(d.text)));
+    return o.length?`<optgroup label="${esc(lab)}">${o.map(([d,k])=>`<option value="${g}:${k}" ${g==="p"&&k===(i?1:0)?"selected":""}>${esc(d.name)}</option>`).join("")}</optgroup>`:""}).join("")}
 // 途中の対戦（接続切れ・リロードで中断したもの）
 function saveLabel(s){const m=s.meta,d=new Date(s.at);
   return `${m.turnNo}ターン目（${m.turnName}の番）・${m.names[0]}（${m.decks[0]}） vs ${m.names[1]}（${m.decks[1]}）・${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}

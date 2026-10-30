@@ -14,6 +14,8 @@ process.on("unhandledRejection",e=>{console.log("FAIL 対戦中のエラー\n   
     for(const f of used)assert.ok(core.includes(f),`${f} が CORE にない`)});
   await ok(`デッキ ${decks.length}個が読める`,()=>{for(const d of decks){const r=w.parseDeckText(d.text);
     assert.ok(!r.errors.length,`${d.name}: ${r.errors.join(" / ")}`);assert.ok(r.partner&&r.caseN,`${d.name}: パートナーか事件がない`)}});
+  await ok("相手（CPU）の最初のデッキが、CPUの使える自動化100%のデッキ",()=>{
+    assert.ok(w.cpuReady(w.parseDeckText(w.ev("PRESETS")[1].text)),w.ev("PRESETS")[1].name)});
   await ok(`CPU同士 ${N}戦（探索あり・なし）`,async()=>{let draws=0;
     for(let i=0;i<N;i++){const a=decks[i%decks.length],b=decks[(i*7+3)%decks.length];
       const r=await H.play(w,{decks:[w.parseDeckText(a.text),w.parseDeckText(b.text)],search:[i%2===0,i%3===0]}).catch(e=>{throw new Error(`${i}戦目 ${a.name} vs ${b.name}: ${e.stack}`)});
