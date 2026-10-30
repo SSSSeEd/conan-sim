@@ -273,6 +273,7 @@ function solve(p){
 }
 function canAct(x,p,kind){ // kind: reason|chara|case
   if(x.st!=="a")return false;
+  if(kind==="reason"&&x.kw.includes("推理不可"))return false;
   if(x===p.partner)return kind==="reason"&&p.pLoc==="area";
   if(!x.fresh)return true;
   const k=staticKw(x,p);

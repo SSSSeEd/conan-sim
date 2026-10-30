@@ -964,6 +964,78 @@ DEF["0911"]={ // 降谷零 B08074
     log(`　［${t}］を指定`,"n");const n=investigate(p,3).filter(y=>hasTrait(y,t)).length;
     if(n>=1)giveKw(x,"突撃［キャラ］");if(n>=2)giveKw(x,"突撃");if(n>=3)giveKw(x,"迅速")}};
 
+// --- 白（工藤家・盗一） ---
+const YUSAKU=named("工藤優作");
+DEF["0981"]={ // 黒羽盗一 B09038
+  disguise:async p=>{await pickRmToHand(p,YUSAKU,"手札に加える［工藤優作］")},
+  enter:async(p,x)=>{const f=y=>isChar(y)&&YUSAKU(y)&&lvOf(y)<=6;if(!p.hand.some(f)||p.field.length>=5||!await yes(p,"登場時","このキャラをスリープさせて、手札からレベル6以下の［工藤優作］を登場させますか？",true))return;
+    sleepC(x);const y=await playFromHand(p,f);if(y&&p.field.includes(y))setTop(p,y);drawN(p,1)}};
+DEF["0980"]={ // 工藤優作 B09037
+  apSelf:p=>myTurn(p)&&condOk("絆黒羽盗一",p)?1000:0,
+  enter:async(p,x)=>{if(condOk("絆工藤有希子",p))giveKw(x,"突撃［事件］")}};
+DEF["0872"]={ // 工藤有希子 B08033
+  enter:async(p,x)=>{for(let i=0;i<p.field.length;i++)setTop(p,x)},
+  abilities:[{label:"セットされた裏向きのカードを2枚リムーブ: 【白】のキャラをAP＋2000＋突撃［キャラ］",turn2:true,
+    can:(p,x)=>partnerIs(p,"白")&&turnCount(x,"yk")<2&&setTotal(p.field)>=2,aiCan:p=>myTurn(p)&&p.field.some(y=>hasColor(y,"白")&&y.st==="a")&&opp(p).field.some(y=>y.st!=="a"),
+    run:async(p,x)=>{useTurn(x,"yk");for(let i=0;i<2;i++){const cs=p.field.filter(y=>faceDownSet(y).length);const [y]=await pickCards(p,"コスト: 裏向きのカードをリムーブするキャラ","",cs,{min:1,max:1});if(!y)return false;removeSetCost(p,y)}
+      const t=await chooseChar(p,"AP＋2000と突撃［キャラ］を与える【白】のキャラ",y=>!isOpp(p,y)&&hasColor(y,"白"),{ai:cs=>cs.filter(y=>y.st==="a").sort((a,b)=>apOf(b)-apOf(a)).slice(0,1)});if(t){apTurn(t,2000);giveKw(t,"突撃［キャラ］")}return true}}]};
+DEF["0875"]={ // クリス・ヴィンヤード B08036
+  abilities:[{label:"【スリープ】［工藤有希子］をセット: レベル7以下をデッキの下へ",can:(p,x)=>x.st==="a"&&p.rm.some(named("工藤有希子")),aiCan:p=>oppHas(p,y=>lvOf(y)>=4&&lvOf(y)<=7),
+    run:async(p,x)=>{sleepCost(x);const [y]=await pickCards(p,"裏向きでセットする［工藤有希子］","",p.rm.filter(named("工藤有希子")),{max:1,ai:c=>c.slice(0,1)});if(!y)return true;
+      detach(y);x.set.push({c:y,up:false});log(`　${C(x).nm} に ${C(y).nm} を裏向きでセット`,"n");await runQueue();await bottomChar(p,z=>z!==x&&lvLe(7)(z));return true}}]};
+DEF["0554"]={ // 工藤優作 B05052
+  apSelf:p=>myTurn(p)&&condOk("絆工藤有希子",p)?3000:0,
+  kwSelf:p=>myTurn(p)&&condOk("絆工藤有希子",p)?["突撃"]:[],
+  abilities:[{label:"手札かセットされたカードを1枚リムーブ: リムーブエリアのレベル3以下を登場",turn1:true,can:p=>condOk("絆工藤新一",p)&&p.field.length<5&&(p.hand.length>0||setTotal(allChars())>0)&&p.rm.some(y=>isChar(y)&&lvOf(y)<=3),
+    run:async p=>{if(setTotal(allChars())>0&&(p.cpu||await ask(`${p.name}: コスト`,"",[{label:"セットされたカードをリムーブ",value:true,primary:true},{label:"手札をリムーブ",value:false}]))){if(!await removeAnySet(p,"コスト: 裏向きのカードをリムーブするキャラ"))return false}
+      else await discard(p,1);await enterFromRm(p,y=>lvOf(y)<=3,"登場させるキャラ（レベル3以下）");return true}}]};
+
+// --- 赤（FBI・赤井家 その2） ---
+DEF["0697"]={ // ジョディ・スターリング B06077
+  actionEnd:async(p,x)=>{const f=y=>hasTrait(y,"FBI")&&lvOf(y)<=6;if(p.file.length<6||!p.field.includes(x)||!p.hand.some(y=>isChar(y)&&f(y)))return;
+    if(!await yes(p,"アクション終了時","このキャラをリムーブして、手札からレベル6以下の［FBI］を登場させますか？",true))return;removeCard(x,"自分の効果",{by:p,effect:true});await runQueue();await playFromHand(p,f)}};
+DEF["0996"]={ // 赤井秀一&世良真純 B09054
+  abilities:[{label:"AP9000以下をリムーブ",turn1:true,can:(p,x)=>p.field.filter(y=>hasTrait(y,"赤井家")).length>=3&&allChars().some(y=>y!==x&&apOf(y)<=9000),aiCan:p=>oppHas(p,y=>apOf(y)<=9000&&lvOf(y)>=5),
+    run:async(p,x)=>{await rmChar(p,y=>y!==x&&apLe(9000)(y));return true}},
+    {label:"［赤井家］に「スリープ状態でもガードできる」を与える",turn1:true,partner:true,can:p=>p.field.some(y=>y.st==="a"&&hasTrait(y,"赤井家")),aiCan:p=>myTurn(p)&&p.field.some(y=>y.st==="a"&&hasTrait(y,"赤井家")&&!canAct(y,p,"chara")),
+    run:async p=>{const t=await chooseChar(p,"能力を与える［赤井家］",y=>!isOpp(p,y)&&y.st==="a"&&hasTrait(y,"赤井家"),{ai:cs=>cs.sort((a,b)=>apOf(b)-apOf(a)).slice(0,1)});
+      if(t){t.guardT=G.turnNo+1;log(`　${C(t).nm} は相手のターン終了時までスリープ状態でもガードできる`,"n")}return true}}]};
+DEF["0795"]={ // 赤井秀一 B07066
+  onAllyEnter:async(p,self,y)=>{if(y===self||!myTurn(p)||turnCount(self,"ak")||!hasTrait(y,"赤井家")||lvOf(y)>7||!oppHas(p,apLe(8000)))return;useTurn(self,"ak");await rmChar(p,z=>z!==self&&apLe(8000)(z))},
+  abilities:[{label:"［赤井家］をスリープ: デッキの上から3枚見て［赤井家］を手札に",turn1:true,can:p=>p.deck.length>0&&p.field.some(y=>y.st==="a"&&hasTrait(y,"赤井家")),aiCan:p=>p.field.some(y=>y.st==="a"&&hasTrait(y,"赤井家")&&!canAct(y,p,"chara")),
+    run:async(p,x)=>{const cs=p.field.filter(y=>y.st==="a"&&(y===x||hasTrait(y,"赤井家")));const [c]=await pickCards(p,"コスト: スリープさせるキャラ","",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>canAct(a,p,"chara")-canAct(b,p,"chara"))});if(!c)return false;
+      sleepC(c);await searchTop(p,3,y=>isChar(y)&&hasTrait(y,"赤井家"),1,"［赤井家］のキャラを1枚まで手札に",1);return true}}]};
+DEF["0997"]={ // 世良真純 B09055
+  enter:async(p,x)=>{await rmChar(p,y=>y!==x&&lvLe(7)(y))},
+  abilities:[{label:"【スリープ】手札の［赤井秀一］をリムーブ: このキャラをリムーブして［赤井秀一&世良真純］を登場",
+    can:(p,x)=>partnerIs(p,"赤")&&p.file.length>=8&&x.st==="a"&&p.hand.some(named("赤井秀一"))&&p.rm.some(y=>isChar(y)&&idOf(y)==="0996"),
+    run:async(p,x)=>{sleepCost(x);await discard(p,1,"リムーブする［赤井秀一］",p,named("赤井秀一"));removeCard(x,"自分の効果",{by:p,effect:true});await runQueue();
+      await enterFromRm(p,y=>idOf(y)==="0996","登場させる［赤井秀一&世良真純］");return true}}]};
+DEF["0884"]={ // 赤井秀一＆ジョディ・スターリング B08046
+  abilities:[{label:"レベル9以下をリムーブ",turn1:true,can:(p,x)=>partnerIs(p,"赤")&&p.field.filter(y=>hasTrait(y,"FBI")).length>=2&&allChars().some(y=>y!==x&&lvOf(y)<=9),aiCan:p=>oppHas(p,y=>lvOf(y)>=5&&lvOf(y)<=9),
+    run:async(p,x)=>{await rmChar(p,y=>y!==x&&lvLe(9)(y));return true}},
+    {label:"手札の［FBI］をリムーブ: 1枚引く（レベル8以上ならもう1枚）",turn1:true,partner:true,can:p=>p.hand.some(y=>isChar(y)&&hasTrait(y,"FBI")),aiCan:p=>p.hand.some(y=>isChar(y)&&hasTrait(y,"FBI")&&lvOf(y)>=8&&lvOf(y)>p.file.length+2),
+    run:async p=>{const [y]=await discard(p,1,"リムーブする［FBI］",p,y=>isChar(y)&&hasTrait(y,"FBI"));drawN(p,y&&(C(y).lv||0)>=8?2:1);return true}}]};
+DEF["0933"]={ // メアリー PR235
+  enter:async p=>{const f=y=>isChar(y)&&hasColor(y,"赤")&&hasTrait(y,"赤井家");if(!p.hand.some(f)||!await yes(p,"登場時","手札の【赤】の［赤井家］を1枚リムーブして、2枚引きますか？",()=>p.hand.filter(f).length>=2))return;
+    await discard(p,1,"リムーブする［赤井家］",p,f);drawN(p,2)}};
+
+// --- 黄・緑 その他 ---
+DEF["1012"]={ // 横溝重悟 B09072
+  enter:async p=>{if(p.galeFired===G.turnNo){millSelf(p,2);drawN(p,1)}},
+  abilities:[{label:"【スリープ】手札1枚リムーブ: ［神奈川県警］をアクティブに（推理できない）",turn1:true,can:(p,x)=>x.st==="a"&&p.hand.length>0&&p.field.some(y=>y!==x&&y.st!=="a"&&hasTrait(y,"神奈川県警")),
+    aiCan:p=>myTurn(p)&&p.field.some(y=>y.st!=="a"&&hasTrait(y,"神奈川県警")&&apOf(y)>=6000)&&opp(p).field.some(y=>y.st!=="a"),
+    run:async(p,x)=>{sleepCost(x);await discard(p,1);const t=await chooseChar(p,"アクティブにする［神奈川県警］",y=>!isOpp(p,y)&&hasTrait(y,"神奈川県警"),{ai:cs=>cs.filter(y=>y.st!=="a").sort((a,b)=>apOf(b)-apOf(a)).slice(0,1)});
+      if(t){activateC(t);giveKw(t,"推理不可")}return true}}]};
+DEF["0861"]={apSelf:p=>myTurn(p)&&condOk("絆遠山和葉",p)?2000:0}; // 服部平次 B08021
+DEF["0704"]={ // 松田陣平 B06085（「MRのキャラを選んだ場合」はカードの情報にレアリティが無いので扱わない）
+  abilities:[{label:"【スリープ】: 相手の証拠1つをデッキの下へ、相手のAP8000以下を相手の証拠に",turn1:true,can:(p,x)=>partnerIs(p,"黄")&&x.st==="a"&&(opp(p).ev.length>0||opp(p).field.length>0),aiCan:p=>oppHas(p,apLe(8000)),
+    run:async(p,x)=>{sleepCost(x);const o=opp(p);if(o.ev.length){const e=o.ev.pop();o.deck.push(e);log(`　${o.name} の証拠を1つデッキの下へ`,"n")}
+      const t=await chooseChar(p,"相手の証拠にするキャラ（AP8000以下）",y=>isOpp(p,y)&&apOf(y)<=8000);if(t){for(const s of t.set||[])o.rm.push(s.c);t.set=[];detach(t);resetMods(t);t.up=true;o.ev.push(t);log(`　${C(t).nm} は表向きで ${o.name} の証拠になった`,"n")}return true}}]};
+DEF["0732"]={ // 目暮十三 PR181
+  abilities:[{label:"【スリープ】: リムーブエリアのレベル4以下の［警視庁］を登場（突撃［事件］、ターン終了時にデッキの下へ）",can:(p,x)=>x.st==="a"&&p.field.length<5&&p.rm.some(y=>isChar(y)&&hasTrait(y,"警視庁")&&lvOf(y)<=4),aiCan:p=>myTurn(p)&&opp(p).ev.length>0,
+    run:async(p,x)=>{sleepCost(x);const y=await enterFromRm(p,y=>hasTrait(y,"警視庁")&&lvOf(y)<=4,"登場させる［警視庁］（レベル4以下）");if(y){giveKw(y,"突撃［事件］");giveKw(y,"終了時デッキの下")}return true}}]};
+
 // ================= 効果文から自動で組み立てる（同じ書き方のカードはまとめて処理） =================
 // 1行ずつ型に当てはめる。全部の行が分かったカードだけ「自動」にする（分からない行があれば手動のまま）
 const COLS="青|赤|黄|緑|白|黒";
@@ -1015,7 +1087,7 @@ const LINE_RULES=[
 // 本体で処理している行（キーワード・パートナーの能力・スリープ登場）
 const CORE_LINE=/^(?:【[^】]+】)*(?:〚(?:突撃|迅速|ブレット|ミスリード\d)|【解決編】【事件解決】|【アシスト】|このキャラはスリープ状態で登場する。$|このキャラは(?:スリープ状態でも)?ガードできない。$|このキャラはスリープ状態でもガードできる。$|[^［]+［ID：\d+］はデッキに何枚でも入れることができる。$)/;
 // カットイン（本体の ownCutinAp がAPを足す）。AP＋N のあとに続く効果は cutin フックにする
-const CI_CORE=/^(?:AP[＋+]\d+|自分のリムーブエリアにある〚カード名［[^］]+］〛1枚につき、AP[＋+]\d+（このカードも含める）|自分の現場にいる〚特徴［[^］]+］〛のキャラ1枚につき、AP[＋+]\d+|AP[＋+]\d+、自分の手札が\d枚以下の場合、代わりにAP[＋+]\d+|(?:〚(?:カード名|特徴)?［[^］]+］〛か?)+(?:のキャラ)?に【カットイン】する場合、AP[＋+]\d+)$/;
+const CI_CORE=/^(?:AP[＋+]\d+|自分のリムーブエリアにある〚カード名［[^］]+］〛1枚につき、AP[＋+]\d+(?:（このカードも含める）)?|自分の現場にいる〚特徴［[^］]+］〛のキャラ1枚につき、AP[＋+]\d+|AP[＋+]\d+、自分の手札が\d枚以下の場合、代わりにAP[＋+]\d+|(?:〚(?:カード名|特徴)?［[^］]+］〛か?)+(?:のキャラ)?に【カットイン】する場合、AP[＋+]\d+)$/;
 const CI_RULES=[
   [new RegExp(`^AP[＋+]\\d+、自分の事件が【(${COLS})】以外の色を持たない場合、カードを(\\d)枚引く。$`),m=>({cutin:async p=>{if(colorsOf(C(p.caseC).c).every(ch=>ch===m[1]))drawN(p,+m[2])}})],
   [/^AP[＋+]\d+、〚特徴［([^］]+)］〛のキャラに【カットイン】した場合、カードを(\d)枚引く。$/,m=>({cutin:async(p,card,mine)=>{if(mine&&hasTrait(mine,m[1]))drawN(p,+m[2])}})],
@@ -1075,7 +1147,7 @@ const FX={
     // 【疾風】自分の現場にこのターンで1番に登場したとき
     const first=p.field.includes(x)&&p.galeT!==G.turnNo;if(p.field.includes(x))p.galeT=G.turnNo;
     await FX.enter0(p,x);
-    const d=def(x);if(first&&d&&d.gale&&p.field.includes(x)){await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await d.gale(p,x);render();await runQueue()}
+    const d=def(x);if(first&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await d.gale(p,x);render();await runQueue()}
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyEnter&&p.field.includes(y))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
   async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await d.enter(p,x);render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
   async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await d.event(p,x)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue()},
@@ -1107,7 +1179,8 @@ const FX={
   async actionEnd(p,actor){actor.apA=0;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
   async contactWin(p,winner,victim){const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim));
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyContactWin&&p.field.includes(y))await fxIf(p,y,"コンタクト",()=>e.onAllyContactWin(p,y,winner,victim))}},
-  async endTurn(p){for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
+  async endTurn(p){for(const y of p.field.filter(y=>y.kw.includes("終了時デッキの下")))toDeckBottom(y); // 目暮十三 PR181 が与えた能力
+    for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
     const pd=def(p.partner);if(pd&&pd.endTurn&&pd.partnerToo&&p.pLoc==="area")await fxIf(p,p.partner,"ターン終了時",()=>pd.endTurn(p,p.partner))},
   async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await d.solvedTrigger(p)}},
   async onLeave(info){ // {x,p,turn,by,effect}。rmLeft: リムーブエリアから離れた（諸伏高明 B05087 など）
@@ -1133,7 +1206,7 @@ const FX={
     for(const q of G.P)for(const y of [...q.field,...(q.pLoc==="area"?[q.partner]:[])]){const e=def(y);if(e&&e.apAura&&(y!==q.partner||e.partnerToo))b+=e.apAura(q,y,x)||0}
     return b},
   keepStun(p){return opp(p).field.some(y=>idOf(y)==="0301"&&partnerIs(opp(p),"白"))}, // 怪盗キッド B03046
-  canGuardSleeping:x=>!!(def(x)&&def(x).guardWhileSleeping),
+  canGuardSleeping:x=>!!(def(x)&&def(x).guardWhileSleeping)||(x.guardT||0)>=G.turnNo,
   handLevel(p,x){const d=def(x);return d&&d.handLevel?d.handLevel(p,x):null},
   eraseEvidence:p=>!!(def(p.caseC)&&def(p.caseC).eraseEvidence)&&partnerIs(p,"黒"),
   eventAi(p,x){const d=def(x);return !!(d&&d.event&&(!d.ai||d.ai(p)))},
