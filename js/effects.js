@@ -429,7 +429,13 @@ const LINE_RULES=[
   [/^この事件が解決編に(?:なった|移行した)とき、相手はカードを(\d)枚引く。$/,m=>({solvedTrigger:async p=>drawN(opp(p),+m[1])})],
 ];
 // 本体で処理している行（キーワード・パートナーの能力・スリープ登場）
-const CORE_LINE=/^(?:【[^】]+】)*(?:〚(?:突撃|迅速|ブレット|ミスリード\d)|【解決編】【事件解決】|【アシスト】|このキャラはスリープ状態で登場する。$)/;
+const CORE_LINE=/^(?:【[^】]+】)*(?:〚(?:突撃|迅速|ブレット|ミスリード\d)|【解決編】【事件解決】|【アシスト】|このキャラはスリープ状態で登場する。$|このキャラは(?:スリープ状態でも)?ガードできない。$|このキャラはスリープ状態でもガードできる。$|[^［]+［ID：\d+］はデッキに何枚でも入れることができる。$)/;
+// カットイン（本体の ownCutinAp がAPを足す）。AP＋N のあとに続く効果は cutin フックにする
+const CI_CORE=/^(?:AP[＋+]\d+|自分のリムーブエリアにある〚カード名［[^］]+］〛1枚につき、AP[＋+]\d+（このカードも含める）)$/;
+const CI_RULES=[
+  [new RegExp(`^AP[＋+]\\d+、自分の事件が【(${COLS})】以外の色を持たない場合、カードを(\\d)枚引く。$`),m=>({cutin:async p=>{if(colorsOf(C(p.caseC).c).every(ch=>ch===m[1]))drawN(p,+m[2])}})],
+  [/^AP[＋+]\d+、〚特徴［([^］]+)］〛のキャラに【カットイン】した場合、カードを(\d)枚引く。$/,m=>({cutin:async(p,card,mine)=>{if(mine&&hasTrait(mine,m[1]))drawN(p,+m[2])}})],
+];
 const HR_RULES=[
   [/^カードを(\d)枚引く。$/,m=>async o=>drawN(o,+m[1])],
   [/^キャラを(\d)枚まで選び、スリープさせる。$/,m=>async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}],
@@ -447,12 +453,16 @@ function autoDef(c){
   for(const raw of (c.f||"").split("\n")){const line=raw.trim();if(!line||CORE_LINE.test(line))continue;
     const r=LINE_RULES.find(([re])=>re.test(line));if(!r){ok=false;continue}
     const h=r[1](line.match(r[0]),c);d=merge(d,h);if(r[2])alone=merge(alone,h);any=true}
+  for(const raw of (c.ci||"").split("\n")){const line=raw.trim();if(!line.startsWith("【カットイン】"))continue;
+    const body=line.replace(/^【カットイン】(?:【[^】]+】)*/,"").replace(/（[^）]*）$/,"");
+    if(CI_CORE.test(body))continue;const r=CI_RULES.find(([re])=>re.test(body));if(!r){ok=false;continue}
+    d=merge(d,r[1](body.match(r[0]),c));any=true}
   if(!ok)d=alone; // 分からない行があるカードは、単独で動く行（除去など）だけ自動にする
   if(c.t==="イベント"&&!ok)delete d.event; // イベントは全文が分かるときだけ
   const hr=(c.hr||"").trim().replace(/^【ヒラメキ】(?:（[^）]*）)?/,"");
   if(hr){const r=HR_RULES.find(([re])=>re.test(hr));if(r){d.hirameki=r[1](hr.match(r[0]));any=true}else if(ok&&any)d.partial=true}
   if(!ok&&any)d.partial=true;
-  return any?d:null;
+  return any||ok?d:null; // 本体だけで処理できるカード（突撃だけ、カットインのAPだけなど）は空の定義で「自動」にする
 }
 for(const c of window.CARD_DB){const d=autoDef(c);if(!d)continue;
   if(DEF[c.i]){if(!DEF[c.i].hirameki&&d.hirameki)DEF[c.i].hirameki=d.hirameki}else DEF[c.i]=d} // 手書きの定義にもヒラメキを補う

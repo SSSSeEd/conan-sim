@@ -80,6 +80,9 @@ function ownCutinAp(x,p){
     while((m=s.match(/^【([^】]+)】/))){const r=condOk(m[1],p);if(r===false)ok=false;s=s.slice(m[0].length)}
     if(!ok)continue;
     const a=s.match(/^AP[＋+](\d+)/);if(a)best=Math.max(best||0,+a[1]);
+    // 犯人 PR158: リムーブエリアにある［犯人］1枚につきAP＋2000（このカードも含める）
+    const b=s.match(/^自分のリムーブエリアにある〚カード名［([^］]+)］〛1枚につき、AP[＋+](\d+)（このカードも含める）/);
+    if(b)best=Math.max(best||0,+b[2]*(p.rm.filter(y=>y!==x&&C(y).nm===b[1]).length+1));
   }
   return best;
 }
