@@ -744,6 +744,70 @@ DEF["0913"]={ // 揺れる警視庁 1200万人の人質
       if(!flipEvidence(p,2))return false;toDeckBottom(c);if(!allSato(p))return true;
       const cs=p.rm.filter(y=>isChar(y)&&SATO(y)&&lvOf(y)<=4);const [y]=await pickCards(p,"スリープ状態で登場させるキャラ","",cs,{ai:c=>c.slice(0,1)});if(y)await enterByEffect(p,y,"s");return true}}]};
 
+// --- 黄単長野県警 ---
+const NAGANO=y=>isChar(y)&&hasTrait(y,"長野県警");
+DEF["0234"]={ // 上原由衣 B02073
+  abilities:[{label:"【スリープ】このキャラをリムーブ: ［長野県警］に迅速を与える",can:(p,x)=>x.st==="a"&&p.field.some(y=>y!==x&&hasTrait(y,"長野県警")),aiCan:(p,x)=>myTurn(p)&&p.field.some(y=>y!==x&&y.fresh&&hasTrait(y,"長野県警")&&!canAct(y,p,"chara")),
+    run:async(p,x)=>{const t=await chooseChar(p,"迅速を与える［長野県警］",y=>y!==x&&!isOpp(p,y)&&hasTrait(y,"長野県警"),{ai:cs=>cs.filter(y=>y.fresh).slice(0,1)});x.st="s";removeCard(x,"コスト");await runQueue();if(t)giveKw(t,"迅速");return true}}]};
+DEF["0500"]={ // 大和敢助 D09004
+  lpSelf:p=>myTurn(p)&&condOk("絆諸伏高明",p)?1:0,
+  enter:async(p,x)=>{drawN(p,1);const [y]=await discard(p,1);if(y&&NAGANO(y))await rmChar(p,z=>z!==x&&apLe(8000)(z))}};
+DEF["0509"]={ // 空城の計
+  event:async p=>{const y=await enterFromRm(p,y=>hasTrait(y,"長野県警")&&lvOf(y)<=5,"登場させる［長野県警］（レベル5以下）");if(y)giveKw(y,"突撃")},
+  ai:p=>p.field.length<5&&p.rm.some(y=>NAGANO(y)&&lvOf(y)<=5)};
+DEF["0510"]={ // 死亡の館、赤い壁
+  solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")},
+  abilities:[{label:"証拠3つを表に: ［長野県警］に突撃［キャラ］",turn1:true,can:p=>p.solved&&p.ev.filter(e=>!e.up).length>=3&&p.field.some(y=>hasTrait(y,"長野県警")),
+    aiCan:p=>myTurn(p)&&p.field.some(y=>y.fresh&&y.st==="a"&&hasTrait(y,"長野県警")&&!canAct(y,p,"chara"))&&opp(p).field.some(y=>y.st!=="a"),
+    run:async p=>{if(!flipEvidence(p,3))return false;const t=await chooseChar(p,"突撃［キャラ］を与える［長野県警］",y=>hasTrait(y,"長野県警"),{ai:cs=>cs.filter(y=>!isOpp(p,y)&&y.fresh).slice(0,1)});if(t)giveKw(t,"突撃［キャラ］");return true}}]};
+DEF["0585"]={ // 諸伏高明 B05087
+  onRmLeave:async(p,self,y)=>{if(!partnerIs(p,"黄")||!myTurn(p)||turnCount(self,"kom")||!NAGANO(y)||!oppHas(p,apLe(7000)))return;useTurn(self,"kom");await rmChar(p,z=>z!==self&&apLe(7000)(z))},
+  endTurn:async p=>{const cs=p.rm.filter(y=>NAGANO(y)&&lvOf(y)<=6);if(!cs.length)return;
+    const [y]=await pickCards(p,"ターン終了時: 手札に加える［長野県警］（レベル6以下）","",cs,{max:1,ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});
+    if(!y)return;detach(y);p.hand.push(y);log(`　${C(y).nm} を手札に`);await runQueue();if(p.hand.length>=6)await discard(p,1)}};
+DEF["0586"]={ // 大和敢助 B05088
+  apSelf:p=>myTurn(p)&&condOk("絆上原由衣",p)?1000:0,
+  onRmLeave:async(p,self,y)=>{if(!myTurn(p)||turnCount(self,"yam")||!NAGANO(y))return;useTurn(self,"yam");const t=await chooseChar(p,"AP－1000するキャラ");if(t)apTurn(t,-1000)},
+  abilities:[{label:"リムーブエリアの［長野県警］をデッキの下へ: 突撃を得る",turn1:true,can:p=>partnerIs(p,"黄")&&p.rm.some(NAGANO),aiCan:(p,x)=>myTurn(p)&&x.fresh&&x.st==="a"&&!canAct(x,p,"chara"),
+    run:async(p,x)=>{const [y]=await pickCards(p,"コスト: デッキの下に移す［長野県警］","",p.rm.filter(NAGANO),{min:1,max:1});if(!y)return false;detach(y);p.deck.push(y);await runQueue();giveKw(x,"突撃");return true}}]};
+DEF["0534"]={ // 遠山銀司郎 B05030
+  apSelf:(p,x)=>myTurn(p)?1000*(x.set||[]).filter(s=>!s.under).length:0,
+  enter:async(p,x)=>setTop(p,x)};
+
+// --- 黒（ジン・ウォッカ・ベルモット） ---
+DEF["0382"]={ // 「見ィーつけた♪」
+  event:async p=>{const f=y=>isChar(y)&&!!C(y).ci&&hasColor(y,"黒")&&lvOf(y)<=6;
+    const got=await pickCards(p,"手札に加えるキャラ（2枚まで）","",p.rm.filter(f),{max:2,ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,2)});
+    for(const y of got){detach(y);p.hand.push(y);log(`　${C(y).nm} を手札に`)}
+    const y=await playFromHand(p,f,"【カットイン】を持つレベル6以下の【黒】を登場");if(y)giveKw(y,"突撃［キャラ］")},
+  ai:p=>p.rm.some(y=>isChar(y)&&!!C(y).ci&&hasColor(y,"黒"))};
+DEF["0391"]={ // ベルモット D07008
+  abilities:[{label:"【スリープ】このキャラをデッキの下へ: 手札からレベル5以下を登場して突撃",can:(p,x)=>x.st==="a"&&p.hand.some(y=>isChar(y)&&lvOf(y)<=5),aiCan:p=>myTurn(p)&&p.hand.some(y=>isChar(y)&&lvOf(y)>=4&&lvOf(y)<=5),
+    run:async(p,x)=>{x.st="s";toDeckBottom(x);const y=await playFromHand(p,y=>lvOf(y)<=5);if(y)giveKw(y,"突撃");return true}}]};
+DEF["0602"]={ // ジン＆ウォッカ B05106
+  onOppRemoved:async(q,self)=>{if(!partnerIs(q,"黒")||!myTurn(q)||turnCount(self,"jv")||!oppHas(q,apLe(8000)))return;useTurn(self,"jv");await rmChar(q,z=>z!==self&&apLe(8000)(z))},
+  abilities:[{label:"自分のレベル8以下のキャラをリムーブ: 1枚引く",turn1:true,partner:true,can:p=>p.field.some(y=>lvOf(y)<=8),aiCan:p=>p.field.some(y=>lvOf(y)<=8&&hasLeave(y)&&!myTurn(p))||p.field.some(y=>idOf(y)==="0603"),
+    run:async(p,x)=>{const cs=p.field.filter(y=>lvOf(y)<=8);const [c]=await pickCards(p,"リムーブする自分のキャラ（レベル8以下）","",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>(idOf(b)==="0603")-(idOf(a)==="0603")||lvOf(a)-lvOf(b))});if(!c)return false;
+      removeCard(c,"自分の効果",{by:p,effect:true});await runQueue();drawN(p,1);return true}}]};
+DEF["0603"]={ // ウォッカ B05107
+  selfRemovedOwnTurn:async(p,x)=>{if(!partnerIs(p,"黒")||!p.rm.includes(x))return;if(!await yes(p,"ウォッカ","リムーブエリアからスリープ状態で登場させますか？",true))return;await enterByEffect(p,x,"s")}};
+DEF["0717"]={ // ベルモット B06100
+  enter:async p=>{const f=y=>!!C(y).ci&&hasColor(y,"黒");if(!p.hand.some(f)||!await yes(p,"登場時","手札の【カットイン】を持つ【黒】を1枚リムーブして、2枚引きますか？",()=>p.hand.filter(f).length>=2||p.hand.length<=2))return;
+    await discard(p,1,"リムーブする【カットイン】を持つ【黒】",p,f);drawN(p,2)}};
+DEF["0720"]={ // ジン B06103
+  handAbilities:[{label:"自分の【黒】のキャラをリムーブ: このキャラをスリープ状態で登場",can:(p,x)=>p.solved&&p.field.some(y=>hasColor(y,"黒"))&&!(p.banNm&&p.banNm.t===G.turnNo),aiCan:p=>p.field.some(y=>hasColor(y,"黒")&&lvOf(y)<=4),
+    run:async(p,x)=>{const cs=p.field.filter(y=>hasColor(y,"黒"));const [c]=await pickCards(p,"リムーブする自分の【黒】のキャラ","",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>lvOf(a)-lvOf(b))});if(!c)return false;
+      removeCard(c,"自分の効果",{by:p,effect:true});await runQueue();await enterByEffect(p,x,"s");p.banNm={t:G.turnNo,nm:"ジン"};log("　このターン、［ジン］は使用も登場もできない","n");return true}}]};
+DEF["0821"]={ // ジン B07094
+  endTurn:async(p,x)=>{const own=p.field.filter(y=>lvOf(y)<=7);if(!partnerIs(p,"黒")||!p.hand.length||!own.length||!opp(p).field.length)return;
+    if(!await yes(p,"ジン ターン終了時","手札を1枚と自分のレベル7以下のキャラを1枚リムーブして、キャラを1枚リムーブしますか？",()=>opp(p).field.some(y=>lvOf(y)>=6)&&own.some(y=>lvOf(y)<=4)))return;
+    await discard(p,1);const [c]=await pickCards(p,"リムーブする自分のキャラ（レベル7以下）","",own,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>lvOf(a)-lvOf(b))});if(c){removeCard(c,"自分の効果",{by:p,effect:true});await runQueue()}
+    await rmChar(p,y=>y!==x)}};
+DEF["0822"]={ // ベルモット B07095
+  enter:async(p,x)=>{const t=await chooseChar(p,"スリープさせるキャラ",y=>y.st==="a"&&y!==x);if(t)sleepC(t)},
+  abilities:[{label:"【スリープ】: スリープ状態のレベル6以下をリムーブ",can:(p,x)=>partnerIs(p,"黒")&&x.st==="a"&&allChars().some(y=>y.st==="s"&&lvOf(y)<=6),aiCan:p=>oppHas(p,y=>y.st==="s"&&lvOf(y)<=6),
+    run:async(p,x)=>{sleepCost(x);await rmChar(p,y=>y.st==="s"&&lvOf(y)<=6);return true}}]};
+
 // ================= 効果文から自動で組み立てる（同じ書き方のカードはまとめて処理） =================
 // 1行ずつ型に当てはめる。全部の行が分かったカードだけ「自動」にする（分からない行があれば手動のまま）
 const COLS="青|赤|黄|緑|白|黒";
@@ -878,7 +942,7 @@ const FX={
   async onReason(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReason&&p.field.includes(y))await fxIf(p,y,"推理",()=>d.onReason(p,y,x))}await runQueue()},
   async onReveal(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReveal&&p.field.includes(y))await fxIf(p,y,"公開",()=>d.onReveal(p,y,x))}},
   lpBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;const d=def(x);return d&&d.lpSelf?d.lpSelf(p,x)||0:0},
-  useBlock(p,x){const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
+  useBlock(p,x){if(p.banNm&&p.banNm.t===G.turnNo&&C(x).nm.includes(p.banNm.nm))return `このターンは［${p.banNm.nm}］を使用できない`;const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
   lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
     for(const q of G.P)for(const y of q.field){const d=def(y);if(d&&d.lvAura)b+=d.lvAura(q,y,x)||0}return b},
   async actionEnd(p,actor){actor.apA=0;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
@@ -886,7 +950,9 @@ const FX={
   async endTurn(p){for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
     const pd=def(p.partner);if(pd&&pd.endTurn&&pd.partnerToo&&p.pLoc==="area")await fxIf(p,p.partner,"ターン終了時",()=>pd.endTurn(p,p.partner))},
   async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await d.solvedTrigger(p)}},
-  async onLeave(info){ // {x,p,turn,by,effect}
+  async onLeave(info){ // {x,p,turn,by,effect}。rmLeft: リムーブエリアから離れた（諸伏高明 B05087 など）
+    if(info.rmLeft){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onRmLeave&&info.p.field.includes(y))await fxIf(info.p,y,"リムーブエリアから離れたとき",()=>e.onRmLeave(info.p,y,info.x))}return}
+    const q=opp(info.p);for(const y of q.field.slice()){const e=def(y);if(e&&e.onOppRemoved&&q.field.includes(y))await fxIf(q,y,"相手のキャラがリムーブされたとき",()=>e.onOppRemoved(q,y,info))}
     const d=def(info.x);if(!d)return;
     if(d.leaveOppTurn&&info.turn!==info.p.idx){await fxPre(info.p,info.x,"現場リムーブ時");log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await d.leaveOppTurn(info.p,info.x)}
     if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await fxIf(info.p,info.x,"現場リムーブ時",()=>d.selfRemovedOwnTurn(info.p,info.x))},

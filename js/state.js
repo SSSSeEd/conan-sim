@@ -22,7 +22,9 @@ function zoneOf(x){const p=ownerOf(x);if(!p)return null;
   if(p.partner===x)return p.pLoc==="file"?"file":"partner";
   for(const z of ["field","hand","file","ev","rm","deck"])if(p[z].includes(x))return z;
   if(p.caseC===x)return "case";return null}
-function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","hand","file","ev","rm","deck"]){const i=p[z].indexOf(x);if(i>=0){p[z].splice(i,1);return p}}return p}
+function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","hand","file","ev","rm","deck"]){const i=p[z].indexOf(x);if(i>=0){p[z].splice(i,1);
+  if(z==="rm"&&G&&G.queue&&C(x).t==="キャラ")G.queue.push({rmLeft:true,x,p}); // リムーブエリアから離れたときの効果（effects.js の onLeave）
+  return p}}return p}
 
 // 条件タグの判定
 function condOk(tag,p){
