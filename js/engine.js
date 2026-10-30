@@ -229,6 +229,7 @@ async function useFromHand(p,x,viaHint=false){
     log(`${p.name} はイベント ${c.nm} を使用した${viaHint?"（ネクストヒント）":""}`);
     render();await FX.event(p,x);
   }
+  if(viaHint)await FX.onHintUse(p,x);
   render();return true;
 }
 function noteEffect(p,x,kind){

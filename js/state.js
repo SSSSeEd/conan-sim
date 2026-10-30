@@ -56,7 +56,7 @@ function staticKw(x,p){
     if(/^このキャラは[^「」（]*ガードできない/.test(s))out.noGuard=true;
     if(/^このキャラはスリープ状態でもガードできる/.test(s))out.guardSleep=true;
   }
-  for(const k of x.kw){if(k==="突撃")out.rush=true;if(k==="突撃［キャラ］")out.rushC=true;if(k==="突撃［事件］")out.rushE=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true;if(k==="必ずガード")out.mustGuard=true}
+  for(const k of [...x.kw,...(window.FX&&FX.kwExtra?FX.kwExtra(x,p):[])]){if(k==="突撃")out.rush=true;if(k==="突撃［キャラ］")out.rushC=true;if(k==="突撃［事件］")out.rushE=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true;if(k==="必ずガード")out.mustGuard=true}
   return out;
 }
 // カットインのAP。他のカードから与えられたカットイン（工藤新一 B07003 など）も含めて一番大きい値
@@ -96,6 +96,8 @@ function ownCutinAp(x,p){
     const u=s.match(/^((?:〚(?:カード名)?［[^］]+］〛か?)+)に【カットイン】する場合、AP[＋+](\d+)/);
     if(u&&mine&&[...u[1].matchAll(/［([^］]+)］/g)].some(m=>C(mine).nm.includes(m[1])))best=Math.max(best||0,+u[2]);
     const v=s.match(/^〚特徴［([^］]+)］〛のキャラに【カットイン】する場合、AP[＋+](\d+)/);
+    const w=s.match(/【(青|赤|黄|緑|白|黒)】のキャラに【カットイン】する場合、AP[＋+](\d+)/); // バーボン PR087（効果の後ろに続く）
+    if(w&&mine&&(C(mine).c||"").includes(w[1]))best=Math.max(best||0,+w[2]);
     if(v&&mine&&(C(mine).ct||"").split(",").includes(v[1]))best=Math.max(best||0,+v[2]);
   }
   return best;
