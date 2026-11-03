@@ -79,7 +79,7 @@ const MY_KEY="conan-sim-mydecks";
 function loadMyDecks(){try{return JSON.parse(localStorage.getItem(MY_KEY)||"[]")}catch(e){return []}}
 function saveMyDecks(a){try{localStorage.setItem(MY_KEY,JSON.stringify(a))}catch(e){}}
 function shareIdOf(s){s=(s||"").trim();const m=s.match(/(?:deck\/|share_id=|deck=)([A-Za-z0-9_-]{4,})/);return m?m[1]:s.replace(/[^A-Za-z0-9_-]/g,"")}
-function deckGroups(){return [["プリセット","p",PRESETS],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]],["マイデッキ","m",loadMyDecks()]]}
+function deckGroups(){return [["マイデッキ","m",loadMyDecks()],["プリセット","p",PRESETS],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]]]}
 // 効果の自動化率: 効果文のあるカード（枚数で数える。パートナー・事件も1枚）のうち自動で処理されるもの。CPUは100%のデッキだけ使う
 function autoRate(d){let all=0,ok=0;const ng=[];
   for(const id of [...d.main,d.partner,d.caseN]){const c=DB[id];if(!c||!(c.f||c.hr||c.ci))continue;
