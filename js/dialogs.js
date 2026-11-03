@@ -40,17 +40,17 @@ function chooseCards(title,body,cards,{min=0,max=1,okLabel="決定",faceUp=true,
 }
 
 // 好きな順番でデッキの下へ: タップした順に 1,2,3… と番号を付ける（1 が上、最後が一番下）
-function orderCards(title,cards){
+function orderCards(title,cards,{body,okLabel="この順番で戻す",keepLabel="表示の順のまま"}={}){
   if(cards.length<2)return Promise.resolve(cards.slice());
   return modal((m,done)=>{
-    m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div><div class="mb">デッキの下に戻す順番を、カードをタップして決めてください。①が上（先に引く側）、最後の番号がデッキの一番下になります。もう一度タップで取り消し。</div><div class="cards"></div><div class="opts"></div>`);
+    m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div><div class="mb">${esc(body||"デッキの下に戻す順番を、カードをタップして決めてください。①が上（先に引く側）、最後の番号がデッキの一番下になります。もう一度タップで取り消し。")}</div><div class="cards"></div><div class="opts"></div>`);
     const ord=[];const box=m.querySelector(".cards");const els=new Map();
     const ok=document.createElement("button");ok.className="primary";
     const upd=()=>{for(const [x,el] of els){const i=ord.indexOf(x);el.classList.toggle("sel",i>=0);const t=el.querySelector(".ordn");if(t)t.remove();if(i>=0)el.insertAdjacentHTML("beforeend",`<span class="ordn">${i+1}</span>`)}
-      ok.disabled=ord.length!==cards.length;ok.textContent=ord.length===cards.length?"この順番で戻す":`あと${cards.length-ord.length}枚`};
+      ok.disabled=ord.length!==cards.length;ok.textContent=ord.length===cards.length?okLabel:`あと${cards.length-ord.length}枚`};
     for(const x of cards){const el=cardEl(x);els.set(x,el);el.onclick=()=>{const i=ord.indexOf(x);if(i>=0)ord.splice(i,1);else ord.push(x);upd()};box.appendChild(el)}
     ok.onclick=()=>done(ord.slice());m.querySelector(".opts").appendChild(ok);
-    const as=document.createElement("button");as.textContent="表示の順のまま";as.onclick=()=>done(cards.slice());m.querySelector(".opts").appendChild(as);upd();
+    const as=document.createElement("button");as.textContent=keepLabel;as.onclick=()=>done(cards.slice());m.querySelector(".opts").appendChild(as);upd();
   });
 }
 

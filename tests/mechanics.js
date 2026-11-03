@@ -36,4 +36,9 @@ module.exports=[
     const a=w.FX.abilities(p,rb).find(a=>a.ok);assert.ok(a,"毛利蘭＆ベルモットの宣言が使える");await w.FX.useAbility(p,rb,a);
     assert.strictEqual(G.P[1].field.length,0);assert.strictEqual(ran.st,"a");assert.strictEqual(w.apOf(ran),w.C(ran).ap+1000);
     assert.ok(w.FX.noAutoWake(ran))}],
+  ["ターン終了時の効果が2つ以上なら、人は順番を選ぶ（1つならそのまま、CPUは選ばない）",async w=>{
+    const G=board(w,{p0:{field:["B06046","B06046"]}});const p=G.P[0];
+    await w.FX.endTurn(p);p.cpu=false;
+    await assert.rejects(()=>w.FX.endTurn(p),/orderCards/);
+    p.field.pop();await w.FX.endTurn(p)}],
 ];
