@@ -47,4 +47,9 @@ module.exports=[
   ["18の想起 D11020: スリープのLv7以下をリムーブ。リムーブエリアに［神奈川県警］が3枚以上ならAP8000以下ももう1枚",async w=>{
     const G=board(w,{p0:{hand:["D11020"]},p1:{field:[R,R]}});const [a]=G.P[1].field;a.st="s";
     await w.FX.event(G.P[0],G.P[0].hand[0]);assert.strictEqual(G.P[1].field.length,1)}],
+  ["厄介な難事件 B06013: 証拠2つを表にして、デッキの上3枚から［工藤新一］か［毛利蘭］を手札に（現場にいないと宣言できない）",async w=>{
+    const G=board(w,{p0:{deck:["B01019","B01019","B05009"],field:["B05009"]},p1:{}});const p=G.P[0];
+    const d=w.ev("DEF")["0638"];assert.ok(d&&d.abilities.length===1);const a=d.abilities[0];
+    p.solved=true;p.ev=[{up:false},{up:false}];
+    assert.ok(a.can(p,p.caseC)===true);p.field.length=0;assert.ok(!a.can(p,p.caseC))}],
 ];
