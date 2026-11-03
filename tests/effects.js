@@ -52,4 +52,16 @@ module.exports=[
     const d=w.ev("DEF")["0638"];assert.ok(d&&d.abilities.length===1);const a=d.abilities[0];
     p.solved=true;p.ev=[{up:false},{up:false}];
     assert.ok(a.can(p,p.caseC)===true);p.field.length=0;assert.ok(!a.can(p,p.caseC))}],
+  ["そーいう事かいな… B04028: 使うと表向きのまま証拠になる（リムーブエリアに残らない）",async w=>{
+    const G=board(w,{p0:{hand:["B04028"]}});const p=G.P[0];const x=p.hand[0];p.hand.length=0;p.rm.push(x);
+    await w.FX.event(p,x);assert.strictEqual(p.ev.length,1);assert.strictEqual(p.ev[0].up,true);assert.ok(!p.rm.includes(x))}],
+  ["服部平次 B01032: ターン1、キャラへのアクションのときだけAP＋1000（事件へのアクションでは上がらない）",async w=>{
+    const G=board(w,{p0:{field:["B01032"]},p1:{field:[R]}});const [a]=G.P[0].field,[t]=G.P[1].field;
+    await w.FX.onAction(G.P[0],a,null);assert.strictEqual(w.apOf(a),w.ev("C")(a).ap);
+    await w.FX.onAction(G.P[0],a,t);assert.strictEqual(w.apOf(a),w.ev("C")(a).ap+1000);
+    await w.FX.onAction(G.P[0],a,t);assert.strictEqual(w.apOf(a),w.ev("C")(a).ap+1000,"2回目は上がらない")}],
+  ["江戸川コナン PR199: FILE5・スリープ。CPUは手札1枚リムーブで相手のレベル4以下をリムーブ",async w=>{
+    const G=board(w,{p0:{field:["PR199"],hand:[R,R],file:[R,R,R,R,R]},p1:{field:[R]}});const p=G.P[0];p.cpu=true;G.turn=0;
+    const a=w.ev("DEF")["0833"].abilities[0],x=p.field[0];assert.ok(a.can(p,x));
+    await a.run(p,x);assert.strictEqual(G.P[1].field.length,0);assert.strictEqual(p.hand.length,1);assert.strictEqual(x.st,"s")}],
 ];

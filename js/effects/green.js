@@ -91,3 +91,9 @@ DEF["0968"]={ // 服部平蔵 B09024（他の［大阪府警］の現場リム�
   abilities:[{label:"【スリープ】［警察］を公開: 相手のレベル7以下をリムーブ",can:(p,x)=>partnerIs(p,"緑")&&x.st==="a"&&p.hand.some(y=>isChar(y)&&hasTrait(y,"警察")),aiCan:p=>oppHas(p,y=>lvOf(y)>=4&&lvOf(y)<=7),
     run:async(p,x)=>{if(!await revealFromHand(p,y=>isChar(y)&&hasTrait(y,"警察"),"公開する［警察］",{must:true}))return false;sleepCost(x);
       const t=await chooseChar(p,"リムーブする相手のキャラ（レベル7以下）",y=>isOpp(p,y)&&lvOf(y)<=7);if(!t)return true;const sl=t.st==="s";rmBy(p,t);await runQueue();if(sl&&p.field.includes(x))setTop(p,x);return true}}]};
+
+DEF["0026"]={ // 服部平次 B01032（ターン1: キャラへのアクションのとき、ターン終了時までAP＋1000）
+  onAction:async(p,self,actor,target)=>{if(actor!==self||!target||turnCount(self,"hei26"))return;useTurn(self,"hei26");apTurn(self,1000)}};
+DEF["0163"]={ // そーいう事かいな… B04028（このカードを表向きのまま証拠として得る）
+  event:async(p,x)=>{const i=p.rm.indexOf(x);if(i<0)return;p.rm.splice(i,1);x.st="a";x.up=true;p.ev.push(x);log(`　${C(x).nm} を表向きのまま証拠として得た（証拠${p.ev.length}）`)},
+  ai:p=>true};
