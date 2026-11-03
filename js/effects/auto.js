@@ -49,6 +49,11 @@ const LINE_RULES=[
     m=>({enter:async(p,x)=>{if(!needPartner(p,m[1])||p.hand.length<+m[2])return;const f=y=>y!==x&&bySet(m[3],+m[4])(y);
       if(!await yes(p,"登場時",`手札を${m[2]}枚リムーブして、${m[3]}${m[4]}以下のキャラをリムーブしますか？`,()=>opp(p).field.some(f)&&p.hand.length>=2))return;
       await discard(p,+m[2]);const t=await chooseChar(p,`リムーブするキャラ（${m[3]}${m[4]}以下）`,f);if(t)removeCard(t,"効果",{by:p,effect:true})}})],
+  [/^【相手ターン中】【現場リムーブ時】自分のデッキのカードを上から(\d)枚見る。その中から〚特徴［([^］]+)］〛のキャラを(\d)枚まで公開して手札に加え、残りを好きな順番でデッキの下に移す。$/,
+    m=>({leaveOppTurn:async p=>{await lookTop(p,+m[1],y=>isChar(y)&&hasTrait(y,m[2]),{max:+m[3],title:`［${m[2]}］のキャラを${m[3]}枚まで手札に`})}})],
+  [/^【相手ターン中】【現場リムーブ時】手札からレベル(\d)以下の〚カード名［([^］]+)］〛のキャラを(\d)枚までスリープ状態で登場させる。$/,
+    m=>({leaveOppTurn:async p=>{const f=y=>isChar(y)&&lvOf(y)<=+m[1]&&C(y).nm.includes(m[2]);if(!p.hand.some(f)||p.field.length>=5)return;
+      const [y]=await pickCards(p,`スリープ状態で登場させる［${m[2]}］（レベル${m[1]}以下）`,"",p.hand.filter(f),{ai:c=>c.slice(0,1)});if(y)await enterByEffect(p,y,"s")}})],
   [/^【相手ターン中】【現場リムーブ時】カードを(\d)枚引く。$/,m=>({leaveOppTurn:async p=>drawN(p,+m[1])})],
   [/^【相手ターン中】【現場リムーブ時】カードを(\d)枚引き、手札を(\d)枚リムーブする。$/,m=>({leaveOppTurn:async p=>{drawN(p,+m[1]);await discard(p,+m[2])}})],
   [new RegExp(`^${TAGS}${PRE}【登場時】自分のデッキのカードを上から(\\d)枚裏向きでこのキャラにセットする。$`),
@@ -78,6 +83,10 @@ const HR_RULES=[
   [/^((?:【[^】]+】)*)手札を1枚リムーブしてもよい。そうした場合、キャラを1枚まで選び、リムーブする。(?:（[^）]*）)?$/,m=>async o=>{
     if(!tagsOk(o,m[1])||!o.hand.length||!await yes(o,"ヒラメキ","手札を1枚リムーブして、キャラを1枚リムーブしますか？",()=>opp(o).field.length>0&&o.hand.length>0))return;
     await discard(o,1,"ヒラメキ: 手札をリムーブ");const t=await chooseChar(o,"ヒラメキ: リムーブするキャラ");if(t)removeCard(t,"効果",{by:o,effect:true})}],
+  [/^自分のリムーブエリアにある【現場リムーブ時】を持つ【(黒|青|赤|黄|緑|白)】のキャラを(\d)枚まで選び、手札に加える。$/,m=>async o=>{
+    const got=await pickCards(o,"ヒラメキ: 手札に加えるカード","",o.rm.filter(y=>isChar(y)&&hasColor(y,m[1])&&hasLeave(y)),{max:+m[2],ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a))});
+    for(const y of got){detach(y);o.hand.push(y);log(`　${C(y).nm} を手札に`)}}],
+  [/^キャラを(\d)枚まで選び、アクティブにする。$/,m=>async o=>{const t=await chooseChar(o,"ヒラメキ: アクティブにするキャラ",y=>y.st!=="a",{ai:cs=>cs.filter(y=>!isOpp(o,y)&&y.st!=="a").sort((a,b)=>apOf(b)-apOf(a)).slice(0,1)});if(t)activateC(t)}],
   [/^相手は手札を(\d)枚リムーブする。$/,m=>async o=>{const q=opp(o);await discard(q,+m[1],"ヒラメキ: 手札をリムーブ",q)}],
 ];
 const merge=(a,b)=>{const out={...a};for(const k in b){if(typeof b[k]==="function"&&typeof out[k]==="function"&&k!=="ai"){const f=out[k],g=b[k];out[k]=async(...q)=>{await f(...q);await g(...q)}}else out[k]=b[k]}return out};
