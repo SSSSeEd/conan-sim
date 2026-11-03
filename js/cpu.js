@@ -76,6 +76,18 @@ async function cpuTurn(p){
   if(G!==g0)return;
   if(!G.sim&&window.FIND_COMBOS&&(G.cfg.findFor==null||G.cfg.findFor===p.idx)){await findCombos(p);if(G!==g0)return}
   const o=opp(p);
+  // 宣言能力（事件の能力を含む）。plan.abFirst なら手札を使う前にも行う（事件の能力で手札に加えたカードを同じ手番で使えるように）
+  const runAbilities=async()=>{
+    for(let guard=0;guard<8;guard++){
+      let used=false;
+      for(const x of [...p.field,p.caseC,...p.hand,...(p.pLoc==="area"?[p.partner]:[])]){
+        for(const ab of FX.abilities(p,x)){
+          if(!ab.ok||ab.noAi)continue;{const def=(!ab.aiCan||!!ab.aiCan(p,x))&&!comboSkip(p,x);if(!(G.sim&&G.sim.explore?explore(p,"能力",[false,true],+def,o=>`${o?"使う":"使わない"}: ${C(x).nm}(${x.n}) ${ab.label}`):def))continue}
+          G.ui.act={a:x,t:null};await FX.useAbility(p,x,ab);await step();used=true;break}
+        if(used||G.over)break}
+      if(!used||G.over)break}
+  };
+  if(plan.abFirst){await runAbilities();if(G.over)return}
   // 1) 事件解決
   if(p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level){solve(p);return}
   // 2) 手札の使用（基本方針: 毎ターン必ず使う。相手のキャラを減らす効果を優先）
@@ -114,17 +126,12 @@ async function cpuTurn(p){
   }
   if(G.over)return;
   // 2.5) 宣言能力
-  for(let guard=0;guard<8;guard++){
-    let used=false;
-    for(const x of [...p.field,p.caseC,...p.hand,...(p.pLoc==="area"?[p.partner]:[])]){
-      for(const ab of FX.abilities(p,x)){
-        if(!ab.ok||ab.noAi)continue;{const def=(!ab.aiCan||!!ab.aiCan(p,x))&&!comboSkip(p,x);if(!(G.sim&&G.sim.explore?explore(p,"能力",[false,true],+def,o=>`${o?"使う":"使わない"}: ${C(x).nm}(${x.n}) ${ab.label}`):def))continue}
-        G.ui.act={a:x,t:null};await FX.useAbility(p,x,ab);await step();used=true;break}
-      if(used||G.over)break}
-    if(!used||G.over)break}
+  await runAbilities();
   if(G.over)return;
+  // 相手が事件を解決編にしていて、次のターンに解決しそうなら、キャラへのアクションをやめて全員で相手の事件にアクションし、証拠を減らして抵抗する
+  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0;
   // 3) キャラへのアクション（勝てる相手）
-  for(;;){
+  for(;!resist;){
     const atks=p.field.filter(x=>canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
     // 「必ずガードする」相手のキャラがいれば、APで勝てるキャラでアクションしてガードさせる
     const fg=o.field.find(y=>staticKw(y,o).mustGuard&&canGuardNow(o,y));
@@ -139,7 +146,7 @@ async function cpuTurn(p){
   }
   if(G.over)return;
   // 4) 事件へのアクション / 推理
-  const keep=p.field.length>=3?1:0;
+  const keep=resist?0:p.field.length>=3?1:0;
   let actors=p.field.filter(x=>x.st==="a").sort((a,b)=>lpOf(b)-lpOf(a));
   if(ai2(p,"rsnw"))actors.sort((a,b)=>(C(a).lv||0)-(C(b).lv||0)||lpOf(b)-lpOf(a)); // SeEd: 弱いキャラから動かし、強いキャラを起こして残す
   const oppNear=o.solved&&o.ev.length>=o.level-2; // 相手が次のターンに勝ちそう
@@ -151,7 +158,7 @@ async function cpuTurn(p){
       const late=p.ev.length>=p.level-2;
       const threat=o.field.some(y=>y.st!=="x"&&apOf(y)>=apOf(x));
       if(!late&&threat&&(strongChar(x)||G.turnNo<=4)){continue}}
-    if(o.ev.length>0&&canAct(x,p,"case")&&(ai2(p,"end2")&&oppNear||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
+    if(o.ev.length>0&&canAct(x,p,"case")&&(resist||ai2(p,"end2")&&oppNear||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
     if(lpOf(x)>=1&&canAct(x,p,"reason")){await reason(p,x);left--;await step();continue}
     if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");left--;await step()}
   }

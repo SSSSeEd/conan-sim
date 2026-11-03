@@ -26,7 +26,10 @@ function turnPlans(p){
     for(const x of p.hand){if(seen.has(x.n)||playableReason(p,x,false)||!ok(x))continue;seen.add(x.n);base.push({play:x.n,assist:1})}
     p.file.pop()}
   if(!(ai2(p,"assist2")&&G.turnNo<=2&&base.length>1))base.push({play:"none"});
-  return base.flatMap(pl=>[pl,{...pl,hint:false}]);
+  // 事件・キャラの宣言能力が使えるなら、手札を使う前に能力を使う組み合わせも試す（事件の能力でリムーブエリアから手札に加えたカードを同じ手番で使うため）
+  const abNow=[...p.field,p.caseC,...p.hand,...(p.pLoc==="area"?[p.partner]:[])].some(x=>FX.abilities(p,x).some(ab=>ab.ok&&!ab.noAi&&(!ab.aiCan||ab.aiCan(p,x))));
+  const all=abNow?base.flatMap(pl=>[pl,{...pl,abFirst:true}]):base;
+  return all.flatMap(pl=>[pl,{...pl,hint:false}]);
 }
 // 盤面をコピーして1つの組み合わせを試す。終わったら元の盤面に戻す
 async function rollout(p,plan){
@@ -43,10 +46,18 @@ async function rollout(p,plan){
 }
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
 async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
+// 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
+function recSearch(p,tried,best){
+  if(!G.rec)return;
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
+}
 async function chooseTurnPlan(p){
   const plans=turnPlans(p);if(plans.length<=2)return null;
   let best=null,bv=-Infinity;
-  for(const pl of plans){const v=await rollout(p,pl);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  const tried=[];
+  for(const pl of plans){const v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;
 }
