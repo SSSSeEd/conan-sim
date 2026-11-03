@@ -67,7 +67,7 @@ function buildActs(box,x,p,z){
     if(z==="field"||z==="partner"){
       btn2(box,"推理",()=>reason(p,x),{disabled:!canAct(x,p,"reason")});
       if(z==="field"){
-        btn2(box,"アクション［キャラ］",()=>{G.ui.mode={kind:"target",atk:x};document.getElementById("detail").classList.remove("open");toast("相手のスリープ/スタン状態のキャラをタップ");},{noUndo:true,disabled:!canAct(x,p,"chara")||!opp(p).field.some(y=>y.st!=="a")});
+        btn2(box,"アクション［キャラ］",()=>{G.ui.mode={kind:"target",atk:x};document.getElementById("detail").classList.remove("open");toast("相手のスリープ/スタン状態のキャラをタップ");},{noUndo:true,disabled:!canAct(x,p,"chara")||!opp(p).field.some(y=>y.st!=="a"||hitsActive(x,p))});
         btn2(box,"アクション［事件］",()=>declareAction(p,x,"case"),{disabled:!canAct(x,p,"case")||opp(p).ev.length===0});
       }
       if(z==="partner"){btn2(box,"アシスト",()=>assist(p),{disabled:x.st!=="a"});btn2(box,FX.eraseEvidence(p)?"証拠隠滅（相手の敗北）":"事件解決",()=>solve(p),{disabled:x.st!=="a"||!p.solved,primary:p.solved&&p.ev.length>=p.level})}
@@ -195,7 +195,7 @@ function sideEl(p,top){
     if(x._shown!=="field"){x._shown="field";if(!window.SIM_FAST)e.classList.add("justin")}
     if(G.ui.act){if(G.ui.act.a===x)e.classList.add("acting");if(G.ui.act.t===x)e.classList.add("targeted")}
     if(human&&(canAct(x,p,"reason")||canAct(x,p,"chara")||canAct(x,p,"case")))e.classList.add("ready");
-    if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()&&x.st!=="a")e.classList.add("tgt");
+    if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()&&(x.st!=="a"||hitsActive(G.ui.mode.atk,cur())))e.classList.add("tgt");
     e.onclick=()=>{
       if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()){const a=G.ui.mode.atk;G.ui.mode=null;act(()=>declareAction(cur(),a,x));return}
       showDetail(x,true)};
