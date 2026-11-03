@@ -126,3 +126,11 @@ DEF["0911"]={ // 降谷零 B08074
     else t=await ask(`${p.name}: 降谷零 登場時`,"指定する〚特徴〛",ts.slice(0,12).map((k,i)=>({label:k,value:k,primary:!i})));
     log(`　［${t}］を指定`,"n");const n=investigate(p,3).filter(y=>hasTrait(y,t)).length;
     if(n>=1)giveKw(x,"突撃［キャラ］");if(n>=2)giveKw(x,"突撃");if(n>=3)giveKw(x,"迅速")}};
+
+DEF["0945"]={ // 18の想起
+  event:async p=>{await rmChar(p,y=>y.st==="s"&&lvOf(y)<=7);await runQueue();
+    if(p.rm.filter(y=>isChar(y)&&hasTrait(y,"神奈川県警")).length>=3)await rmChar(p,apLe(8000))},
+  ai:p=>oppHas(p,y=>y.st==="s"&&lvOf(y)<=7)};
+DEF["0904"]={ // 諸伏高明 B08067（パートナー黄・解決編の登場時）
+  enter:async p=>{if(!partnerIs(p,"黄")||!p.solved)return;
+    if(new Set(p.field.filter(y=>hasTrait(y,"長野県警")).map(y=>C(y).nm)).size>=3)await rmChar(p,lvLe(7))}};
