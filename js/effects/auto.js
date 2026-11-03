@@ -18,11 +18,20 @@ async function rmOne(p,m,i,src){const how=m[i+3];const t=await chooseChar(p,`${s
   if(how==="リムーブする")removeCard(t,"効果",{by:p,effect:true});else if(how==="デッキの下に移す")toDeckBottom(t);else stunC(t)}
 const rmAi=(m,i)=>p=>opp(p).field.some(rmFilter(m,i));
 // [正規表現, (一致, カード) => {フック名: 処理}, 他の行が分からなくてもこの行だけ自動にしてよいか]
+// 手札から出す・リムーブするカードの条件（「〚カード名［A］〛か〚［B］〛のカード」「〚特徴［X］〛のキャラ」「【赤】か【黒】のカード」）
+const HF="(?:(?:〚(?:カード名)?［[^］]+］〛か?)+(?:のカード|のキャラ)?|〚特徴［[^］]+］〛の(?:キャラ|カード)|(?:【[^】]+】か?)+の(?:キャラ|カード))";
+const handFilter=s=>{const names=[...s.matchAll(/〚(?:カード名)?［([^］]+)］〛/g)].map(m=>m[1]);const tr=s.match(/〚特徴［([^］]+)］〛/);
+  const cols=[...s.matchAll(/【([^】]+)】/g)].map(m=>m[1]);const ch=s.endsWith("キャラ");
+  return y=>(!ch||isChar(y))&&(names.length?names.some(n=>C(y).nm.includes(n)):tr?hasTrait(y,tr[1]):cols.some(c=>hasColor(y,c)))};
 const LINE_RULES=[
   [new RegExp(`^${TAGS}【登場時】${RM_TARGET}(?:カードを(\\d)枚引く。)?$`),m=>({enter:async p=>{if(!tagsOk(p,m[1]))return;await rmOne(p,m,2,"登場時");if(m[6])drawN(p,+m[6])}}),true],
   [new RegExp(`^${TAGS}${RM_TARGET}$`),m=>({event:async p=>{if(!tagsOk(p,m[1])){log("　条件を満たさないので効果なし","n");return}await rmOne(p,m,2,"イベント")},ai:p=>tagsOk(p,m[1])&&rmAi(m,2)(p)}),true],
   [/^【登場時】カードを(\d)枚引き、手札を(\d)枚リムーブする。$/,m=>({enter:async p=>{drawN(p,+m[1]);await discard(p,+m[2])}})],
-  [/^【登場時】カードを(\d)枚引く。$/,m=>({enter:async p=>drawN(p,+m[1])})],
+  [new RegExp(`^${TAGS}${PRE}【登場時】手札から(${HF})を1枚(公開|リムーブ)してもよい。そうした場合、カードを(\\d)枚引く。$`),
+    m=>({enter:async p=>{if(!tagsOk(p,m[1])||!needPartner(p,m[2]))return;const f=handFilter(m[3]),rev=m[4]==="公開";
+      if(!p.hand.some(f)||!await yes(p,"登場時",`手札の条件に合うカードを1枚${m[4]}して、カードを${m[5]}枚引きますか？`,()=>p.hand.length>=2||rev))return;
+      const got=rev?await revealFromHand(p,f,"公開するカード",{must:true}):(await discard(p,1,"リムーブするカード",p,f))[0];if(got)drawN(p,+m[5])}})],
+  [new RegExp(`^${TAGS}【登場時】カードを(\\d)枚引く。$`),m=>({enter:async p=>{if(tagsOk(p,m[1]))drawN(p,+m[2])}})],
   [new RegExp(`^${PRE}【登場時】自分のデッキのカードを上から(\\d)枚見る。その中から【(${COLS})】のカードを(\\d)枚まで公開して手札に加え、残りを好きな順番でデッキの下に移す。(?:カードを手札に加えた場合、手札を(\\d)枚リムーブする。)?$`),
     m=>({enter:async p=>{if(needPartner(p,m[1]))await searchTop(p,+m[2],lookFilterColor(m[3]),+m[4],`【${m[3]}】のカードを${m[4]}枚まで手札に`,+(m[5]||0))}})],
   [new RegExp(`^${PRE}【登場時】自分のデッキのカードを上から(\\d)枚見る。その中から〚特徴［([^］]+)］〛のキャラを(\\d)枚まで公開して手札に加え、残りを好きな順番でデッキの下に移す。(?:カードを手札に加えた場合、手札を(\\d)枚リムーブする。)?$`),
@@ -42,8 +51,8 @@ const LINE_RULES=[
       await discard(p,+m[2]);const t=await chooseChar(p,`リムーブするキャラ（${m[3]}${m[4]}以下）`,f);if(t)removeCard(t,"効果",{by:p,effect:true})}})],
   [/^【相手ターン中】【現場リムーブ時】カードを(\d)枚引く。$/,m=>({leaveOppTurn:async p=>drawN(p,+m[1])})],
   [/^【相手ターン中】【現場リムーブ時】カードを(\d)枚引き、手札を(\d)枚リムーブする。$/,m=>({leaveOppTurn:async p=>{drawN(p,+m[1]);await discard(p,+m[2])}})],
-  [new RegExp(`^${PRE}【登場時】自分のデッキのカードを上から(\\d)枚裏向きでこのキャラにセットする。$`),
-    m=>({enter:async(p,x)=>{if(needPartner(p,m[1]))for(let i=0;i<+m[2];i++)setTop(p,x)}})],
+  [new RegExp(`^${TAGS}${PRE}【登場時】自分のデッキのカードを上から(\\d)枚裏向きでこのキャラにセットする。$`),
+    m=>({enter:async(p,x)=>{if(tagsOk(p,m[1])&&needPartner(p,m[2]))for(let i=0;i<+m[3];i++)setTop(p,x)}})],
   [/^カードを(\d)枚引く。$/,m=>({event:async p=>drawN(p,+m[1]),ai:p=>true})],
   [/^相手の現場にいるキャラがこのキャラとのコンタクトによってリムーブされたとき、カードを(\d)枚引く。$/,m=>({contactWin:async p=>drawN(p,+m[1])})],
   [/^この事件が解決編に(?:なった|移行した)とき、自分は手札を(\d)枚リムーブする。$/,m=>({solvedTrigger:async p=>{await discard(p,+m[1],"解決編になったとき: 手札をリムーブ")}})],
@@ -52,7 +61,7 @@ const LINE_RULES=[
 // 本体で処理している行（キーワード・パートナーの能力・スリープ登場）
 const CORE_LINE=/^(?:【[^】]+】)*(?:〚(?:突撃|迅速|ブレット|ミスリード\d)|【解決編】【事件解決】|【アシスト】|このキャラはスリープ状態で登場する。$|このキャラは(?:スリープ状態でも)?ガードできない。$|このキャラはスリープ状態でもガードできる。$|[^［]+［ID：\d+］はデッキに何枚でも入れることができる。$)/;
 // カットイン（本体の ownCutinAp がAPを足す）。AP＋N のあとに続く効果は cutin フックにする
-const CI_CORE=/^(?:AP[＋+]\d+|自分のリムーブエリアにある〚カード名［[^］]+］〛1枚につき、AP[＋+]\d+(?:（このカードも含める）)?|自分の現場にいる〚特徴［[^］]+］〛のキャラ1枚につき、AP[＋+]\d+|AP[＋+]\d+、自分の手札が\d枚以下の場合、代わりにAP[＋+]\d+|(?:〚(?:カード名|特徴)?［[^］]+］〛か?)+(?:のキャラ)?に【カットイン】する場合、AP[＋+]\d+)$/;
+const CI_CORE=/^(?:AP[＋+]\d+|自分のリムーブエリアにある〚カード名［[^］]+］〛1枚につき、AP[＋+]\d+(?:（このカードも含める）)?|自分の現場にいる〚特徴［[^］]+］〛のキャラ1枚につき、AP[＋+]\d+|AP[＋+]\d+、自分の手札が\d枚以下の場合、代わりにAP[＋+]\d+|(?:【[^】]+】の)?(?:〚(?:カード名|特徴)?［[^］]+］〛か?)+(?:のキャラ)?に【カットイン】する場合、AP[＋+]\d+)$/;
 const CI_RULES=[
   [new RegExp(`^AP[＋+]\\d+、自分の事件が【(${COLS})】以外の色を持たない場合、カードを(\\d)枚引く。$`),m=>({cutin:async p=>{if(colorsOf(C(p.caseC).c).every(ch=>ch===m[1]))drawN(p,+m[2])}})],
   [/^AP[＋+]\d+、〚特徴［([^］]+)］〛のキャラに【カットイン】した場合、カードを(\d)枚引く。$/,m=>({cutin:async(p,card,mine)=>{if(mine&&hasTrait(mine,m[1]))drawN(p,+m[2])}})],
@@ -66,6 +75,9 @@ const HR_RULES=[
     for(const y of got){detach(y);o.hand.push(y);log(`　${C(y).nm} を手札に`)}}],
   [/^このカードを手札に加える。$/,m=>async(o,e)=>{if(e&&o.rm.includes(e)){detach(e);o.hand.push(e);log(`　${C(e).nm} を手札に`)}}],
   [/^自分は証拠を(\d)つ得る。$/,m=>async o=>gainEv(o,+m[1])],
+  [/^((?:【[^】]+】)*)手札を1枚リムーブしてもよい。そうした場合、キャラを1枚まで選び、リムーブする。(?:（[^）]*）)?$/,m=>async o=>{
+    if(!tagsOk(o,m[1])||!o.hand.length||!await yes(o,"ヒラメキ","手札を1枚リムーブして、キャラを1枚リムーブしますか？",()=>opp(o).field.length>0&&o.hand.length>0))return;
+    await discard(o,1,"ヒラメキ: 手札をリムーブ");const t=await chooseChar(o,"ヒラメキ: リムーブするキャラ");if(t)removeCard(t,"効果",{by:o,effect:true})}],
   [/^相手は手札を(\d)枚リムーブする。$/,m=>async o=>{const q=opp(o);await discard(q,+m[1],"ヒラメキ: 手札をリムーブ",q)}],
 ];
 const merge=(a,b)=>{const out={...a};for(const k in b){if(typeof b[k]==="function"&&typeof out[k]==="function"&&k!=="ai"){const f=out[k],g=b[k];out[k]=async(...q)=>{await f(...q);await g(...q)}}else out[k]=b[k]}return out};

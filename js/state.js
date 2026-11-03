@@ -30,6 +30,7 @@ function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const 
 function condOk(tag,p){
   let m;
   if((m=tag.match(/^パートナー(.+)$/)))return colorsOf(m[1]).every(ch=>(C(p.partner).c||"").includes(ch));
+  if(tag==="事件編")return !p.solved; // 「事件(.+)」より先に判定する（先に判定しないと事件の色・特徴として比べられて常に偽になる）
   if((m=tag.match(/^事件(.+)$/))){const want=m[1];const cc=C(p.caseC);const cols=colorsOf(want.replace(/＆/g,""));
     if(cols.length&&cols.length===want.replace(/＆/g,"").length)return cols.every(ch=>(cc.c||"").includes(ch));
     return (cc.ct||"").includes(want)||cc.nm.includes(want)}
