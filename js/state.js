@@ -42,6 +42,8 @@ function condOk(tag,p){
   if((m=tag.match(/^FILE(\d+)$/)))return p.file.length>=+m[1];
   return null; // 判定対象外のタグ
 }
+// 相手のアクティブ状態のキャラを指定してアクションできるか（与えられた能力・セットされたイベントも含める）
+function hitsActive(x,p){return x.kw.includes("アクティブ指定")||!!(window.FX&&FX.kwExtra&&FX.kwExtra(x,p).includes("アクティブ指定"))}
 // 常在キーワード（行頭の条件タグを満たした〚〛）
 function staticKw(x,p){
   const out={rush:false,rushC:false,rushE:false,swift:false,bullet:false,misread:0,noGuard:false,guardSleep:false,mustGuard:false};

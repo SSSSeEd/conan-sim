@@ -12,9 +12,15 @@ function effText(x,kind){const c=C(x);
 async function fxPre(p,x,kind,text){if(typeof showFx==="function")await showFx(p,x,kind,text??effText(x,kind))}
 // 条件つきの効果は、実際に何か起きたときだけ見せる（ログが増えたかで判断）
 async function fxIf(p,x,kind,fn){const n0=G.rec?G.rec.log.length:0;
-  if(typeof showFx!=="function"||!G.rec){await fn();return}
-  await fn();
+  if(typeof showFx!=="function"||!G.rec){await resolving(fn);return}
+  await resolving(fn);
   if(G.rec.log.length>n0)await showFx(p,x,kind,effText(x,kind),{after:true})}
+
+// 効果の解決中に起きた「手札から公開したとき」は、今の効果（一番外側）を解決し終えてから発動する（毛利蘭 B09004・B10006 など）
+async function resolving(fn){G.fxD=(G.fxD||0)+1;try{return await fn()}finally{G.fxD--;if(!G.fxD)await flushReveal()}}
+async function flushReveal(){while(G.revealQ&&G.revealQ.length&&!G.over){const r=G.revealQ.shift();await resolving(()=>FX.runReveal(r.p,r.x))}}
+// セットされている表向きのイベント（下に重ねたカードは除く）
+const setEvents=x=>(x.set||[]).filter(s=>s.up&&!s.under).map(s=>s.c);
 
 // ================= フック（本体から呼ばれる） =================
 const def=x=>x&&x.negT&&G&&x.negT===G.turnNo?null:DEF[idOf(x)]; // 「元の能力を無効にする」（遠山和葉 B04018）されたキャラは、このターン効果なし
@@ -25,10 +31,10 @@ const FX={
     // 【疾風】自分の現場にこのターンで1番に登場したとき
     const first=p.field.includes(x)&&p.galeT!==G.turnNo;if(p.field.includes(x))p.galeT=G.turnNo;
     await FX.enter0(p,x);
-    const d=def(x);if(first&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await d.gale(p,x);render();await runQueue()}
+    const d=def(x);if(first&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x));render();await runQueue()}
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyEnter&&p.field.includes(y))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
-  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await d.enter(p,x);render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
-  async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await d.event(p,x)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue()},
+  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>d.enter(p,x));render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
+  async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x))}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue()},
   async disguise(p,x){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await d.disguise(p,x)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時")},
   async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await d.hirameki(o,e);return true}return false},
   async cutin(p,card,mine,own=true){const d=def(card);if(own&&d&&d.cutin)await fxIf(p,card,"カットイン",()=>d.cutin(p,card,mine));
@@ -46,9 +52,11 @@ const FX={
     const [a,b]=[ct.a,ct.d];if([[a,b],[b,a]].some(([u,v])=>u.kw.includes("相打ち7")&&lvOf(v)<=7&&allChars().includes(u)&&allChars().includes(v))){
       log("　コンタクト中のすべてのキャラをリムーブ","n");for(const y of [a,b])removeCard(y,"効果",{by:ownerOf(a),effect:true});await runQueue()}},
   async onReason(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReason&&p.field.includes(y))await fxIf(p,y,"推理",()=>d.onReason(p,y,x))}await runQueue()},
-  async onReveal(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReveal&&p.field.includes(y))await fxIf(p,y,"公開",()=>d.onReveal(p,y,x))}},
+  async onReveal(p,x){if(G.fxD){(G.revealQ=G.revealQ||[]).push({p,x});return}await resolving(()=>FX.runReveal(p,x))},
+  async runReveal(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReveal&&p.field.includes(y))await fxIf(p,y,"公開",()=>d.onReveal(p,y,x))}},
   lpBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;const d=def(x);return d&&d.lpSelf?d.lpSelf(p,x)||0:0},
-  kwExtra(x,p){const d=def(x);return d&&d.kwSelf&&p&&p.field.includes(x)?d.kwSelf(p,x):[]},
+  kwExtra(x,p){if(!p||!p.field.includes(x))return [];const d=def(x);const out=d&&d.kwSelf?[...d.kwSelf(p,x)]:[];
+    for(const s of setEvents(x)){const e=def(s);if(e&&e.setKw)out.push(...e.setKw(p,x))}return out}, // setKw: セットされたイベントが与えるキーワード
   async onHintUse(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onHintUse&&p.field.includes(y))await fxIf(p,y,"ネクストヒント",()=>d.onHintUse(p,y,x))}
     const pd=def(p.partner);if(pd&&pd.onHintUse&&p.pLoc==="area")await fxIf(p,p.partner,"ネクストヒント",()=>pd.onHintUse(p,p.partner,x))},
   useBlock(p,x){if(p.banNm&&p.banNm.t===G.turnNo&&C(x).nm.includes(p.banNm.nm))return `このターンは［${p.banNm.nm}］を使用できない`;const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
@@ -58,10 +66,15 @@ const FX={
   async contactWin(p,winner,victim){const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim));
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyContactWin&&p.field.includes(y))await fxIf(p,y,"コンタクト",()=>e.onAllyContactWin(p,y,winner,victim))}},
   async endTurn(p){for(const y of p.field.filter(y=>y.kw.includes("終了時デッキの下")))toDeckBottom(y); // 目暮十三 PR181 が与えた能力
-    for(const y of p.field.slice()){const d=def(y);if(d&&d.endTurn&&p.field.includes(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
-    const pd=def(p.partner);if(pd&&pd.endTurn&&pd.partnerToo&&p.pLoc==="area")await fxIf(p,p.partner,"ターン終了時",()=>pd.endTurn(p,p.partner))},
+    // 同時に発動するターン終了時の効果は、人なら順番を選べる（CPUは現場の左から、パートナーは最後）
+    const here=y=>y===p.partner?p.pLoc==="area":p.field.includes(y);
+    let xs=[...p.field.filter(y=>def(y)&&def(y).endTurn),...(def(p.partner)&&def(p.partner).endTurn&&def(p.partner).partnerToo&&p.pLoc==="area"?[p.partner]:[])];
+    if(!p.cpu&&xs.length>1&&typeof orderCards==="function")xs=await orderCards(`${p.name}: ターン終了時の効果の順番`,xs,
+      {body:"ターン終了時に発動する効果が複数あります。解決する順にカードをタップしてください（①から先に解決）。もう一度タップで取り消し。",okLabel:"この順番で解決",keepLabel:"表示の順のまま解決"});
+    for(const y of xs){const d=def(y);if(d&&d.endTurn&&here(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}},
   async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await d.solvedTrigger(p)}},
-  async onLeave(info){ // {x,p,turn,by,effect}。rmLeft: リムーブエリアから離れた（諸伏高明 B05087 など）
+  async onLeave(info){ // {x,p,turn,by,effect}。rmLeft: リムーブエリアから離れた（諸伏高明 B05087 など）。setRm: セットされていたイベントがリムーブエリアに置かれた
+    if(info.setRm){for(const c of info.setRm){const e=def(c);if(e&&e.setToRm&&info.p.rm.includes(c))await fxIf(info.p,c,"セット",()=>e.setToRm(info.p,c,info))}return}
     if(info.rmLeft){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onRmLeave&&info.p.field.includes(y))await fxIf(info.p,y,"リムーブエリアから離れたとき",()=>e.onRmLeave(info.p,y,info.x))}return}
     const q=opp(info.p);for(const y of q.field.slice()){const e=def(y);if(e&&e.onOppRemoved&&q.field.includes(y))await fxIf(q,y,"相手のキャラがリムーブされたとき",()=>e.onOppRemoved(q,y,info))}
     if(info.turn!==info.p.idx&&idOf(info.x)!=="0968"&&hasTrait(info.x,"大阪府警")&&info.p.field.some(y=>idOf(y)==="0968"&&def(y))){
@@ -75,20 +88,27 @@ const FX={
     else{list=(d&&d.abilities||[]).map((a,i)=>({...a,key:"ab"+i})).filter(a=>x!==p.partner||a.partner);
       for(const s of x.set||[]){const sd=s.up&&!s.under&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}}
     return list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&a.can(p,x)}))},
-  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await a.run(p,x);render();await runQueue();return r},
+  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>a.run(p,x));render();await runQueue();return r},
   apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
     if(G.turn===p.idx&&hasTrait(x,"サッカー選手"))b+=1000*p.field.filter(y=>idOf(y)==="0954").length; // 赤木守
     if(G.turn===p.idx&&idOf(x)==="1061")b+=1000; // 沖田総司 PR290
     if(G.contact&&(G.contact.a===x||G.contact.d===x))b+=2000*(x.set||[]).filter(s=>s.up&&idOf(s.c)==="0019").length; // シャッフルロマンス
     const d=def(x);if(d&&d.apSelf)b+=d.apSelf(p,x)||0;
+    for(const s of setEvents(x)){const e=def(s);if(e&&e.setAp)b+=e.setAp(p,x)||0} // setAp: セットされたイベントが与えるAP（せんぷう剣 など）
     for(const q of G.P)for(const y of [...q.field,...(q.pLoc==="area"?[q.partner]:[])]){const e=def(y);if(e&&e.apAura&&(y!==q.partner||e.partnerToo))b+=e.apAura(q,y,x)||0}
     return b},
   keepStun(p){return opp(p).field.some(y=>idOf(y)==="0301"&&partnerIs(opp(p),"白"))}, // 怪盗キッド B03046
   canGuardSleeping:x=>!!(def(x)&&def(x).guardWhileSleeping)||(x.guardT||0)>=G.turnNo,
-  handLevel(p,x){const d=def(x);return d&&d.handLevel?d.handLevel(p,x):null},
+  // handLevel: 手札のこのカード自身のレベル。handLvAura: 現場のキャラが手札のカードのレベルを増減（鉄刃 B06047）
+  handLevel(p,x){const d=def(x);const own=d&&d.handLevel?d.handLevel(p,x):null;let a=0;
+    for(const y of p.field){const e=def(y);if(e&&e.handLvAura)a+=e.handLvAura(p,y,x)||0}
+    return a?Math.max(0,(own??(C(x).lv||0))+a):own},
+  // イベントがキャラにセットされたとき（setEventOn から。鉄刃 B06046・B06047）
+  async onSet(p,h,c){const d=def(h);if(d&&d.onSet&&p.field.includes(h))await fxIf(p,h,"セット",()=>d.onSet(p,h,c))},
   eraseEvidence:p=>!!(def(p.caseC)&&def(p.caseC).eraseEvidence)&&partnerIs(p,"黒"),
   eventAi(p,x){const d=def(x);return !!(d&&d.event&&(!d.ai||d.ai(p)))},
   automated:x=>!!def0(x)&&!def0(x).partial,
+  noAutoWake:x=>/(^|\n)このキャラはオートフェイズにアクティブにならない。/.test(C(x).f||""),
   entersSleeping:x=>/(^|\n)このキャラはスリープ状態で登場する。/.test(C(x).f||""),
 };
 window.FX=FX;

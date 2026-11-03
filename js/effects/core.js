@@ -54,7 +54,7 @@ function stunC(x){x.st="x";log(`　${C(x).nm} をスタン`,"n")}
 function sleepC(x){if(x.st==="a")x.st="s";log(`　${C(x).nm} をスリープ`,"n")}
 function activateC(x){x.st=x.st==="x"?"s":"a";log(`　${C(x).nm} を${x.st==="a"?"アクティブ":"スリープ（スタンから）"}に`,"n")}
 function toDeckBottom(x){const p=ownerOf(x);const wasField=p.field.includes(x);
-  if(wasField){for(const s of x.set||[])p.rm.push(s.c);x.set=[]}
+  if(wasField)dropSets(p,x);
   detach(x);resetMods(x);p.deck.push(x);log(`　${p.name} の ${C(x).nm} をデッキの下へ`,"n")}
 function setTop(p,x){const c=popDeck(p);if(!c)return;x.set=x.set||[];x.set.push({c,up:false});log(`　${C(x).nm} にデッキの上から1枚を裏向きでセット`,"n")}
 
@@ -168,6 +168,6 @@ const myTurn=p=>G.turn===p.idx;
 const giveKw=(y,k)=>{if(!y.kw.includes(k))y.kw.push(k);log(`　${C(y).nm} はターン終了時まで〚${k}〛`,"n")};
 const setCardsAll=()=>allChars().filter(y=>faceDownSet(y).length);
 async function removeAnySet(p,title){const cs=setCardsAll();const [y]=await pickCards(p,title,"",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>isOpp(p,b)-isOpp(p,a))});if(!y)return null;removeSetCost(ownerOf(y),y);return y}
-function toHandFromField(t){const q=ownerOf(t);for(const s of t.set||[])q.rm.push(s.c);t.set=[];detach(t);resetMods(t);q.hand.push(t);log(`　${q.name} の ${C(t).nm} を手札に移した`,"n")}
+function toHandFromField(t){const q=ownerOf(t);dropSets(q,t);detach(t);resetMods(t);q.hand.push(t);log(`　${q.name} の ${C(t).nm} を手札に移した`,"n")}
 const setTotal=cs=>cs.reduce((n,y)=>n+faceDownSet(y).length,0);
 async function pickRmToHand(p,f,title){const [y]=await pickCards(p,title,"",p.rm.filter(f),{max:1,ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});rmToHand(p,y);return y}

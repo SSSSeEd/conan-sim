@@ -15,13 +15,16 @@ function resetMods(x){x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x
 function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からなら離れたときの効果を予約）
   const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);
   detach(x);resetMods(x);
-  if(wasField){for(const s of x.set||[])p.rm.push(s.c);x.set=[]}
+  if(wasField)dropSets(p,x);
   p.rm.push(x);
   const c=C(x);
   if(why)log(`${p.name} の ${c.nm} をリムーブ（${why}）`);
   if(wasField&&G){G.queue.push({x,p,turn:G.turn,by:opt.by||null,effect:!!opt.effect});
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
+// 現場を離れるキャラにセットされていたカードをリムーブエリアへ。表向きのイベントは「リムーブエリアに置かれたとき」（刃新陰流風車 など）を予約
+function dropSets(p,x){const ss=x.set||[];x.set=[];for(const s of ss)p.rm.push(s.c);
+  const ev=ss.filter(s=>s.up&&!s.under).map(s=>s.c);if(ev.length&&G)G.queue.push({setRm:ev,p,turn:G.turn})}
 async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
 function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);clearSave();render();
   if(!window.SIM_FAST)showEndMenu(p,why)}
@@ -178,7 +181,7 @@ function beginTurn(){
   if(p.pLoc==="file"){p.file.splice(p.file.indexOf(p.partner),1);p.pLoc="area";log("パートナーがFILEからパートナーエリアに戻った")}
   p.partner.st="a";
   const keep=FX.keepStun(p);
-  for(const x of p.field){if(x.st==="x"){if(!keep)x.st="s"}else x.st="a";x.fresh=false}
+  for(const x of p.field){if(x.st==="x"){if(!keep)x.st="s"}else if(!FX.noAutoWake(x))x.st="a";x.fresh=false}
   if(keep&&p.field.some(x=>x.st==="x"))log("怪盗キッドの効果でスタン状態のキャラは起き上がらない","n");
   draw(p,1);
   const firstTurn=G.turnNo===1;
@@ -306,7 +309,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
   const kind=target==="case"?"case":"chara";
   if(!canAct(x,p,kind)){toast("アクションできない");return}
   const o=opp(p);
-  if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||x.kw.includes("アクティブ指定")))){toast("対象はスリープかスタン状態のキャラ");return}
+  if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||hitsActive(x,p)))){toast("対象はスリープかスタン状態のキャラ");return}
   if(kind==="case"&&o.ev.length===0){toast("相手の証拠が0");return}
   recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);
