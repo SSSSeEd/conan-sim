@@ -124,3 +124,17 @@ DEF["0742"]={ // 円谷光彦 B07010
     for(const z of xs){detach(z);if(z===y){p.hand.push(z);log(`　${C(z).nm} を手札に`)}else p.rm.push(z)}checkDeck(p);if(y&&p.solved)await discard(p,1)},
   abilities:[{label:"【スリープ】: ［少年探偵団］をAP＋3000",can:(p,x)=>x.st==="a"&&allChars().some(DBOYS),aiCan:(p,x)=>myTurn(p)&&p.field.some(y=>y!==x&&DBOYS(y)&&y.st==="a"&&canAct(y,p,"chara")),
     run:async(p,x)=>{sleepCost(x);const t=await chooseChar(p,"AP＋3000する［少年探偵団］",DBOYS,{ai:cs=>cs.filter(y=>!isOpp(p,y)&&y.st==="a").slice(0,1)});if(t)apTurn(t,3000);return true}}]};
+
+DEF["0833"]={ // 江戸川コナン PR199
+  abilities:[{label:"【スリープ】3択: 手札1枚リムーブでLv4以下をリムーブ／LP0の［毛利小五郎］をアクティブに／LP0の［毛利小五郎］に突撃",turn1:true,
+    can:(p,x)=>p.file.length>=5&&x.st==="a"&&(p.field.some(y=>lvOf(y)<=4)||p.field.some(y=>named("毛利小五郎")(y)&&(C(y).lp||0)===0)||opp(p).field.some(y=>lvOf(y)<=4)),
+    aiCan:p=>oppHas(p,y=>lvOf(y)<=4&&lvOf(y)>=2)&&p.hand.length>=2,
+    run:async(p,x)=>{const gotoh=y=>!isOpp(p,y)&&named("毛利小五郎")(y)&&lpOf(y)===0;
+      const can1=p.hand.length>0&&allChars().some(y=>lvOf(y)<=4),can2=p.hand.length>0&&p.field.some(y=>gotoh(y)&&y.st!=="a"),can3=p.field.some(gotoh);
+      const v=p.cpu?(can1&&oppHas(p,y=>lvOf(y)<=4)?1:can3?3:can2?2:0):await ask(`${p.name}: 江戸川コナン`,"1つ選んで行います",
+        [can1&&{label:"手札1枚リムーブでレベル4以下のキャラをリムーブ",value:1,primary:true},can2&&{label:"手札1枚リムーブでLP0の［毛利小五郎］をアクティブに",value:2},can3&&{label:"LP0の［毛利小五郎］に突撃を与える",value:3},{label:"何もしない",value:0}].filter(Boolean));
+      if(!v)return false;sleepCost(x);
+      if(v===1){if(await yes(p,"江戸川コナン","手札を1枚リムーブして、レベル4以下のキャラをリムーブしますか？",true)){await discard(p,1);await rmChar(p,lvLe(4))}}
+      else if(v===2){if(await yes(p,"江戸川コナン","手札を1枚リムーブして、LP0の［毛利小五郎］をアクティブにしますか？",true)){await discard(p,1);const t=await chooseChar(p,"アクティブにする［毛利小五郎］",y=>gotoh(y));if(t)activateC(t)}}
+      else{const t=await chooseChar(p,"突撃を与える［毛利小五郎］",y=>gotoh(y));if(t)giveKw(t,"突撃")}
+      return true}}]};
