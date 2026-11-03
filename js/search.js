@@ -46,10 +46,18 @@ async function rollout(p,plan){
 }
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
 async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
+// 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
+function recSearch(p,tried,best){
+  if(!G.rec)return;
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
+}
 async function chooseTurnPlan(p){
   const plans=turnPlans(p);if(plans.length<=2)return null;
   let best=null,bv=-Infinity;
-  for(const pl of plans){const v=await rollout(p,pl);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  const tried=[];
+  for(const pl of plans){const v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;
 }
