@@ -198,6 +198,8 @@ html.compact .backs .back{width:14px;height:20px}
 /* 縦持ち: 現場・FILE・事件/パートナー/山札・手札を縦に積む */
 html.compact.portrait .side{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"field field" "file file" "sp piles" "hand hand"}
 html.compact.portrait .side.opp{grid-template-areas:"hand hand" "sp piles" "file file" "field field"}
+/* 自分側は事件・パートナーを一番上に置く（下に置くと固定の手札に隠れて、スクロールしないと触れなかった） */
+html.compact.portrait .side.me{grid-template-areas:"sp piles" "field field" "file file" "hand hand"}
 html.compact.portrait .special{justify-content:flex-start}
 html.compact.portrait .pinfo{grid-template-columns:repeat(3,44px)}
 html.compact.portrait .pname{grid-column:1/-1}
@@ -255,7 +257,8 @@ html.compact.portrait .fab:disabled{opacity:.35}
 /* 手札は画面下に扇形 */
 html.compact.portrait .side.me .hand{position:fixed;left:0;right:0;bottom:0;z-index:25;height:calc(120px + env(safe-area-inset-bottom,0px));
   padding:0 8px env(safe-area-inset-bottom,0px);display:flex;gap:0;justify-content:center;align-items:flex-end;overflow:visible;
-  background:linear-gradient(to top,rgba(5,10,14,.95) 55%,rgba(5,10,14,0))}
+  background:linear-gradient(to top,rgba(5,10,14,.95) 55%,rgba(5,10,14,0));pointer-events:none}
+html.compact.portrait .side.me .hand .card{pointer-events:auto}
 html.compact.portrait .side.me .hand .card{width:68px;height:95px;flex:none;transform-origin:50% 100%;
   transform:translateY(var(--y,0px)) rotate(var(--r,0deg));transition:transform .15s ease;margin-bottom:6px;box-shadow:0 4px 10px rgba(0,0,0,.5)}
 html.compact.portrait .side.me .hand .card.playable{transform:translateY(calc(var(--y,0px) - 10px)) rotate(var(--r,0deg));box-shadow:0 0 0 2px var(--ok),0 0 14px rgba(120,220,140,.55)}
