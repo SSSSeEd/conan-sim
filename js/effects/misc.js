@@ -1,5 +1,5 @@
 "use strict";
-// カード個別効果（黄・緑のその他）。DEF["カードID"]={...} を足す。共通の部品は core.js。
+// カード個別効果（その他。事件の宣言能力もここ）。DEF["カードID"]={...} を足す。共通の部品は core.js。
 
 // --- 黄・緑 その他 ---
 DEF["1012"]={ // 横溝重悟 B09072
@@ -16,3 +16,35 @@ DEF["0704"]={ // 松田陣平 B06085（「MRのキャラを選んだ場合」は
 DEF["0732"]={ // 目暮十三 PR181
   abilities:[{label:"【スリープ】: リムーブエリアのレベル4以下の［警視庁］を登場（突撃［事件］、ターン終了時にデッキの下へ）",can:(p,x)=>x.st==="a"&&p.field.length<5&&p.rm.some(y=>isChar(y)&&hasTrait(y,"警視庁")&&lvOf(y)<=4),aiCan:p=>myTurn(p)&&opp(p).ev.length>0,
     run:async(p,x)=>{sleepCost(x);const y=await enterFromRm(p,y=>hasTrait(y,"警視庁")&&lvOf(y)<=4,"登場させる［警視庁］（レベル4以下）");if(y){giveKw(y,"突撃［事件］");giveKw(y,"終了時デッキの下")}return true}}]};
+
+// --- 事件の【解決編】【宣言】（裏向きの証拠を表向きにするコスト）と、デッキの上へのセットなど ---
+const solvedDisc=async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")};
+const evDown=p=>p.ev.filter(e=>!e.up).length;
+// 「デッキの上から3枚見て、指定カード名を1枚公開して手札に」型の事件。names は部分一致
+const caseSearch=(label,n,names)=>({solvedTrigger:solvedDisc,
+  abilities:[{label:`裏向きの証拠を${n}つ表向きに: デッキの上3枚から${label}を手札に`,turn1:true,
+    can:p=>p.solved&&evDown(p)>=n&&p.field.some(named(...names)),
+    run:async p=>{if(!flipEvidence(p,n))return false;await lookTop(p,3,named(...names),{max:1,title:`${label}を1枚まで手札に`});return true}}]});
+DEF["0638"]=caseSearch("［工藤新一］か［毛利蘭］",2,["工藤新一","毛利蘭"]); // 厄介な難事件 B06013
+DEF["0666"]=caseSearch("［服部平次］か［遠山和葉］",2,["服部平次","遠山和葉"]); // 恋と推理の剣道大会 B06043
+DEF["0883"]={ // 江戸川コナン誘拐事件 B08044
+  solvedTrigger:solvedDisc,
+  abilities:[{label:"裏向きの証拠を1つ表向きに: 現場のキャラにデッキの上から1枚をセット",turn1:true,can:p=>p.solved&&evDown(p)>=1&&p.field.length>0&&p.deck.length>0,
+    run:async p=>{if(!flipEvidence(p,1))return false;const t=await chooseChar(p,"セット先のキャラ",y=>!isOpp(p,y),{ai:cs=>cs.filter(y=>!isOpp(p,y)).sort((a,b)=>apOf(b)-apOf(a)).slice(0,1)});if(t)setTop(p,t);return true}}]};
+DEF["1139"]={ // 帰らざる刑事 B10083
+  solvedTrigger:solvedDisc,
+  abilities:[{label:"裏向きの証拠を3つ表向きに: 現場の［松田陣平］を表向きの証拠にする",turn1:true,can:p=>p.solved&&p.file.length>=5&&evDown(p)>=3&&p.field.some(named("松田陣平")),
+    run:async p=>{if(!flipEvidence(p,3))return false;const t=await chooseChar(p,"表向きの証拠にする［松田陣平］",y=>!isOpp(p,y)&&named("松田陣平")(y));
+      if(t){for(const s of t.set||[])p.rm.push(s.c);t.set=[];detach(t);resetMods(t);t.up=true;p.ev.push(t);log(`　${C(t).nm} を表向きの証拠にした`,"n")}return true}}]};
+DEF["0770"]={ // 黒羽盗一 B07041
+  enter:async p=>{if(!partnerIs(p,"白"))return;const t=await chooseChar(p,"登場時: スタンさせるキャラ",y=>true,{ai:cs=>cs.filter(y=>isOpp(p,y)).sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});
+    if(t){if(t.st==="x")log("　（スタン状態のキャラは代わりにスリープさせる）","n"),sleepC(t);else stunC(t)}},
+  abilities:[{label:"【スリープ】: 現場のキャラにデッキの上から1枚をセット",can:(p,x)=>x.st==="a"&&p.field.length>0&&p.deck.length>0,
+    run:async(p,x)=>{sleepCost(x);const t=await chooseChar(p,"セット先のキャラ",y=>!isOpp(p,y),{ai:cs=>cs.filter(y=>!isOpp(p,y)).sort((a,b)=>apOf(b)-apOf(a)).slice(0,1)});if(t)setTop(p,t);return true}}]};
+DEF["0486"]={ // 工藤有希子 PR099（カード名の書き換えは、現場にいるキャラの名前から選ぶ）
+  enter:async(p,x)=>{setTop(p,x);giveKw(x,"突撃［キャラ］")},
+  abilities:[{label:"ターン終了時までAP＋1000（カード名を書き換えてもよい）",turn1:true,can:()=>true,aiCan:p=>myTurn(p),
+    run:async(p,x)=>{apTurn(x,1000);const t=await chooseChar(p,"カード名を書き換える先（指定するカード名のキャラ）",y=>y!==x,{ai:()=>[]});if(t){x.nmT=nameOf(t);log(`　${C(x).nm} のカード名はターン終了時まで［${x.nmT}］`,"n")}return true}}]};
+DEF["0177"]={ // 沖野ヨーコ B02005
+  abilities:[{label:"現場の［毛利小五郎］にAP＋2000と突撃",turn1:true,can:p=>p.field.some(named("毛利小五郎")),aiCan:p=>myTurn(p)&&p.field.some(y=>named("毛利小五郎")(y)&&y.st==="a"),
+    run:async p=>{const t=await chooseChar(p,"AP＋2000する［毛利小五郎］",y=>!isOpp(p,y)&&named("毛利小五郎")(y));if(t){apTurn(t,2000);giveKw(t,"突撃")}return true}}]};
