@@ -134,3 +134,9 @@ DEF["0945"]={ // 18の想起
 DEF["0904"]={ // 諸伏高明 B08067（パートナー黄・解決編の登場時）
   enter:async p=>{if(!partnerIs(p,"黄")||!p.solved)return;
     if(new Set(p.field.filter(y=>hasTrait(y,"長野県警")).map(y=>C(y).nm)).size>=3)await rmChar(p,lvLe(7))}};
+
+// --- 松田陣平 D11008（レベル7以上のアクティブを指定／自分ターン中のコンタクトで手札1枚→AP＋3000） ---
+DEF["0938"]={
+  kwSelf:()=>["アクティブ指定Lv7"],
+  onContact:async(q,y,ct)=>{if(ct.a!==y||!myTurn(q)||turnCount(y,"mat")||apOf(ct.d)<=apOf(y)||!q.hand.length)return;
+    if(!await yes(q,"松田陣平","手札を1枚リムーブして、このコンタクト中AP＋3000しますか？",()=>q.hand.length>=2))return;useTurn(y,"mat");await discard(q,1);y.apC+=3000;log(`　${C(y).nm} はこのコンタクト中AP＋3000（AP${apOf(y)}）`,"n")}};

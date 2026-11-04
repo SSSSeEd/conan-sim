@@ -138,3 +138,15 @@ DEF["0833"]={ // 江戸川コナン PR199
       else if(v===2){if(await yes(p,"江戸川コナン","手札を1枚リムーブして、LP0の［毛利小五郎］をアクティブにしますか？",true)){await discard(p,1);const t=await chooseChar(p,"アクティブにする［毛利小五郎］",y=>gotoh(y));if(t)activateC(t)}}
       else{const t=await chooseChar(p,"突撃を与える［毛利小五郎］",y=>gotoh(y));if(t)giveKw(t,"突撃")}
       return true}}]};
+
+// --- 円谷光彦 PR295（FILE7: アクション終了時に手札1枚でアクティブ／宣言: ［少年探偵団］を下に重ねて1枚引く） ---
+DEF["1060"]={
+  actionEnd:async(p,x)=>{if(!condOk("FILE7",p)||turnCount(x,"mitsu")||!p.field.includes(x)||underN(x)<1||!p.hand.length||x.st==="a")return;
+    if(!await yes(p,"アクション終了時","手札を1枚リムーブして、このキャラをアクティブにしますか？",()=>p.hand.length>=2))return;useTurn(x,"mitsu");await discard(p,1);activateC(x)},
+  abilities:[{label:"【宣言】: 他の［少年探偵団］を下に重ねて1枚引く",turn1:true,can:(p,x)=>p.field.some(y=>y!==x&&DBOYS(y)),aiCan:(p,x)=>p.field.some(y=>y!==x&&DBOYS(y)&&lvOf(y)<=5),
+    run:async(p,x)=>{const t=await chooseChar(p,"このキャラの下に重ねる［少年探偵団］",y=>y!==x&&!isOpp(p,y)&&DBOYS(y),{ai:cs=>cs.filter(y=>!isOpp(p,y)).sort((a,b)=>lvOf(a)-lvOf(b)).slice(0,1)});
+      if(!t)return false;stackUnder(x,[t]);drawN(p,1);return true}}]};
+// --- 毛利蘭 B05009（キャラの能力で登場したら突撃／絆工藤新一: コンタクトでリムーブしたら1枚引く） ---
+DEF["0515"]={
+  enter:async(p,x)=>{if(x.viaAb){giveKw(x,"突撃");log(`　${C(x).nm} はターン終了時まで突撃`,"n")}},
+  contactWin:async(p,x)=>{if(condOk("絆工藤新一",p))drawN(p,1)}};
