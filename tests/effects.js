@@ -81,4 +81,14 @@ module.exports=[
     const g=w.CARD_DB.find(c=>c.t==="イベント"&&c.c==="緑");const e=board(w,{p0:{field:["B08020"],hand:[g.n]},p1:{field:[R,R]}});
     const q=e.P[0];q.cpu=true;e.turn=0;await w.FX.event(q,q.hand[0]);assert.strictEqual(e.P[1].field.length,1);
     await w.FX.event(q,q.hand[0]||q.rm[q.rm.length-1]);assert.strictEqual(e.P[1].field.length,1,"ターン1")}],
+  ["千速と重悟の婚活パーティー D11021: 表向きにした証拠1つにつきAP－1000（神奈川県警がいて解決編のとき）",async w=>{
+    const G=board(w,{p0:{ev:[R,R,R],solved:true,field:["D11004"]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;q.caseC=w.inst("D11021");
+    q.ev.forEach(e=>e.up=false);const a=w.FX.abilities(q,q.caseC)[0];assert.ok(a.ok);await a.run(q,q.caseC);
+    assert.strictEqual(q.ev.filter(e=>e.up).length,3);assert.strictEqual(G.P[1].field[0].apT,-3000)}],
+  ["バーボン＆ライ B07093: 相手のキャラをレベル－1",async w=>{
+    const G=board(w,{p0:{field:["B07093"]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;const x=q.field[0];
+    const a=w.FX.abilities(q,x)[1];await a.run(q,x);assert.strictEqual(w.ev("lvOf")(G.P[1].field[0]),1)}],
+  ["ミステリーコースター B07104: 現場のキャラ1枚につき2枚リムーブ（パートナー黒）",async w=>{
+    const G=board(w,{p0:{hand:["B07104"],field:[R]},p1:{field:[R,R]},});const q=G.P[0];q.cpu=true;q.partner=w.inst("B07093");
+    const n0=q.rm.length;await w.FX.event(q,q.hand[0]);assert.strictEqual(G.P[1].field.length,1);assert.strictEqual(q.rm.length-n0,2*(G.P[0].field.length+G.P[1].field.length),"残り2体×2枚をミル")}],
 ];
