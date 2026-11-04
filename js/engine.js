@@ -309,7 +309,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
   const kind=target==="case"?"case":"chara";
   if(!canAct(x,p,kind)){toast("アクションできない");return}
   const o=opp(p);
-  if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||hitsActive(x,p)))){toast("対象はスリープかスタン状態のキャラ");return}
+  if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||hitsActive(x,p,target)))){toast("対象はスリープかスタン状態のキャラ");return}
   if(kind==="case"&&o.ev.length===0){toast("相手の証拠が0");return}
   recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);

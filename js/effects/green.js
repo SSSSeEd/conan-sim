@@ -97,3 +97,8 @@ DEF["0026"]={ // 服部平次 B01032（ターン1: キャラへのアクショ�
 DEF["0163"]={ // そーいう事かいな… B04028（このカードを表向きのまま証拠として得る）
   event:async(p,x)=>{const i=p.rm.indexOf(x);if(i<0)return;p.rm.splice(i,1);x.st="a";x.up=true;p.ev.push(x);log(`　${C(x).nm} を表向きのまま証拠として得た（証拠${p.ev.length}）`)},
   ai:p=>true};
+
+// --- 遠山和葉 B08020（登場時: 上4枚から【緑】のイベントを手札に／自分ターン中: 【緑】のイベント使用でAP8000以下をリムーブ） ---
+DEF["0860"]={
+  enter:async(p,x)=>{const got=await lookTop(p,4,y=>C(y).t==="イベント"&&hasColor(y,"緑"),{max:1,title:"【緑】のイベントを1枚まで手札に"});if(got.length)await discard(p,1)},
+  onEventUse:async(p,x,ev)=>{if(!myTurn(p)||turnCount(x,"kaz")||!hasColor(ev,"緑")||!oppHas(p,apLe(8000)))return;useTurn(x,"kaz");await rmChar(p,apLe(8000))}};

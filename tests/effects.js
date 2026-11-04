@@ -64,4 +64,21 @@ module.exports=[
     const G=board(w,{p0:{field:["PR199"],hand:[R,R],file:[R,R,R,R,R]},p1:{field:[R]}});const p=G.P[0];p.cpu=true;G.turn=0;
     const a=w.ev("DEF")["0833"].abilities[0],x=p.field[0];assert.ok(a.can(p,x));
     await a.run(p,x);assert.strictEqual(G.P[1].field.length,0);assert.strictEqual(p.hand.length,1);assert.strictEqual(x.st,"s")}],
+  ["円谷光彦 PR295: 宣言で他の［少年探偵団］を下に重ねて1枚引く。FILE7ならアクション終了時に手札1枚でアクティブ",async w=>{
+    const G=board(w,{p0:{field:["PR295","B01006"],hand:[R,R],deck:[R,R,R],file:[R,R,R,R,R,R,R]}});const p=G.P[0];p.cpu=true;G.turn=0;
+    const [x,y]=p.field,a=w.ev("DEF")["1060"].abilities[0];assert.ok(a.can(p,x));
+    await a.run(p,x);assert.strictEqual(p.field.length,1);assert.strictEqual(p.hand.length,3);
+    x.st="s";await w.FX.actionEnd(p,x);assert.strictEqual(x.st,"a");assert.strictEqual(p.hand.length,2)}],
+  ["毛利蘭 B05009: 能力で登場したときだけ突撃。絆工藤新一でコンタクトに勝つと1枚引く",async w=>{
+    const G=board(w,{p0:{hand:["B05009"],field:["B01019"],deck:[R,R]}});const p=G.P[0];G.turn=0;
+    const x=p.hand[0];await w.ev("enterByEffect")(p,x);assert.ok(x.kw.includes("突撃"));
+    const h=p.hand.length;await w.FX.contactWin(p,x,null);assert.strictEqual(p.hand.length,h,"絆なし")}],
+  ["松田陣平 D11008: レベル7以上のアクティブ状態を指定できる。APの高い相手とのコンタクトで手札1枚→AP＋3000",async w=>{
+    const G=board(w,{p0:{field:["D11008"],hand:[R,R]},p1:{field:[R]}});const p=G.P[0];p.cpu=true;G.turn=0;const [x]=p.field,[t]=G.P[1].field;
+    assert.ok(!w.hitsActive(x,p,t),"Lv2は指定できない");t.lvT=6;assert.ok(w.hitsActive(x,p,t));
+    t.apT=9000;await w.FX.onContact(p,{a:x,d:t});assert.strictEqual(w.apOf(x),w.ev("C")(x).ap+3000);assert.strictEqual(p.hand.length,1)}],
+  ["遠山和葉 B08020: 自分ターン中に【緑】のイベントを使うとAP8000以下をリムーブ（ターン1）",async w=>{
+    const g=w.CARD_DB.find(c=>c.t==="イベント"&&c.c==="緑");const e=board(w,{p0:{field:["B08020"],hand:[g.n]},p1:{field:[R,R]}});
+    const q=e.P[0];q.cpu=true;e.turn=0;await w.FX.event(q,q.hand[0]);assert.strictEqual(e.P[1].field.length,1);
+    await w.FX.event(q,q.hand[0]||q.rm[q.rm.length-1]);assert.strictEqual(e.P[1].field.length,1,"ターン1")}],
 ];

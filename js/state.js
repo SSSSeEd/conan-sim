@@ -43,7 +43,9 @@ function condOk(tag,p){
   return null; // 判定対象外のタグ
 }
 // 相手のアクティブ状態のキャラを指定してアクションできるか（与えられた能力・セットされたイベントも含める）
-function hitsActive(x,p){return x.kw.includes("アクティブ指定")||!!(window.FX&&FX.kwExtra&&FX.kwExtra(x,p).includes("アクティブ指定"))}
+// 「レベルN以上のアクティブ状態のキャラを指定してアクションできる」は kw「アクティブ指定LvN」（target を渡すとレベルも見る）
+function hitsActive(x,p,target){const ks=[...x.kw,...(window.FX&&FX.kwExtra?FX.kwExtra(x,p):[])];
+  return ks.includes("アクティブ指定")||ks.some(k=>{const m=k.match(/^アクティブ指定Lv(\d+)$/);return !!m&&(!target||lvOf(target)>=+m[1])})}
 // 常在キーワード（行頭の条件タグを満たした〚〛）
 function staticKw(x,p){
   const out={rush:false,rushC:false,rushE:false,swift:false,bullet:false,misread:0,noGuard:false,guardSleep:false,mustGuard:false};
