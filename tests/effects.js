@@ -20,6 +20,11 @@ module.exports=[
     const G=board(w,{p0:{field:["B09070",R]}});const p=G.P[0],[x,y]=p.field;
     x.st="s";y.st="s";x.galeDone=G.turnNo;await w.FX.endTurn(p);
     assert.strictEqual(x.st,"a");assert.strictEqual(y.st,"s")}],
+  ["上原由衣 B08066: スリープして、リムーブエリアの［長野県警］をデッキの下へ移し、［長野県警］のキャラに突撃",async w=>{
+    const G=board(w,{p0:{field:["B08066","B08065"],rm:["B08065"]}});const p=G.P[0],[x,y]=p.field,a=w.ev("DEF")["0903"].abilities[0];
+    assert.ok(a.can(p,x));x.st="s";assert.ok(!a.can(p,x),"スリープ状態では宣言できない");x.st="a";
+    await a.run(p,x);assert.strictEqual(x.st,"s");assert.strictEqual(p.rm.length,0);assert.strictEqual(p.deck.length,6);
+    assert.ok(w.FX.kwExtra(y,p).includes("突撃")||y.kw.includes("突撃")||x.kw.includes("突撃"))}],
   ["疾風: このターンで1番に登場したときだけ発動（松田陣平 B09074 は1枚引く）",async w=>{
     const G=board(w,{p0:{hand:["B09074","B09074"],deck:[R,R,R,R,R,R,R,R,R,R]}});const p=G.P[0];const [a,b]=p.hand;
     const enter=w.ev("enterByEffect");await enter(p,a);const h1=p.hand.length;await enter(p,b);
