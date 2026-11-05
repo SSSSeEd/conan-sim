@@ -203,6 +203,20 @@ DEF["1010"]={
   endTurn:async(p,x)=>{for(const y of p.field)if(y.galeDone===G.turnNo&&y.st==="s")activateC(y)},
   partnerToo:true};
 
+DEF["0900"]={ // 黒田兵衛 B08063
+  endTurn:async(p,x)=>{ if(new set(NAGANO.map(y=>C(y).nm)).size>=3){drawN(p,1);await discard(p,1,"リムーブする",p,f);}/* 名前の異なる［長野県警］が3枚未満なら何もしない → 1枚引く → 手札1枚リムーブ */ },
+  enter:async(p,x)=>{ if(!partnerIs(p,"黄"))return;  /* パートナーが黄でなければ何もしない */
+    if(!await yes(p,"黒田兵衛 登場時","デッキのカードを上から3枚リムーブしますか？(［長野県警］のキャラがあればAP8000以下を1枚リムーブ)",true))return;/*yesで確認 → */
+    if(millself(p,3).some(y=>isChar(y)&&hasTrait(y,"長野県警")))
+    await rmChar(p,aple(8000),"リムーブするキャラ（AP8000以下）");return true;/*上3枚を millSelf → 長野県警がいたら rmChar でAP8000以下をリムーブ */ }};
+  
+DEF["0902"]={ // 大和敢助 B08065
+  apSelf:(p,x)=>G.turn===p.idx&&p.file.length>=6&&p.field.filter(NAGANO).length>=3?2000:0,
+  enter:async(p,x)=>{if(p.solved)return; // 事件編のときだけ(解決編なら何もしない)
+    const f=y=>isChar(y)&&hasTrait(y,"長野県警");if(!p.hand.some(f))return;
+    if(!await yes(p,"大和敢助 登場時","手札の［長野県警］を1枚リムーブして、カードを2枚引きますか？",true))return;
+    const r=await discard(p,1,"リムーブする［長野県警］",p,f);if(r.length)drawN(p,2)}};
+
 // --- 上原由衣 B08066 ---
 DEF["0903"]={
   abilities:[{label:"【スリープ】リムーブエリアの［長野県警］を1枚デッキの下へ: ［長野県警］のキャラに突撃",
@@ -213,9 +227,3 @@ DEF["0903"]={
       const t=await chooseChar(p,"突撃を与える［長野県警］のキャラ",y=>hasTrait(y,"長野県警")&&!isOpp(p,y),{ai:cs=>cs.filter(y=>y.st==="a").slice(0,1)});
       if(t)giveKw(t,"突撃");return true}}]};
 
-DEF["0902"]={ // 大和敢助 B08065
-  apSelf:(p,x)=>G.turn===p.idx&&p.file.length>=6&&p.field.filter(NAGANO).length>=3?2000:0,
-  enter:async(p,x)=>{if(p.solved)return; // 事件編のときだけ(解決編なら何もしない)
-    const f=y=>isChar(y)&&hasTrait(y,"長野県警");if(!p.hand.some(f))return;
-    if(!await yes(p,"大和敢助 登場時","手札の［長野県警］を1枚リムーブして、カードを2枚引きますか？",true))return;
-    const r=await discard(p,1,"リムーブする［長野県警］",p,f);if(r.length)drawN(p,2)}};
