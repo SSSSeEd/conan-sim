@@ -143,4 +143,10 @@ module.exports=[
     const G=board(w,{p0:{ev:[R],solved:true,field:["B01007"],hand:[R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;q.caseC=w.inst("B10100P");
     q.ev.forEach(e=>e.up=false);const a=w.FX.abilities(q,q.caseC)[0];assert.ok(a.ok);await a.run(q,q.caseC);
     const x=q.field[0];assert.ok(x.kw.includes("アクティブ指定Lv6"));const h=q.hand.length;await w.FX.contactWin(q,x,G.P[1].field[0]);assert.strictEqual(q.hand.length,h+1)}],
+  ["大和敢助 B08065: FILE6・長野県警3枚以上の自分ターンAP＋2000／事件編の登場時に長野県警1枚リムーブで2枚引く",async w=>{
+    const G=board(w,{p0:{field:["B08065","B08065","B08065"],hand:["B08065",R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];
+    const base=w.ev("C")(x).ap;assert.strictEqual(w.ev("apOf")(x),base,"FILE6未満");
+    q.file=Array.from({length:6},()=>w.inst(R));assert.strictEqual(w.ev("apOf")(x),base+2000);G.turn=1;assert.strictEqual(w.ev("apOf")(x),base,"相手ターン");G.turn=0;
+    q.solved=false;const h=q.hand.length;await w.FX.enter(q,x);assert.strictEqual(q.hand.length,h-1+2);
+    q.solved=true;const h2=q.hand.length;await w.FX.enter(q,x);assert.strictEqual(q.hand.length,h2,"解決編では発動しない")}],
 ];
