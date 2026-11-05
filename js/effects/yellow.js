@@ -206,7 +206,7 @@ DEF["1010"]={
 // --- 上原由衣 B08066 ---
 DEF["0903"]={
   abilities:[{label:"【スリープ】リムーブエリアの［長野県警］を1枚デッキの下へ: ［長野県警］のキャラに突撃",
-    can:(p,x)=>x.st==="s"&&p.rm.some(y=>isChar(y)&&hasTrait(y,"長野県警"))&&p.field.some(y=>hasTrait(y,"長野県警")),
+    can:(p,x)=>x.st==="a"&&p.rm.some(y=>isChar(y)&&hasTrait(y,"長野県警"))&&p.field.some(y=>hasTrait(y,"長野県警")),
     aiCan:p=>p.field.some(y=>hasTrait(y,"長野県警")&&y.st==="a"),
     run:async(p,x)=>{const [c]=await pickCards(p,"デッキの下に移す［長野県警］のキャラ","",p.rm.filter(y=>isChar(y)&&hasTrait(y,"長野県警")),{min:1,max:1,ai:cs=>cs.slice(0,1)});
       if(!c)return false;sleepCost(x);detach(c);p.deck.push(c);
