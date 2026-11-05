@@ -150,3 +150,12 @@ DEF["1060"]={
 DEF["0515"]={
   enter:async(p,x)=>{if(x.viaAb){giveKw(x,"突撃");log(`　${C(x).nm} はターン終了時まで突撃`,"n")}},
   contactWin:async(p,x)=>{if(condOk("絆工藤新一",p))drawN(p,1)}};
+
+
+// --- 毛利小五郎 B09006（絆妃英理）---
+DEF["0951"]={
+  abilities:[{label:"【絆妃英理】AP8000以下のスリープ状態のキャラをリムーブ、［妃英理］をアクティブに",turn1:true,
+    can:p=>condOk("絆妃英理",p)&&allChars().some(y=>y.st==="s"&&apOf(y)<=8000),
+    aiCan:p=>oppHas(p,y=>y.st==="s"&&apOf(y)<=8000),
+    run:async p=>{await rmChar(p,y=>y.st==="s"&&apOf(y)<=8000);await runQueue();
+      const e=p.field.find(y=>named("妃英理")(y)&&y.st!=="a");if(e)activateC(e);return true}}]};
