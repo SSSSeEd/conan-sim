@@ -153,3 +153,17 @@ DEF["0884"]={ // 赤井秀一＆ジョディ・スターリング B08046
 DEF["0933"]={ // メアリー PR235
   enter:async p=>{const f=y=>isChar(y)&&hasColor(y,"赤")&&hasTrait(y,"赤井家");if(!p.hand.some(f)||!await yes(p,"登場時","手札の【赤】の［赤井家］を1枚リムーブして、2枚引きますか？",()=>p.hand.filter(f).length>=2))return;
     await discard(p,1,"リムーブする［赤井家］",p,f);drawN(p,2)}};
+
+// --- 赤白ワンショット（メアリー／BANG／ジェイムズ・ブラック） ---
+DEF["0138"]={ // メアリー D04007
+  onCaseGain:async(p,x)=>{if(!myTurn(p)||turnCount(x,"mary")||!p.hand.length||!p.deck.length)return;
+    if(!await yes(p,"メアリー","手札を1枚リムーブして、証拠を1つ得ますか？",()=>p.hand.length>=2))return;useTurn(x,"mary");await discard(p,1);gainEv(p,1)}};
+DEF["0334"]={ // BANG B03080
+  event:async(p,x)=>{if(opp(p).deck.length&&await yes(p,"BANG","相手に証拠を1つ与えますか？",()=>p.ev.length<=opp(p).ev.length)){gainEvidence(opp(p),1);log(`　${opp(p).name} は証拠を1つ得た（証拠${opp(p).ev.length}）`)}
+    await setEventOn(p,x,y=>hasColor(y,"赤"))},
+  setOnCase:async(p,h)=>{if(turnCount(h,"bang"))return;useTurn(h,"bang");activateC(h)},
+  ai:p=>p.field.some(y=>hasColor(y,"赤"))};
+DEF["0802"]={ // ジェイムズ・ブラック B07073
+  enter:async p=>{if(!p.hand.length||!p.deck.length)return;
+    if(!await yes(p,"ジェイムズ・ブラック 登場時","手札を1枚リムーブして、デッキの上から4枚を見ますか？（【赤】のカードを1枚まで手札に）",()=>p.hand.length>=2))return;
+    await discard(p,1);const got=await lookTop(p,4,y=>hasColor(y,"赤"),{max:1,title:"【赤】のカードを1枚まで手札に"});if(got.length)await discard(p,1)}};

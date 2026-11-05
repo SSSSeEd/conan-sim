@@ -157,3 +157,30 @@ DEF["0946"]={ // 千速と重悟の婚活パーティー D11021
   abilities:[{label:"裏向きの証拠を1つ以上表向きに: キャラを表向きにした数×AP－1000",turn1:true,
     can:p=>p.solved&&evDown(p)>=1&&p.field.some(y=>hasTrait(y,"神奈川県警")),aiCan:p=>evDown(p)>=1&&opp(p).field.length>0,
     run:async p=>{const k=await flipEvidenceMany(p);if(!k)return false;const t=await chooseChar(p,`AP－${k*1000}するキャラ`);if(t)apTurn(t,-1000*k);return true}}]};
+
+// --- 黄単警視庁（黒田兵衛／白鳥任三郎／閉ざされた秘密） ---
+const KEISHI=y=>isChar(y)&&hasTrait(y,"警視庁");
+DEF["0342"]={ // 黒田兵衛 B03089
+  enter:async(p,x)=>{
+    const f=y=>isChar(y)&&hasTrait(y,"警察")&&lvOf(y)<=5;
+    const fromHand=p.hand.some(f),fromRm=p.rm.some(f);if(!fromHand&&!fromRm)return;
+    let mode="hand";
+    if(fromHand&&fromRm)mode=p.cpu?"rm":await ask(`${p.name}: 黒田兵衛 登場時`,"どちらを登場させますか？",[{label:"手札から登場",value:"hand",primary:true},{label:"リムーブエリアから登場（AP＋2000・突撃・終了時リムーブ）",value:"rm"}]);
+    else if(fromRm)mode="rm";
+    if(mode==="hand"){await playFromHand(p,f,"登場させる［警察］（レベル5以下）");return}
+    const y=await enterFromRm(p,f,"登場させる［警察］（レベル5以下）");
+    if(y){apTurn(y,2000);giveKw(y,"突撃");giveKw(y,"終了時リムーブ")}}};
+DEF["0901"]={ // 白鳥任三郎 B08064
+  enter:async(p,x)=>{sleepC(x);
+    const r=await revealFromHand(p,KEISHI,"公開する［警視庁］（しなくてもよい）");if(!r)return;
+    await rmChar(p,lvLe(7),"リムーブするキャラ（レベル7以下）")},
+  abilities:[{label:"このキャラかレベル7以下の［警視庁］をデッキの下へ: 1枚引く",turn1:true,can:p=>p.deck.length>0,aiCan:p=>p.hand.length<5,
+    run:async(p,x)=>{const cs=p.field.filter(y=>y===x||(KEISHI(y)&&lvOf(y)<=7));
+      const [c]=await pickCards(p,"コスト: デッキの下に移すキャラ","",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>lvOf(a)-lvOf(b))});if(!c)return false;
+      toDeckBottom(c);drawN(p,1);return true}}]};
+DEF["0819"]={ // 閉ざされた秘密 B07091P
+  solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")},
+  abilities:[{label:"裏向きの証拠を1つ以上表向きに: ［警視庁］を表向きにした数×AP＋1000",turn1:true,
+    can:p=>p.solved&&evDown(p)>=1&&p.field.some(KEISHI),aiCan:p=>myTurn(p)&&p.field.some(y=>KEISHI(y)&&y.st==="a"),
+    run:async p=>{const k=await flipEvidenceMany(p);if(!k)return false;
+      const t=await chooseChar(p,`AP＋${k*1000}する［警視庁］`,KEISHI,{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)apTurn(t,1000*k);return true}}]};
