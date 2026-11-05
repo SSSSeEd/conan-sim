@@ -204,11 +204,11 @@ DEF["1010"]={
   partnerToo:true};
 
 DEF["0900"]={ // 黒田兵衛 B08063
-  endTurn:async(p,x)=>{ if(new set(NAGANO.map(y=>C(y).nm)).size>=3){drawN(p,1);await discard(p,1,"リムーブする",p,f);}/* 名前の異なる［長野県警］が3枚未満なら何もしない → 1枚引く → 手札1枚リムーブ */ },
+  endTurn:async(p,x)=>{ if(new Set(p.field.fillter(NAGANO).map(y=>C(y).nm)).size>=3){drawN(p,1);await discard(p,1,"リムーブする",);}/* 名前の異なる［長野県警］が3枚未満なら何もしない → 1枚引く → 手札1枚リムーブ */ },
   enter:async(p,x)=>{ if(!partnerIs(p,"黄"))return;  /* パートナーが黄でなければ何もしない */
     if(!await yes(p,"黒田兵衛 登場時","デッキのカードを上から3枚リムーブしますか？(［長野県警］のキャラがあればAP8000以下を1枚リムーブ)",true))return;/*yesで確認 → */
-    if(millself(p,3).some(y=>isChar(y)&&hasTrait(y,"長野県警")))
-    await rmChar(p,aple(8000),"リムーブするキャラ（AP8000以下）");return true;/*上3枚を millSelf → 長野県警がいたら rmChar でAP8000以下をリムーブ */ }};
+    if(millSelf(p,3).some(y=>isChar(y)&&hasTrait(y,"長野県警")))
+    await rmChar(p,y=>ap0f(y)<=8000,"リムーブするキャラ（AP8000以下）");return true;/*上3枚を millSelf → 長野県警がいたら rmChar でAP8000以下をリムーブ */ }};
   
 DEF["0902"]={ // 大和敢助 B08065
   apSelf:(p,x)=>G.turn===p.idx&&p.file.length>=6&&p.field.filter(NAGANO).length>=3?2000:0,
