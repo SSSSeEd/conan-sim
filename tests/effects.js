@@ -149,4 +149,9 @@ module.exports=[
     q.file=Array.from({length:6},()=>w.inst(R));assert.strictEqual(w.ev("apOf")(x),base+2000);G.turn=1;assert.strictEqual(w.ev("apOf")(x),base,"相手ターン");G.turn=0;
     q.solved=false;const h=q.hand.length;await w.FX.enter(q,x);assert.strictEqual(q.hand.length,h-1+2);
     q.solved=true;const h2=q.hand.length;await w.FX.enter(q,x);assert.strictEqual(q.hand.length,h2,"解決編では発動しない")}],
+  ["黒田兵衛 B08063: 現場で［長野県警］を持ち、名前の異なる長野県警3枚以上ならターン終了時に1枚引いて1枚リムーブ／パートナー黄の登場時に上3枚リムーブ",async w=>{
+    const G=board(w,{p0:{field:["B08063","B08065","B02073"],hand:[R,R],deck:[R,R,R,R,R,R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];
+    assert.ok(w.ev("hasTrait")(x,"長野県警"));
+    const h=q.hand.length;await w.FX.endTurn(q);assert.strictEqual(q.hand.length,h,"+1-1");assert.strictEqual(q.rm.length,1);
+    q.partner=w.inst("B01079");const d0=q.deck.length,r0=q.rm.length;await w.FX.enter(q,x);assert.strictEqual(q.deck.length,d0-3);assert.ok(q.rm.length>=r0+3)}],
 ];

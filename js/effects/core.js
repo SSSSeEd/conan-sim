@@ -12,6 +12,7 @@ function hasTrait(x,t){
   if((C(x).ct||"").split(",").includes(t))return true;
   const p=ownerOf(x);
   if(t==="サッカー選手"&&p&&p.field.includes(x)&&["1065","1066"].includes(idOf(x)))return true; // 現場にいるこのキャラは［サッカー選手］を持つ
+  if(t==="長野県警"&&p&&p.field.includes(x)&&["0900"].includes(idOf(x)))return true; // 現場にいるこのキャラは［長野県警を持つ］を持つ
   return false;
 }
 const hasColor=(x,col)=>(C(x).c||"").includes(col);
