@@ -184,3 +184,21 @@ DEF["0819"]={ // 閉ざされた秘密 B07091P
     can:p=>p.solved&&evDown(p)>=1&&p.field.some(KEISHI),aiCan:p=>myTurn(p)&&p.field.some(y=>KEISHI(y)&&y.st==="a"),
     run:async p=>{const k=await flipEvidenceMany(p);if(!k)return false;
       const t=await chooseChar(p,`AP＋${k*1000}する［警視庁］`,KEISHI,{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)apTurn(t,1000*k);return true}}]};
+
+// --- 萩原千速 B10070 ---
+DEF["1126"]={
+  kwSelf:(p,x)=>p.rm.filter(y=>/【疾風】/.test(C(y).f||"")).length>=3?["突撃"]:[],
+  gale:async(p,x)=>{
+    if(x.st!=="a"||!await yes(p,"疾風","このキャラをスリープさせて、レベル8以下のキャラをリムーブしますか？",()=>allChars().some(y=>y!==x&&lvOf(y)<=8)))return;
+    sleepC(x);await rmChar(p,y=>y!==x&&lvOf(y)<=8)}};
+
+// --- 萩原千速&萩原研二 B09070 ---
+DEF["1010"]={
+  gale:async(p,x)=>{x.galeDone=G.turnNo;
+    await pickRmToHand(p,y=>isChar(y)&&lvOf(y)<=6&&(hasTrait(y,"神奈川県警")||/【疾風】/.test(C(y).f||"")),"手札に加えるキャラ（レベル6以下の［神奈川県警］か【疾風】）")},
+  abilities:[{label:"【パートナー黄】【スリープ】: レベル9以下のキャラをリムーブ",
+    can:(p,x)=>partnerIs(p,"黄")&&x.st==="a"&&allChars().some(y=>y!==x&&lvOf(y)<=9),
+    aiCan:(p,x)=>oppHas(p,y=>lvOf(y)<=9),
+    run:async(p,x)=>{sleepCost(x);await rmChar(p,y=>y!==x&&lvOf(y)<=9);return true}}],
+  endTurn:async(p,x)=>{for(const y of p.field)if(y.galeDone===G.turnNo&&y.st==="s")activateC(y)},
+  partnerToo:true};

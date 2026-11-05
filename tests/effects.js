@@ -13,6 +13,13 @@ module.exports=[
     const G=board(w,{p0:{field:["B08048"]},p1:{field:[R]}});const [a]=G.P[0].field,[t]=G.P[1].field;
     await w.FX.onAction(G.P[0],a,t);assert.strictEqual(w.ev("lvOf")(t),1);assert.strictEqual(w.apOf(a),8000);
     await w.FX.actionEnd(G.P[0],a);assert.strictEqual(w.apOf(a),5000)}],
+  ["萩原千速 B10070: リムーブエリアに【疾風】が3枚以上あると突撃を持つ",async w=>{
+    const G=board(w,{p0:{field:["B10070"],rm:["B09074","B09074"]}});const p=G.P[0],[x]=p.field;
+    assert.ok(!w.FX.kwExtra(x,p).includes("突撃"));p.rm.push(p.rm[0]);assert.ok(w.FX.kwExtra(x,p).includes("突撃"))}],
+  ["萩原千速&萩原研二 B09070: ターン終了時、このターンに疾風を発動したスリープ状態のキャラをアクティブにする",async w=>{
+    const G=board(w,{p0:{field:["B09070",R]}});const p=G.P[0],[x,y]=p.field;
+    x.st="s";y.st="s";x.galeDone=G.turnNo;await w.FX.endTurn(p);
+    assert.strictEqual(x.st,"a");assert.strictEqual(y.st,"s")}],
   ["疾風: このターンで1番に登場したときだけ発動（松田陣平 B09074 は1枚引く）",async w=>{
     const G=board(w,{p0:{hand:["B09074","B09074"],deck:[R,R,R,R,R,R,R,R,R,R]}});const p=G.P[0];const [a,b]=p.hand;
     const enter=w.ev("enterByEffect");await enter(p,a);const h1=p.hand.length;await enter(p,b);

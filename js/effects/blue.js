@@ -159,3 +159,14 @@ DEF["0951"]={
     aiCan:p=>oppHas(p,y=>y.st==="s"&&apOf(y)<=8000),
     run:async p=>{await rmChar(p,y=>y.st==="s"&&apOf(y)<=8000);await runQueue();
       const e=p.field.find(y=>named("妃英理")(y)&&y.st!=="a");if(e)activateC(e);return true}}]};
+
+// --- 妃英理 B09013（絆毛利小五郎）---
+DEF["0958"]={
+  enter:async(p,x)=>{if(!condOk("絆毛利小五郎",p))return;
+    const t=await chooseChar(p,"登場時: スリープさせるキャラ（LP1以上）",y=>lpOf(y)>=1&&y.st==="a");if(t)sleepC(t)},
+  onAction:async(p,self,actor)=>{
+    if(self.st!=="a"||turnCount(self,"eri"))return;
+    if(!(named("毛利小五郎")(actor)||apOf(actor)>=8000))return;
+    if(!await yes(p,"妃英理","このキャラをスリープさせて、レベル7以下のスリープ状態のキャラをリムーブしますか？",()=>oppHas(p,y=>y.st==="s"&&lvOf(y)<=7)))return;
+    useTurn(self,"eri");sleepC(self);
+    await rmChar(p,y=>y.st==="s"&&lvOf(y)<=7)}};
