@@ -25,3 +25,23 @@ DEF["0921"]={ // シェリー B08085
   leaveOppTurn:async p=>{if(!condOk("事件青＆黒",p))return;const e=opp(p).ev.find(z=>!z.up);if(e){e.up=true;log(`　${opp(p).name} の裏向きの証拠を1つ表向きにした`,"n")}}};
 DEF["1038"]={ // バーボン B09099
   enter:async p=>{if(opp(p).refreshed){drawN(p,1);await discard(p,1)}else{const o=opp(p);const y=popDeck(o);if(y){o.rm.push(y);log(`　${o.name} のデッキの上の ${C(y).nm} をリムーブ`,"n");checkDeck(o)}}}};
+
+// --- 青黒新一蘭（毛利小五郎 D10011／ベルモット B10095／工藤新一NYの事件 B10100P） ---
+const SHINRAN=named("工藤新一","毛利蘭");
+DEF["0841"]={ // 毛利小五郎 D10011
+  abilities:[{label:"【FILE6】このキャラをデッキの下へ: リムーブエリアのレベル7以下の［毛利蘭］を登場",turn1:true,
+    can:(p,x)=>p.file.length>=6&&p.rm.some(y=>isChar(y)&&named("毛利蘭")(y)&&lvOf(y)<=7),aiCan:p=>p.field.length<5&&myTurn(p),
+    run:async(p,x)=>{toDeckBottom(x);await enterFromRm(p,y=>named("毛利蘭")(y)&&lvOf(y)<=7,"登場させる［毛利蘭］（レベル7以下）");return true}}]};
+DEF["1150"]={ // ベルモット B10095
+  enter:async p=>{if(p.solved||!condOk("事件青＆黒",p)||!p.field.some(SHINRAN))return;const t=await chooseChar(p,"スリープさせるキャラ");if(t)sleepC(t)},
+  abilities:[{label:"【スリープ】このキャラをリムーブエリアへ: リムーブエリアのレベル5以下の［工藤新一］か［毛利蘭］を登場してAP＋1000",
+    can:(p,x)=>partnerIs(p,"青")&&p.solved&&p.file.length>=5&&x.st==="a"&&p.rm.some(y=>isChar(y)&&SHINRAN(y)&&lvOf(y)<=5),aiCan:p=>myTurn(p)&&p.field.length<5,
+    run:async(p,x)=>{sleepCost(x);removeCard(x,"コスト");await runQueue();
+      const y=await enterFromRm(p,y=>SHINRAN(y)&&lvOf(y)<=5,"登場させる［工藤新一］か［毛利蘭］（レベル5以下）");if(y)apTurn(y,1000);return true}}]};
+DEF["1155"]={ // 工藤新一NYの事件 B10100P
+  solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")},
+  abilities:[{label:"証拠1つを表に＋手札1枚リムーブ: ［工藤新一］か［毛利蘭］にレベル6以上のアクティブ指定とコンタクト勝利ドローを与える",turn1:true,
+    can:p=>p.solved&&evDown(p)>=1&&p.hand.length>0&&p.field.some(SHINRAN),aiCan:p=>myTurn(p)&&p.field.some(y=>SHINRAN(y)&&y.st==="a")&&opp(p).field.some(y=>y.st==="a"&&lvOf(y)>=6),
+    run:async p=>{if(!flipEvidence(p,1))return false;await discard(p,1);
+      const t=await chooseChar(p,"能力を与える［工藤新一］か［毛利蘭］",y=>!isOpp(p,y)&&SHINRAN(y),{ai:cs=>cs.filter(y=>!isOpp(p,y)&&y.st==="a").slice(0,1)});
+      if(t){giveKw(t,"アクティブ指定Lv6");giveKw(t,"勝利ドロー")}return true}}]};

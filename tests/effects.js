@@ -91,4 +91,44 @@ module.exports=[
   ["ミステリーコースター B07104: 現場のキャラ1枚につき2枚リムーブ（パートナー黒）",async w=>{
     const G=board(w,{p0:{hand:["B07104"],field:[R]},p1:{field:[R,R]},});const q=G.P[0];q.cpu=true;q.partner=w.inst("B07093");
     const n0=q.rm.length;await w.FX.event(q,q.hand[0]);assert.strictEqual(G.P[1].field.length,1);assert.strictEqual(q.rm.length-n0,2*(G.P[0].field.length+G.P[1].field.length),"残り2体×2枚をミル")}],
+  ["黒田兵衛 B03089: リムーブエリアの警察をAP＋2000・突撃で登場し、ターン終了時にリムーブ",async w=>{
+    const k=w.CARD_DB.find(c=>c.t==="キャラ"&&c.lv<=5&&(c.ct||"").includes("警察"));
+    const G=board(w,{p0:{field:["B03089"],rm:[k.n]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];assert.ok(q.rm.length,"rm準備");
+    await w.FX.enter(q,x);const y=q.field.find(z=>z!==x);assert.ok(y,"登場");assert.ok(y.kw.includes("突撃"));assert.strictEqual(y.apT,2000);
+    await w.FX.endTurn(q);assert.ok(!q.field.includes(y),"終了時リムーブ")}],
+  ["白鳥任三郎 B08064: 登場時スリープ、警視庁を公開でレベル7以下をリムーブ／宣言で引く",async w=>{
+    const k=w.CARD_DB.find(c=>c.t==="キャラ"&&(c.ct||"").includes("警視庁"));
+    const G=board(w,{p0:{field:["B08064"],hand:[k.n]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];
+    await w.FX.enter(q,x);assert.strictEqual(x.st,"s");assert.strictEqual(G.P[1].field.length,0);
+    x.st="a";const h=q.hand.length;const a=w.FX.abilities(q,x)[0];assert.ok(a.ok);await a.run(q,x);assert.strictEqual(q.hand.length,h+1)}],
+  ["閉ざされた秘密 B07091P: 表向きにした証拠1つにつき警視庁AP＋1000",async w=>{
+    const k=w.CARD_DB.find(c=>c.t==="キャラ"&&(c.ct||"").includes("警視庁"));
+    const G=board(w,{p0:{ev:[R,R],solved:true,field:[k.n]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;q.caseC=w.inst("B07091P");
+    q.ev.forEach(e=>e.up=false);const a=w.FX.abilities(q,q.caseC)[0];assert.ok(a.ok);await a.run(q,q.caseC);
+    assert.strictEqual(q.field[0].apT,q.ev.filter(e=>e.up).length*1000);assert.ok(q.ev.filter(e=>e.up).length>=1)}],
+  ["メアリー D04007: 事件アクションで証拠を得たとき、手札1枚リムーブで証拠をもう1つ（ターン1）",async w=>{
+    const G=board(w,{p0:{field:["D04007"],hand:[R,R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];
+    const e0=q.ev.length;await w.FX.onCaseGain(q,x);assert.strictEqual(q.ev.length,e0+1);assert.strictEqual(q.hand.length,1);
+    await w.FX.onCaseGain(q,x);assert.strictEqual(q.ev.length,e0+1,"ターン1")}],
+  ["BANG B03080: 赤のキャラにセットし、事件アクションでアクティブに（ターン1）",async w=>{
+    const red=w.CARD_DB.find(c=>c.t==="キャラ"&&c.c==="赤"&&c.lv<=4);
+    const G=board(w,{p0:{field:[red.n],hand:["B03080"]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const h=q.field[0];
+    await w.FX.event(q,q.hand[0]);assert.strictEqual(h.set.length,1,"セット");
+    h.st="s";await w.FX.onAction(q,h,null);assert.strictEqual(h.st,"a");
+    h.st="s";await w.FX.onAction(q,h,null);assert.strictEqual(h.st,"s","ターン1")}],
+  ["ジェイムズ・ブラック B07073: 手札1枚リムーブで上4枚から赤を手札に、加えたら1枚リムーブ",async w=>{
+    const red=w.CARD_DB.find(c=>c.t==="キャラ"&&c.c==="赤");
+    const G=board(w,{p0:{field:["B07073"],hand:[R,R],deck:[red.n,R,R,R,R,R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;
+    await w.FX.enter(q,q.field[0]);assert.strictEqual(q.hand.length,1,"-1+1-1");assert.ok(q.rm.length>=2)}],
+  ["毛利小五郎 D10011: FILE6で自身をデッキの下へ、リムーブエリアのレベル7以下の毛利蘭を登場",async w=>{
+    const G=board(w,{p0:{field:["D10011"],rm:["B01007"]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];
+    q.file=Array.from({length:6},()=>w.inst(R));const a=w.FX.abilities(q,x)[0];assert.ok(a.ok);await a.run(q,x);
+    assert.ok(!q.field.includes(x));assert.ok(q.field.some(y=>w.ev("C")(y).nm==="毛利蘭"))}],
+  ["ベルモット B10095: 事件編の登場時（青黒事件・新一蘭がいる）にキャラをスリープ",async w=>{
+    const G=board(w,{p0:{field:["B01007","B10095"]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;q.caseC=w.inst("B10100P");q.solved=false;
+    await w.FX.enter(q,q.field[1]);assert.ok(G.P[1].field[0].st!=="a"||q.field[0].st!=="a")}],
+  ["工藤新一NYの事件 B10100P: 新一・蘭にアクティブ指定Lv6とコンタクト勝利ドローを与える",async w=>{
+    const G=board(w,{p0:{ev:[R],solved:true,field:["B01007"],hand:[R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;q.caseC=w.inst("B10100P");
+    q.ev.forEach(e=>e.up=false);const a=w.FX.abilities(q,q.caseC)[0];assert.ok(a.ok);await a.run(q,q.caseC);
+    const x=q.field[0];assert.ok(x.kw.includes("アクティブ指定Lv6"));const h=q.hand.length;await w.FX.contactWin(q,x,G.P[1].field[0]);assert.strictEqual(q.hand.length,h+1)}],
 ];

@@ -47,7 +47,9 @@ const FX={
   noCutin:x=>!!x&&turnCount(x,"noCutin")>0&&G.contact&&(G.contact.a===x||G.contact.d===x),
   async onAction(p,actor,target){for(const y of [...p.field,...opp(p).field])y.apA=0;
     for(const y of p.field.slice()){const d=def(y);if(d&&d.onAction)await fxIf(p,y,"アクション",()=>d.onAction(p,y,actor,target))}
+    if(!target&&p.field.includes(actor))for(const sc of setEvents(actor)){const e=def(sc);if(e&&e.setOnCase)await fxIf(p,actor,"アクション",()=>e.setOnCase(p,actor,sc))} // セットされたイベントが与える「アクション［事件］したとき」（BANG）
     const o=opp(p);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppAction&&o.field.includes(y))await fxIf(o,y,"アクション",()=>d.onOppAction(o,y,actor,target))}},
+  async onCaseGain(p,actor){for(const y of p.field.slice()){const d=def(y);if(d&&d.onCaseGain&&p.field.includes(y))await fxIf(p,y,"証拠を得たとき",()=>d.onCaseGain(p,y,actor))}}, // アクション［事件］で証拠を得たとき（メアリー）
   async onContact(p,ct){for(const q of G.P)for(const y of q.field.slice()){const d=def(y);if(d&&d.onContact&&q.field.includes(y))await fxIf(q,y,"コンタクト",()=>d.onContact(q,y,ct))}
     // ［FBI］に与えた「レベル7以下のキャラとコンタクトしたとき、コンタクト中のすべてのキャラをリムーブする」（赤井秀一 B04046）
     const [a,b]=[ct.a,ct.d];if([[a,b],[b,a]].some(([u,v])=>u.kw.includes("相打ち7")&&lvOf(v)<=7&&allChars().includes(u)&&allChars().includes(v))){
@@ -64,9 +66,12 @@ const FX={
   lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
     for(const q of G.P)for(const y of q.field){const d=def(y);if(d&&d.lvAura)b+=d.lvAura(q,y,x)||0}return b},
   async actionEnd(p,actor){actor.apA=0;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
-  async contactWin(p,winner,victim){const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim));
+  async contactWin(p,winner,victim){if(winner.kw.includes("勝利ドロー")&&p.field.includes(winner))drawN(p,1); // 工藤新一NYの事件 B10100P が与えた「コンタクトでリムーブしたとき1枚引く」
+    const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim));
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyContactWin&&p.field.includes(y))await fxIf(p,y,"コンタクト",()=>e.onAllyContactWin(p,y,winner,victim))}},
   async endTurn(p){for(const y of p.field.filter(y=>y.kw.includes("終了時デッキの下")))toDeckBottom(y); // 目暮十三 PR181 が与えた能力
+    for(const y of p.field.filter(y=>y.kw.includes("終了時リムーブ")))removeCard(y,"効果",{by:p,effect:true}); // 黒田兵衛 B03089 が与えた能力
+    await runQueue();
     // 同時に発動するターン終了時の効果は、人なら順番を選べる（CPUは現場の左から、パートナーは最後）
     const here=y=>y===p.partner?p.pLoc==="area":p.field.includes(y);
     let xs=[...p.field.filter(y=>def(y)&&def(y).endTurn),...(def(p.partner)&&def(p.partner).endTurn&&def(p.partner).partnerToo&&p.pLoc==="area"?[p.partner]:[])];

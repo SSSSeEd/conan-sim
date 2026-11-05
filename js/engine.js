@@ -337,6 +337,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
     const e=o.ev.pop();log(`${o.name} の証拠を1つリムーブ`);
     await hirameki(o,e);
     gainEvidence(p,1);log(`${p.name} は証拠を1つ得た（証拠${p.ev.length}）`);
+    await FX.onCaseGain(p,x);
   }
   render();await runQueue();
   if(!G.over)await FX.actionEnd(p,x);
