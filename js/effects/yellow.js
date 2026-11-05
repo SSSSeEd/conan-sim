@@ -212,3 +212,10 @@ DEF["0903"]={
       if(!c)return false;sleepCost(x);detach(c);p.deck.push(c);
       const t=await chooseChar(p,"突撃を与える［長野県警］のキャラ",y=>hasTrait(y,"長野県警")&&!isOpp(p,y),{ai:cs=>cs.filter(y=>y.st==="a").slice(0,1)});
       if(t)giveKw(t,"突撃");return true}}]};
+
+DEF["0902"]={ // 大和敢助 B08065
+  apSelf:(p,x)=>G.turn===p.idx&&p.file.length>=6&&p.field.filter(NAGANO).length>=3?2000:0,
+  enter:async(p,x)=>{if(p.solved)return; // 事件編のときだけ(解決編なら何もしない)
+    const f=y=>isChar(y)&&hasTrait(y,"長野県警");if(!p.hand.some(f))return;
+    if(!await yes(p,"大和敢助 登場時","手札の［長野県警］を1枚リムーブして、カードを2枚引きますか？",true))return;
+    const r=await discard(p,1,"リムーブする［長野県警］",p,f);if(r.length)drawN(p,2)}};
