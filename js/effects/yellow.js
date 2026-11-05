@@ -140,3 +140,20 @@ DEF["0938"]={
   kwSelf:()=>["アクティブ指定Lv7"],
   onContact:async(q,y,ct)=>{if(ct.a!==y||!myTurn(q)||turnCount(y,"mat")||apOf(ct.d)<=apOf(y)||!q.hand.length)return;
     if(!await yes(q,"松田陣平","手札を1枚リムーブして、このコンタクト中AP＋3000しますか？",()=>q.hand.length>=2))return;useTurn(y,"mat");await discard(q,1);y.apC+=3000;log(`　${C(y).nm} はこのコンタクト中AP＋3000（AP${apOf(y)}）`,"n")}};
+
+// --- 黄単婚活（萩原千速 D11004／千速と重悟の婚活パーティー） ---
+DEF["0936"]={ // 萩原千速 D11004
+  gale:async p=>gainEv(p,1),
+  abilities:[{label:"【事件婚活パーティー】【スリープ】: AP6000以下のキャラをリムーブ",
+    can:(p,x)=>x.st==="a"&&condOk("事件婚活パーティー",p)&&p.field.filter(y=>hasTrait(y,"警察")).length>=2,aiCan:p=>oppHas(p,apLe(6000)),
+    run:async(p,x)=>{sleepCost(x);await rmChar(p,apLe(6000),"リムーブするキャラ（AP6000以下）");return true}}]};
+// 裏向きの証拠を1つ以上表向きにする（コスト）。人は枚数を選び、CPUは最大3つ。戻り値は表向きにした数（0なら不成立）
+async function flipEvidenceMany(p){const n=Math.min(evDown(p),5);if(n<1)return 0;
+  let k=n;if(!p.cpu)k=await ask(`${p.name}: 表向きにする証拠の数`,"裏向きの証拠を何枚表向きにしますか？",Array.from({length:n},(_,i)=>({label:`${i+1}つ`,value:i+1,primary:i+1===n})));
+  else k=Math.min(n,3);
+  return flipEvidence(p,k)?k:0}
+DEF["0946"]={ // 千速と重悟の婚活パーティー D11021
+  solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")},
+  abilities:[{label:"裏向きの証拠を1つ以上表向きに: キャラを表向きにした数×AP－1000",turn1:true,
+    can:p=>p.solved&&evDown(p)>=1&&p.field.some(y=>hasTrait(y,"神奈川県警")),aiCan:p=>evDown(p)>=1&&opp(p).field.length>0,
+    run:async p=>{const k=await flipEvidenceMany(p);if(!k)return false;const t=await chooseChar(p,`AP－${k*1000}するキャラ`);if(t)apTurn(t,-1000*k);return true}}]};

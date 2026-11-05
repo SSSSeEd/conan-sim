@@ -48,3 +48,30 @@ DEF["0486"]={ // 工藤有希子 PR099（カード名の書き換えは、現場
 DEF["0177"]={ // 沖野ヨーコ B02005
   abilities:[{label:"現場の［毛利小五郎］にAP＋2000と突撃",turn1:true,can:p=>p.field.some(named("毛利小五郎")),aiCan:p=>myTurn(p)&&p.field.some(y=>named("毛利小五郎")(y)&&y.st==="a"),
     run:async p=>{const t=await chooseChar(p,"AP＋2000する［毛利小五郎］",y=>!isOpp(p,y)&&named("毛利小五郎")(y));if(t){apTurn(t,2000);giveKw(t,"突撃")}return true}}]};
+
+// --- 白黄キッド（怪盗キッド&安室透／キッドVS安室 王妃の前髪） ---
+DEF["1048"]={ // 怪盗キッド&安室透 B09109
+  abilities:[
+    {label:"現場のレベル8以下のキャラ1枚を選ぶ: 同レベル・同カード名のキャラを山札から探して登場（終了時にデッキの下へ）",turn1:true,partner:true,
+      can:p=>p.field.some(y=>lvOf(y)<=8),aiCan:p=>myTurn(p)&&p.field.length<5&&p.field.some(y=>lvOf(y)<=8&&lvOf(y)>=3),
+      run:async p=>{const [m]=await pickCards(p,"選ぶ現場のキャラ（レベル8以下）","",p.field.filter(y=>lvOf(y)<=8),{ai:cs=>cs.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});if(!m)return true;
+        const revealed=[];let hit=null;
+        while(p.deck.length){const y=p.deck.shift();revealed.push(y);if(isChar(y)&&C(y).lv===lvOf(m)&&sameName(y,m)){hit=y;break}}
+        log(`　${p.name} はデッキを公開: ${revealed.map(y=>C(y).nm).join("、")||"なし"}`,"n");
+        const rest=revealed.filter(y=>y!==hit);
+        if(hit){await enterByEffect(p,hit,"a");giveKw(hit,"終了時デッキの下")}
+        for(const y of rest)p.deck.push(y);shuffle(p.deck);log("　デッキをシャッフル","n");return true}},
+    {label:"手札のレベル8以下のキャラを公開: 現場のキャラのカード名を書き換える",turn1:true,partner:true,
+      can:p=>p.hand.some(y=>isChar(y)&&lvOf(y)<=8)&&p.field.length>0,aiCan:()=>false,
+      run:async p=>{const y=await revealFromHand(p,z=>isChar(z)&&lvOf(z)<=8,"公開するキャラ（レベル8以下）",{must:true});if(!y)return false;
+        const t=await chooseChar(p,"カード名を書き換えるキャラ",z=>!isOpp(p,z),{ai:cs=>cs.filter(z=>!isOpp(p,z)).slice(0,1)});
+        if(t){t.nmT=nameOf(y);log(`　${C(t).nm} のカード名はターン終了時まで［${t.nmT}］`,"n")}return true}}]};
+DEF["1051"]={ // キッドVS安室 王妃の前髪 B09112
+  solvedTrigger:solvedDisc,
+  abilities:[{label:"裏向きの証拠を2つ表向きに: カード名を指定し、現場のそのキャラ1枚につき山札の上から見て、指定したカード名のキャラを手札に",turn1:true,
+    can:p=>p.solved&&evDown(p)>=2&&p.field.length>0,aiCan:p=>p.field.length>0,
+    run:async p=>{if(!flipEvidence(p,2))return false;
+      const names=[...new Set(p.field.map(nameOf))];const cnt=n=>p.field.filter(y=>nameOf(y)===n).length;
+      let nm=names[0];if(names.length>1){if(p.cpu)nm=names.sort((a,b)=>cnt(b)-cnt(a))[0];else nm=await ask(`${p.name}: 指定するカード名`,"現場のキャラ1枚につきデッキの上から1枚見ます。",names.slice(0,8).map((k,i)=>({label:`${k}（${cnt(k)}枚）`,value:k,primary:!i})))}
+      const n=cnt(nm);log(`　カード名［${nm}］を指定（${n}枚）`,"n");
+      await lookTop(p,n,y=>isChar(y)&&C(y).nm===nm,{max:1,title:`［${nm}］のキャラを1枚まで手札に`});return true}}]};

@@ -99,3 +99,22 @@ DEF["0715"]={ // ベルモット＆シェリー B06098
     run:async p=>{const xs=p.deck.slice(0,3);log(`　${p.name} はデッキの上から${xs.length}枚を見た`,"n");
       const [y]=await pickCards(p,"手札に加える【カットイン】を持つレベル8以下の【黒】（1枚まで）","残りはリムーブエリアへ",xs.filter(y=>!!C(y).ci&&hasColor(y,"黒")&&(C(y).lv||0)<=8),{max:1,ai:c=>c.slice(0,1)});
       for(const z of xs){detach(z);if(z===y){p.hand.push(z);log(`　${C(z).nm} を手札に`)}else p.rm.push(z)}checkDeck(p);if(y&&(C(y).lv||0)>=4)await discard(p,1);return true}}]};
+
+// --- 黒単バーボンライ ---
+DEF["0820"]={ // バーボン＆ライ B07093
+  abilities:[
+    {label:"【パートナー黒】【FILE7】: 手札かリムーブエリアのレベル4以下の［黒ずくめの組織］を登場（AP＋4000・突撃・終了時にデッキの下へ）",turn1:true,partner:true,
+      can:p=>partnerIs(p,"黒")&&p.file.length>=7&&[...p.hand,...p.rm].some(y=>isChar(y)&&hasTrait(y,"黒ずくめの組織")&&lvOf(y)<=4),aiCan:p=>p.field.length<5,
+      run:async p=>{const f=y=>hasTrait(y,"黒ずくめの組織")&&lvOf(y)<=4;let y=null;
+        const fromHand=p.hand.some(z=>isChar(z)&&f(z)),fromRm=p.rm.some(z=>isChar(z)&&f(z));
+        if(fromHand&&(!fromRm||await yes(p,"バーボン＆ライ","手札から登場させますか？（いいえでリムーブエリアから）",true)))y=await playFromHand(p,f,"登場させる［黒ずくめの組織］（レベル4以下）");
+        else y=await enterFromRm(p,f,"登場させる［黒ずくめの組織］（レベル4以下）");
+        if(y){apTurn(y,4000);giveKw(y,"突撃");giveKw(y,"終了時デッキの下")}return true}},
+    {label:"相手のキャラをターン終了時までレベル－1",turn1:true,partner:true,can:p=>opp(p).field.length>0,aiCan:p=>myTurn(p)&&opp(p).field.length>0,
+      run:async p=>{const t=await chooseChar(p,"レベル－1するキャラ",y=>isOpp(p,y));if(t){t.lvT=(t.lvT||0)-1;log(`　${C(t).nm} をターン終了時までレベル－1`,"n")}return true}}]};
+DEF["0831"]={ // ミステリーコースター B07104
+  event:async p=>{if(!partnerIs(p,"黒")){log("　パートナーの色が条件を満たさないので効果なし","n");return}
+    await rmChar(p,()=>true);await runQueue();
+    const t=await chooseChar(p,"突撃を与えるキャラ",y=>true,{ai:cs=>cs.filter(y=>!isOpp(p,y)&&y.fresh).slice(0,1)});if(t)giveKw(t,"突撃");
+    const n=allChars().length;if(n)millSelf(p,2*n)},
+  ai:p=>partnerIs(p,"黒")&&oppHas(p,()=>true)};
