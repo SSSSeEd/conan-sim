@@ -117,6 +117,53 @@ DEF["1249"]={ // ベルモット B11086
       await rmChar(p,z=>z.st==="s"&&lvOf(z)<=lv,`リムーブするスリープ状態のキャラ（レベル${lv}以下）`);return true},
     aiCan:(p,x)=>false}]};
 
+// --- レベル7 ---
+DEF["1172"]={ // 工藤新一 B11004（【事件青＆白】【パートナー青】突撃は本体が判定）
+  enter:async(p,x)=>{if(!p.field.some(y=>y!==x&&hasTrait(y,"探偵")))return;
+    const y=await enterFromRmS(p,z=>lvOf(z)<=2&&exactName("毛利蘭")(z),"スリープ状態で登場させる［毛利蘭］（レベル2以下）");
+    if(y&&evTot(p)<=4)await discard(p,1)}};
+DEF["1174"]={ // 阿笠博士 B11006
+  abilities:[{label:"スリープ＋デッキの上から3枚をリムーブ: レベル7以下のキャラをリムーブ",
+    can:(p,x)=>x.st==="a"&&p.deck.length>3&&p.field.some(isKomae),aiCan:p=>p.deck.length>12&&oppHas(p,lvLe(7)),
+    run:async(p,x)=>{sleepCost(x);millSelf(p,3);await rmChar(p,lvLe(7));return true}}]};
+DEF["1178"]={ // 江戸川コナン B11010
+  abilities:[
+    {label:"解決編: デッキの上から3枚をリムーブ: このキャラをレベル－3",turn1:true,can:(p,x)=>p.solved&&p.deck.length>3,aiCan:p=>false,
+      run:async(p,x)=>{millSelf(p,3);x.lvT-=3;log(`　${C(x).nm} をターン終了時までレベル－3`,"n");return true}},
+    {label:"スリープ: 手札からレベル4以下の［少年探偵団］を登場",can:(p,x)=>x.st==="a"&&p.field.length<5&&p.hand.some(y=>isChar(y)&&lvOf(y)<=4&&hasTrait(y,"少年探偵団")),
+      aiCan:p=>p.field.length<4,
+      run:async(p,x)=>{sleepCost(x);await playFromHand(p,y=>lvOf(y)<=4&&hasTrait(y,"少年探偵団"),"登場させる［少年探偵団］（レベル4以下）");return true}}]};
+DEF["1189"]={ // 遠山和葉 B11022（【事件緑＆赤】突撃は本体が判定）
+  onAction:async(p,self,actor,target)=>{if(actor!==self||!target||turnCount(self,"p11k")||!condOk("事件緑＆赤",p)||apOf(target)>apOf(self)-4000)return;
+    useTurn(self,"p11k");await enterFromRmS(p,y=>lvOf(y)===2&&colorAny(y,"緑","赤"),"スリープ状態で登場させるキャラ（レベル2の【緑】か【赤】）")}};
+DEF["1199"]={ // 黒羽快斗 B11033
+  enter:async(p,x)=>{if(!condOk("事件青＆白",p)||!partnerIs(p,"白")||!p.field.some(y=>y!==x&&hasTrait(y,"探偵")))return;
+    if(x.st==="a")sleepC(x);
+    if(!p.hand.length||!p.rm.some(y=>isChar(y)&&lvOf(y)<=5&&colorAny(y,"青","白")&&hasTrait(y,"高校生")))return;
+    if(!await yes(p,"黒羽快斗","手札を1枚リムーブして、リムーブエリアのレベル5以下の【青】か【白】の［高校生］を登場させますか？",()=>p.hand.length>=2))return;
+    await discard(p,1);const y=await enterFromRm(p,z=>lvOf(z)<=5&&colorAny(z,"青","白")&&hasTrait(z,"高校生"),"登場させるキャラ");
+    if(y&&exactName("中森青子")(y))drawN(p,1)}};
+DEF["1201"]={ // 白馬探 B11035
+  lpSelf:p=>condOk("事件青＆白",p)&&myTurn(p)&&evTot(p)>=5?1:0,
+  abilities:[{label:"スリープ: レベル7以下のキャラをリムーブ",
+    can:(p,x)=>condOk("事件青＆白",p)&&x.st==="a"&&p.field.some(y=>y!==x&&(hasTrait(y,"探偵")||hasTrait(y,"高校生")||hasTrait(y,"怪盗"))),
+    aiCan:p=>oppHas(p,lvLe(7)),run:async(p,x)=>{sleepCost(x);await rmChar(p,lvLe(7));return true}}]};
+DEF["1221"]={ // 羽田秀𠮷 B11056
+  abilities:[
+    {label:"スリープ: このキャラのAP以下のキャラをリムーブ",can:(p,x)=>condOk("事件緑＆赤",p)&&x.st==="a",aiCan:(p,x)=>oppHas(p,y=>apOf(y)<=apOf(x)),
+      run:async(p,x)=>{sleepCost(x);await rmChar(p,y=>y!==x&&apOf(y)<=apOf(x));return true}},
+    {label:"このキャラをスタン: キャラをAP－2000",can:(p,x)=>partnerIs(p,"赤")&&x.st==="s",aiCan:()=>false,
+      run:async(p,x)=>{stunC(x);const t=await chooseChar(p,"AP－2000するキャラ");if(t)apTurn(t,-2000);return true}}]};
+DEF["1229"]={ // レイチェル・浅香 B11064（【事件緑＆赤】突撃は本体が判定）
+  onAction:async(p,self,actor,target)=>{if(actor!==self||!target||apOf(target)>apOf(self)-4000)return;drawN(p,1)},
+  abilities:[{label:"手札を1枚リムーブ: キャラをAP－2000",can:p=>p.hand.length>=1,aiCan:p=>p.hand.length>=3&&oppHas(p,y=>true),
+    run:async p=>{await discard(p,1);const t=await chooseChar(p,"AP－2000するキャラ");if(t)apTurn(t,-2000);return true}}]};
+DEF["1235"]={ // 千葉和伸 B11071
+  abilities:[{label:"他のレベル7以下の［警視庁］のアクティブ状態のキャラをスタン: そのレベル以下のキャラをリムーブ",turn1:true,
+    can:(p,x)=>partnerIs(p,"黄")&&p.field.some(y=>y!==x&&y.st==="a"&&lvOf(y)<=7&&hasTrait(y,"警視庁")),aiCan:p=>false,
+    run:async(p,x)=>{const [s]=await pickCards(p,"スタンさせる［警視庁］のキャラ（レベル7以下）","",p.field.filter(y=>y!==x&&y.st==="a"&&lvOf(y)<=7&&hasTrait(y,"警視庁")),{min:1,max:1});
+      if(!s)return false;const lv=lvOf(s);stunC(s);await rmChar(p,lvLe(lv),`リムーブするキャラ（レベル${lv}以下）`);return true}}]};
+
 // --- 事件 ---
 const solvedDiscard={solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")}};
 DEF["1257"]={...solvedDiscard, // ドライマティーニ B11094

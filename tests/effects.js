@@ -215,4 +215,17 @@ module.exports=[
     const G=board(w,{p0:{field:["B11097","B09074"]},p1:{field:[R]}});const p=G.P[0],[x,y]=p.field;
     const a=w.ev("DEF")["1260"].abilities[0];await a.run(p,x);assert.strictEqual(G.P[1].field.length,0);
     G.turn=1;const n=p.hand.length;await w.ev("DEF")["1260"].onAllyEnter(p,x,y);assert.strictEqual(p.hand.length,n+1)}],
+  ["レベル7(P11): 工藤新一は探偵がいれば［毛利蘭］を登場、証拠4つ以下で手札1枚リムーブ。阿笠博士は少年探偵団Lv4がいれば上3枚リムーブでLv7以下をリムーブ",async w=>{
+    const G=board(w,{p0:{field:["B11004","B11010"],rm:["B11005"],hand:[R]},p1:{field:[R]}});const p=G.P[0],[x]=p.field;
+    await w.FX.enter(p,x);assert.strictEqual(p.field.length,2,"Lv6の蘭は条件外");
+    G.P[0].rm.push(w.inst("B11015"));await w.FX.enter(p,x);assert.strictEqual(p.field.length,3);assert.strictEqual(p.hand.length,0);
+    const G2=board(w,{p0:{field:["B11006","B11007"]},p1:{field:[R]}});const q=G2.P[0],[a]=q.field;
+    const ab=w.ev("DEF")["1174"].abilities[0];assert.ok(ab.can(q,a));await ab.run(q,a);assert.strictEqual(G2.P[1].field.length,0);assert.strictEqual(q.rm.length,3)}],
+  ["レベル7(P11): 白馬探は証拠5つ以上でLP＋1。千葉和伸は［警視庁］をスタンしてそのレベル以下をリムーブ。レイチェルはAP差4000以上でアクションすると1枚引く",async w=>{
+    const G=board(w,{p0:{field:["B11035"],ev:[R,R,R]},p1:{ev:[R,R]}});const p=G.P[0],[x]=p.field;p.partner=w.inst("B11035");p.caseC=w.inst("B11098");
+    assert.strictEqual(w.ev("DEF")["1201"].lpSelf(p,x),1);G.P[1].ev.pop();assert.strictEqual(w.ev("DEF")["1201"].lpSelf(p,x),0);
+    const G2=board(w,{p0:{field:["B11071","B11075"]},p1:{field:["B01019","B01008"]}});const q=G2.P[0],[c,s]=q.field;q.partner=w.inst("B11072");
+    const ab=w.ev("DEF")["1235"].abilities[0];assert.ok(ab.can(q,c));await ab.run(q,c);assert.strictEqual(s.st,"x");assert.strictEqual(G2.P[1].field.length,1);
+    const G3=board(w,{p0:{field:["B11064"]},p1:{field:[R]}});const r=G3.P[0],[ra]=r.field,n=r.hand.length;
+    await w.ev("DEF")["1229"].onAction(r,ra,ra,G3.P[1].field[0]);assert.strictEqual(r.hand.length,n+1)}],
 ];
