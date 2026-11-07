@@ -184,4 +184,35 @@ module.exports=[
     const G=board(w,{p0:{ev:[R,R,R],solved:true},p1:{field:[R]}});const p=G.P[0];p.caseC=w.inst("B11099");
     const a=w.ev("DEF")["1262"].abilities[0];assert.ok(a.can(p,p.caseC));const t=G.P[1].field[0],ap=w.apOf(t);
     await a.run(p,p.caseC);assert.strictEqual(p.ev.filter(e=>e.up).length,2);assert.strictEqual(w.apOf(t),ap-3000)}],
+  ["工藤優作＆黒羽盗一 B11030: 登場時にレベル9以下をリムーブ。【白】にセットし、セット済みなら1枚引ける",async w=>{
+    const G=board(w,{p0:{field:["B11030","B11036"],hand:[R,R,R,R]},p1:{field:[R]}});const p=G.P[0],[x,y]=p.field;p.partner=w.inst("B11030");
+    await w.FX.enter(p,x);assert.strictEqual(G.P[1].field.length,0);
+    const d=w.ev("DEF")["1196"];assert.ok(!d.abilities[1].can(p,x));await d.abilities[0].run(p,x);
+    assert.strictEqual(w.ev("faceDownSet")(x).length+w.ev("faceDownSet")(y).length,1);assert.ok(d.abilities[1].can(p,x));
+    const n=p.hand.length;await d.abilities[1].run(p,x);assert.strictEqual(p.hand.length,n)}],
+  ["宮野志保＆宮野明美 B11052: 解決編の自分ターンはレベル－2。レベル7をスタンしてレベル9以下をリムーブ。終了時にスタンがいれば2枚引き1枚リムーブ",async w=>{
+    const G=board(w,{p0:{field:["B11052","B11004"],hand:[R]},p1:{field:[R]}});const p=G.P[0],[x,y]=p.field;p.partner=w.inst("B11052");p.pLoc="file";
+    assert.strictEqual(w.ev("lvOf")(x),9);p.solved=true;assert.strictEqual(w.ev("lvOf")(x),7);
+    const a=w.ev("DEF")["1217"].abilities[0];assert.ok(a.can(p,x));await a.run(p,x);
+    assert.ok(G.P[1].field.length===0&&(x.st==="x"||y.st==="x"));const n=p.hand.length;
+    await w.FX.endTurn(p);assert.strictEqual(p.hand.length,n+1)}],
+  ["ジン＆ベルモット B11082: パートナーエリアでも［黒ずくめの組織］登場でリムーブ（ターン1）。スタンさせて現場リムーブ時に1枚引く",async w=>{
+    const G=board(w,{p0:{field:["B11084"],hand:[R]},p1:{field:[R,R]}});const p=G.P[0],[y]=p.field;p.partner=w.inst("B11082");p.pLoc="area";
+    await w.FX.enter(p,y);assert.strictEqual(G.P[1].field.length,1);await w.FX.enter(p,y);assert.strictEqual(G.P[1].field.length,1,"ターン1");
+    const a=w.ev("DEF")["1245"].abilities[0];assert.ok(a.can(p,p.partner));await a.run(p,p.partner);
+    assert.strictEqual(y.st,"x");const o=G.P[1];o.field.push(w.inst("B01019"));
+    G.turn=1;const n=p.hand.length;w.removeCard(y,"効果",{by:o,effect:true});await w.runQueue();assert.strictEqual(p.hand.length,n+1)}],
+  ["江戸川コナン＆怪盗キッド B11095: 登場時（証拠4つ以下で手札1枚→証拠1つ）。事件探偵VS怪盗で証拠9つならターン終了時に勝利",async w=>{
+    const G=board(w,{p0:{field:["B11095"],hand:[R,R],ev:[R,R,R,R,R,R,R,R,R]},p1:{}});const p=G.P[0],[x]=p.field;
+    p.partner=w.inst("B11095");p.caseC=w.inst("B11099");
+    await w.FX.endTurn(p);assert.ok(!G.over,"事件が探偵VS怪盗でないので勝てない");
+    p.caseC=w.inst("B11098");await w.FX.endTurn(p);assert.ok(G.over)}],
+  ["服部平次＆ジョディ B11096: 登場時にAP8000以下をリムーブ。APが4000以上低い相手を指定したら手札1枚で証拠を得る",async w=>{
+    const G=board(w,{p0:{field:["B11096","B11039"],hand:[R,R,R]},p1:{field:[R]}});const p=G.P[0],[x,y]=p.field;
+    await w.FX.enter(p,x);assert.strictEqual(G.P[1].field.length,0);G.P[1].field.push(w.inst("B01019"));
+    await w.ev("DEF")["1259"].onAction(p,x,x,G.P[1].field[0]);assert.strictEqual(p.ev.length,1);assert.strictEqual(p.hand.length,2)}],
+  ["諸伏景光＆スコッチ B11097: AP8000以下をリムーブ。相手ターンの【疾風】登場で1枚引く",async w=>{
+    const G=board(w,{p0:{field:["B11097","B09074"]},p1:{field:[R]}});const p=G.P[0],[x,y]=p.field;
+    const a=w.ev("DEF")["1260"].abilities[0];await a.run(p,x);assert.strictEqual(G.P[1].field.length,0);
+    G.turn=1;const n=p.hand.length;await w.ev("DEF")["1260"].onAllyEnter(p,x,y);assert.strictEqual(p.hand.length,n+1)}],
 ];

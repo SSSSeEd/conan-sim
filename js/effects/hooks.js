@@ -32,7 +32,7 @@ const FX={
     const first=p.field.includes(x)&&p.galeT!==G.turnNo;if(p.field.includes(x))p.galeT=G.turnNo;
     await FX.enter0(p,x);
     const d=def(x);if(first&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x));render();await runQueue()}
-    for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyEnter&&p.field.includes(y))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
+    for(const y of [...p.field,...(p.pLoc==="area"?[p.partner]:[])]){const e=def(y);if(e&&e.onAllyEnter&&(y===p.partner?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
   async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>d.enter(p,x));render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
   async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x))}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
@@ -85,6 +85,7 @@ const FX={
     const q=opp(info.p);for(const y of q.field.slice()){const e=def(y);if(e&&e.onOppRemoved&&q.field.includes(y))await fxIf(q,y,"相手のキャラがリムーブされたとき",()=>e.onOppRemoved(q,y,info))}
     if(info.turn!==info.p.idx&&idOf(info.x)!=="0968"&&hasTrait(info.x,"大阪府警")&&info.p.field.some(y=>idOf(y)==="0968"&&def(y))){
       log(`　【現場リムーブ時】${C(info.x).nm}（服部平蔵が与えた能力）`,"n");drawN(info.p,1);await discard(info.p,1)}
+    if(info.x.leaveDrawT&&info.x.leaveDrawT>=G.turnNo){info.x.leaveDrawT=0;log(`　【現場リムーブ時】${C(info.x).nm}（ジン＆ベルモットが与えた能力）`,"n");drawN(info.p,1)}
     const d=def(info.x);if(!d)return;
     if(d.leaveOppTurn&&info.turn!==info.p.idx){await fxPre(info.p,info.x,"現場リムーブ時");log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await d.leaveOppTurn(info.p,info.x)}
     if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await fxIf(info.p,info.x,"現場リムーブ時",()=>d.selfRemovedOwnTurn(info.p,info.x))},
