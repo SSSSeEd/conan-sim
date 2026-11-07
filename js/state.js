@@ -23,7 +23,9 @@ function zoneOf(x){const p=ownerOf(x);if(!p)return null;
   if((p.pa||[]).includes(x))return "pa";
   for(const z of ["field","hand","file","ev","rm","deck"])if(p[z].includes(x))return z;
   if(p.caseC===x)return "case";return null}
-function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","pa","hand","file","ev","rm","deck"]){const i=(p[z]||[]).indexOf(x);if(i>=0){p[z].splice(i,1);
+function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;
+  if(p.field.includes(x)&&G&&G.turn!==p.idx&&isMR(x))x.paPend=G.turnNo; // MRが相手ターン中に現場を離れた（行き先に置かれたあと runQueue がパートナーエリアへ移す。engine.js の mrSweep）
+  for(const z of ["field","pa","hand","file","ev","rm","deck"]){const i=(p[z]||[]).indexOf(x);if(i>=0){p[z].splice(i,1);
   if(z==="rm"&&G&&G.queue&&C(x).t==="キャラ")G.queue.push({rmLeft:true,x,p}); // リムーブエリアから離れたときの効果（effects.js の onLeave）
   return p}}return p}
 

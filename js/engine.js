@@ -14,7 +14,7 @@ function toFile(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.
 function resetMods(x){x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a"}
 function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からなら離れたときの効果を予約）
   const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);
-  detach(x);resetMods(x);
+  detach(x);resetMods(x);x.paPend=0;
   if(wasField)dropSets(p,x);
   // MRが相手のターン中に現場を離れたときは、リムーブエリアではなくパートナーエリアへ移る（自分のターン中は移らない）
   if(wasField&&isMR(x)&&G&&G.turn!==p.idx){x.paRet=0;p.pa.push(x);if(why)log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ（${why}）`);
@@ -44,7 +44,10 @@ function activatePartner(q){
 // 現場を離れるキャラにセットされていたカードをリムーブエリアへ。表向きのイベントは「リムーブエリアに置かれたとき」（刃新陰流風車 など）を予約
 function dropSets(p,x){const ss=x.set||[];x.set=[];for(const s of ss)p.rm.push(s.c);
   const ev=ss.filter(s=>s.up&&!s.under).map(s=>s.c);if(ev.length&&G)G.queue.push({setRm:ev,p,turn:G.turn})}
-async function runQueue(){while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
+// MRが相手ターン中に現場を離れた場合は、行き先（手札・デッキなど）に一度置かれてから、すぐパートナーエリアへ移る（離れ方は問わない）
+function mrSweep(){if(!G)return;for(const p of G.P)for(const z of ["hand","deck","rm","file","ev"])for(const x of p[z].slice())
+  if(x.paPend){if(x.paPend===G.turnNo&&G.turn!==p.idx){p[z].splice(p[z].indexOf(x),1);resetMods(x);x.paRet=0;p.pa.push(x);log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ`)}x.paPend=0}}
+async function runQueue(){mrSweep();while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
 function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);clearSave();render();
   if(!window.SIM_FAST)showEndMenu(p,why)}
 function lose(p,why){win(opp(p),`${p.name} の敗北: ${why}`)}

@@ -296,6 +296,8 @@ module.exports=[
     G.turn=0;w.removeCard(mr2,"効果");assert.ok(p.rm.includes(mr2),"自分ターンはリムーブ");p.rm.pop();p.field.push(mr2);
     G.queue.length=0;G.turn=1;w.removeCard(mr2,"効果",{by:G.P[1]});assert.strictEqual(G.queue.length,1,"パートナーエリアへ移っても現場リムーブ時は発動する");await w.runQueue();assert.ok(p.pa.includes(mr2));assert.ok(!p.rm.includes(mr2));assert.strictEqual(w.zoneOf(mr2),"pa");assert.ok(w.ev("inArea")(p,mr2));
     const ab=w.FX.abilities(p,mr2);assert.ok(ab.length===0||ab.every(a=>a.partner),"パートナーエリアでは partner:true の能力だけ");
+    const mr4=w.inst("B11030");p.pa.length=0;p.field.push(mr4);G.turn=1;w.detach(mr4);p.hand.push(mr4);await w.runQueue();assert.ok(p.pa.includes(mr4)&&!p.hand.includes(mr4),"離れ方は問わない（手札に戻る場合も）");
+    G.turn=0;p.pa.length=0;p.field.push(mr4);p.pa.length=0;w.detach(mr4);p.hand.push(mr4);await w.runQueue();assert.ok(p.hand.includes(mr4),"自分ターンは移らない");G.turn=1;p.hand.pop();p.pa.push(mr2);
     const mr3=w.inst("B11030");p.field.push(mr3);w.mrReplace(p,mr3);assert.ok(!p.pa.includes(mr2)&&p.rm.includes(mr2),"現場にMRが出たらパートナーエリアのMRもリムーブ")}],
   ["レベル4(P11): 少年探偵団（吉田歩美・小嶋元太・円谷光彦）はFILE5で突撃、歩美は変装でスリープのLv7以下をリムーブして1枚引く、元太・光彦はカットインでコンタクト中のキャラをリムーブして1枚引く",async w=>{
     const G=board(w,{p0:{field:["B11007","B11008","B11009"],file:[R,R,R,R,R],deck:[R,R,R,R,R]},p1:{field:["B11002",R,R]}});
