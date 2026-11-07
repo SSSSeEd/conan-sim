@@ -16,4 +16,9 @@ module.exports=[
   ["フィードバック: 試合数が少ないうちは提案を出さない",async w=>{
     const [d]=F.analyze([rec(1,0)],{parse:t=>w.parseDeckText(t),nameOf:n=>n});
     assert.ok(!d.tips.some(t=>t.kind==="unused"));assert.ok(d.tips.some(t=>t.kind==="none"||t.kind==="stuck"))}],
+  ["フィードバック: アプリ側（js/feedback.js）の window.Feedback が tools と同じ結果を返す",async w=>{
+    assert.ok(w.Feedback&&typeof w.Feedback.analyze==="function","Feedback が読み込まれていない");
+    const recs=[1,1,1,0].map(x=>rec(x));
+    const a=w.Feedback.analyze(recs,{parse:t=>w.parseDeckText(t),nameOf:n=>n});
+    assert.strictEqual(a[0].games,4);assert.strictEqual(a[0].tips.length,F.analyze(recs,{parse:t=>w.parseDeckText(t),nameOf:n=>n})[0].tips.length)}],
 ];

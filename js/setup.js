@@ -91,9 +91,10 @@ function renderRecords(){
   const all=loadRecords();
   const fmt=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`};
   B.innerHTML=`<b>対戦記録（${all.length}件・端末に保存）</b>
-   <div class="hint">対戦が終わるたびに、行動・その時に選べた選択肢・ログを自動で保存します（最新${REC_MAX}件）。将来のフィードバック機能の材料になります。</div>
+   <div class="hint">対戦が終わるたびに、行動・その時に選べた選択肢・ログを自動で保存します（最新${REC_MAX}件）。「記録からフィードバック」で使われなかったカードや使い残しなどの傾向が見られます（書き出したJSONを読み込んでも同じです）。</div>
    <div class="reclist">${all.slice().reverse().slice(0,20).map((r,i)=>{const me=r.cpu[0]?null:0;const res=me===null?`${esc(r.names[r.winner])} 勝利`:r.winner===me?"勝ち":"負け";
      return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span>${r.feedback&&(r.feedback.app||r.feedback.cpu)?" ✎":""} ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
+   <div class="row"><button id="recFb" class="primary" ${all.length?"":"disabled"}>この端末の記録でフィードバック</button><button id="recImp">記録JSONを読み込んでフィードバック</button></div>
    <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>`;
   B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
     const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;
@@ -104,6 +105,8 @@ function renderRecords(){
     try{const f=new File([blob],name,{type:"application/json"}); // スマホは共有シートで保存
       if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia("(pointer:coarse)").matches){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove()};
+  const fb=document.getElementById("recFb");if(fb)fb.onclick=()=>feedbackReport(all,"この端末の記録");
+  document.getElementById("recImp").onclick=()=>feedbackImport();
   const cl=document.getElementById("recClr");if(cl)cl.onclick=async()=>{if(await ask("対戦記録を全部消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){try{localStorage.removeItem(REC_KEY)}catch(e){}renderRecords()}};
 }
 // スマホ（縦・横）ではコンパクト表示
