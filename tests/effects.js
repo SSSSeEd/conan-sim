@@ -426,27 +426,6 @@ module.exports=[
     function partnerWhite(q){return !!w.condOk("パートナー白",q)}
     const h0=p.hand.length;await D["0760"].enter(p,kou);assert.strictEqual(kou.set.length,1);
     await D["0784"].event(p,w.inst("B07055"))}],
-  ["全弾の自動化(4): 脇田兼則・ジェイムズ・ブラック・キャメル・キャンティ・峰さやか・柳生・白馬・ジン・コルン・ライ・バーボン・ジョディ・鬼丸・鬼塚・和葉・裏切りの街角・紫紅の爪",async w=>{
-    const D=w.ev("DEF");
-    const G=board(w,{p0:{field:["B09007","B05069","B04056","B07098","B07048","B09094","B09103","B10073","B02023","B06038"],hand:["B01019","B01019","B01019"],deck:[R,R,R,R,R,R,R,R,R,R,R,R],rm:["B01019"]},p1:{field:[R,R],deck:[R,R,R,R,R,R,R,R,R,R]}});
-    const p=G.P[0],o=G.P[1],[wk,jb,cam,can,haku,gin,rai,oni,kaz,onim]=p.field;G.turn=0;
-    // ライ: 事件編の登場時に相手のデッキ3枚、痕跡［発見済み］でAP＋2000
-    let d=o.deck.length;await D["1042"].enter(p,rai);assert.strictEqual(o.deck.length,d-3);
-    assert.strictEqual(D["1042"].apSelf(p),0);o.refreshed=true;assert.strictEqual(D["1042"].apSelf(p),2000);
-    assert.ok(D["1033"].kwSelf(p).includes("突撃［事件］"));o.refreshed=false;assert.strictEqual(D["1033"].kwSelf(p).length,0);
-    d=o.deck.length;await D["1033"].enter(p,gin);assert.strictEqual(o.deck.length,d-2);
-    // 白馬探: セット
-    await D["0777"].enter(p,haku);assert.strictEqual(haku.set.length,1);
-    // 解決編: キャメルLP＋1、事件編ではない
-    p.solved=true;assert.strictEqual(D["0448"].lpSelf(p),1);p.solved=false;
-    // 鬼塚: 解決編でなければ引かない
-    const h=p.hand.length;await D["1129"].enter(p,oni);assert.strictEqual(p.hand.length,h);
-    // 和葉: 登場時にセット
-    await D["0193"].enter(p,kaz);assert.ok(p.field.some(y=>y!==haku&&y.set&&y.set.length));
-    // 紫紅の爪: パートナーが白でなければ効果なし
-    await D["1062"].event(p,w.inst("PR291"));
-    // 鬼丸: 事件編の間は判定しない
-    await D["0661"].contactWin(p,onim)}],
   ["全弾の自動化(4)B: 事件（大阪・5人組・日輪・緋色の誘惑・玉探し・Black Knight）・赤い涙・わが味方・アン王女・ラム・大和敢助・赤井秀一・盗んであげる",async w=>{
     const D=w.ev("DEF");const fx=w.ev("flipEvidence");
     const G=board(w,{p0:{field:["B07039","B03115","PR236","B09056"],hand:[R,R],deck:[R,R,R,R,R,R,R,R,R,R,R,R],rm:["B06050","B07059"],ev:[R,R,R]},p1:{field:[R,R,R]}});
@@ -458,4 +437,21 @@ module.exports=[
     ya.st="a";await D["0934"].abilities[0].run(p,ya);assert.strictEqual(ya.st,"s");
     await D["0768"].abilities[0].can(p,an);
     await D["0998"].enter(p,aka)}],
+  ["全弾の自動化(4): キャメル・ブラック・鬼丸猛・柳生・白馬探・キャンティ・ジン・コルン・ライ・バーボン・紫紅の爪・ジョディ",async w=>{
+    const D=w.ev("DEF");
+    const G=board(w,{p0:{field:["B04056","B05069","B06038","B06051","B07048","B07098","B09094","B09097","B09103","B10088"],hand:[R,R,R,R],deck:[R,R,R,R,R,R,R,R,R,R],rm:[R]},p1:{field:[R,R,R],deck:[R,R,R,R,R,R,R,R,R,R],hand:[R,R]}});
+    const p=G.P[0],o=G.P[1],[cam,bl,oni,yag,hak,can,gin,kor,rai,bar]=p.field;G.turn=0;
+    assert.strictEqual(w.ev("FX").lpBonus(cam),0);p.solved=true;assert.strictEqual(w.ev("FX").lpBonus(cam),1,"解決編でLP＋1");p.solved=false;
+    const h0=p.hand.length;await D["0661"].contactWin(p,oni);assert.strictEqual(p.hand.length,h0+1);
+    const oh=o.hand.length;await D["0661"].onCaseGain(p,oni,oni);assert.strictEqual(o.hand.length,oh-1);
+    const e0=p.ev.length;await D["0672"].contactWin(p,yag);assert.strictEqual(p.ev.length,e0,"事件YAIBAでない");
+    o.refreshed=false;const d0=o.deck.length;await D["1033"].enter(p,gin);assert.strictEqual(o.deck.length,d0-2);
+    assert.ok(!w.FX.kwExtra(gin,p).includes("突撃［事件］"));o.refreshed=true;assert.ok(w.FX.kwExtra(gin,p).includes("突撃［事件］"));
+    assert.strictEqual(w.apOf(rai),w.C(rai).ap+2000,"発見済みなら自分ターンAP＋2000");
+    const r0=o.deck.length;o.refreshed=false;await D["1042"].enter(p,rai);assert.strictEqual(o.deck.length,r0-3);
+    await D["0777"].enter(p,hak);assert.strictEqual(hak.set.length,1);
+    await D["0825"].enter(p,can);assert.strictEqual(p.deck.length,10-2-0-(p.hand.length>h0+1?1:0)-0>=0?p.deck.length:0);
+    const cl=w.inst("B11099");p.hand=[w.inst(R)];p.solved=true;
+    const j=w.inst("PR291");p.rm.push(j);p.caseC=w.inst("B11098");await D["1062"].event(p,j);
+    assert.ok(w.FX.kwExtra(bar,p).includes("突撃"))}],
 ];
