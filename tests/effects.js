@@ -228,4 +228,27 @@ module.exports=[
     const ab=w.ev("DEF")["1235"].abilities[0];assert.ok(ab.can(q,c));await ab.run(q,c);assert.strictEqual(s.st,"x");assert.strictEqual(G2.P[1].field.length,1);
     const G3=board(w,{p0:{field:["B11064"]},p1:{field:[R]}});const r=G3.P[0],[ra]=r.field,n=r.hand.length;
     await w.ev("DEF")["1229"].onAction(r,ra,ra,G3.P[1].field[0]);assert.strictEqual(r.hand.length,n+1)}],
+  ["レベル6(P11): 毛利蘭は証拠5つ以上でAP＋3000。小林澄子は登場時2枚引いて1枚リムーブ。日原誠人は現場以外で［工藤新一］扱い、宣言でLv6以下をリムーブ",async w=>{
+    const G=board(w,{p0:{field:["B11005","B11011"]},p1:{ev:[R,R],field:[R]}});const p=G.P[0],[ran,su]=p.field;p.partner=w.inst("B11005");p.caseC=w.inst("B11098");
+    assert.strictEqual(w.apOf(ran),w.ev("C")(ran).ap);p.ev=[w.inst(R),w.inst(R),w.inst(R)];assert.strictEqual(w.apOf(ran),w.ev("C")(ran).ap+3000);
+    p.field.push(w.inst("B01006"));p.deck=[R,R,R,R,R].map(n=>w.inst(n));await w.ev("DEF")["1179"].enter(p,su);assert.strictEqual(p.hand.length,1);
+    const hi=w.inst("B11012");assert.ok(w.ev("named")("工藤新一")(hi),"現場以外では工藤新一");p.field=[hi];assert.ok(!w.ev("named")("工藤新一")(hi),"現場では扱わない");
+    const sh=w.inst("B07003");p.field.push(sh);const a=w.ev("DEF")["1180"].abilities[0];assert.ok(a.can(p,hi));await a.run(p,hi);assert.strictEqual(sh.st,"x");assert.strictEqual(G.P[1].field.length,0)}],
+  ["レベル6(P11): 工藤優作は自分ターンに【白】へセット、相手ターンの変装でデッキの下を手札に。茶木神太郎は相手の変装でアクティブ、ヒラメキで変装不可",async w=>{
+    const G=board(w,{p0:{field:["B11037","B11045"],deck:[R,R,R]},p1:{}});const p=G.P[0],[y,c]=p.field;const D=w.ev("DEF");
+    G.turn=0;await D["1203"].enter(p,y);assert.strictEqual(p.deck.length,2);G.turn=1;const n=p.hand.length;await D["1203"].disguise(p,y);assert.strictEqual(p.hand.length,n+1);
+    c.st="s";await D["1211"].onOppDisguise(p,c);assert.strictEqual(c.st,"a");
+    await D["1211"].hirameki(p);assert.strictEqual(G.P[1].noDisg,G.turnNo)}],
+  ["レベル6(P11): 世良真純は他色がいれば突撃［事件］、赤井秀一は相手をレベル－1、キャメルはAP差4000以上の相手をデッキの下へ、宮野エレーナは解決編でレベル＋1",async w=>{
+    const G=board(w,{p0:{field:["B11055","B01008","B11057","B11059","B11062"]},p1:{field:[R]}});const p=G.P[0],[se,co,ak,ca,el]=p.field;const D=w.ev("DEF"),t=G.P[1].field[0];
+    await D["1220"].enter(p,se);assert.ok(se.kw.includes("突撃［事件］"));
+    await D["1222"].enter(p,ak);assert.strictEqual(w.ev("lvOf")(t),1);
+    await D["1224"].onAction(p,ca,ca,t);assert.strictEqual(G.P[1].field.length,0);assert.strictEqual(G.P[1].deck.length,6);
+    assert.strictEqual(w.ev("lvOf")(el),6);p.solved=true;assert.strictEqual(w.ev("lvOf")(el),7)}],
+  ["レベル6(P11): 宮本由美・三池苗子・ウォッカ・狼男・ラム",async w=>{
+    const G=board(w,{p0:{field:["B11069","B11070","B11085","B11087","B11092"]},p1:{field:[R,R]}});const p=G.P[0],[yu,mi,vo,oo,ra]=p.field;const D=w.ev("DEF");
+    p.deck=[R,R,R,R,R].map(n=>w.inst(n));const n=p.hand.length;await D["1233"].gale(p,yu);assert.strictEqual(p.hand.length,n+1);
+    await D["1234"].gale(p,mi);assert.strictEqual(w.apOf(mi),w.ev("C")(mi).ap+1000);
+    p.field.push(w.inst("B03119"));G.P[1].field[0].st="s";G.P[1].field[1].st="s";await D["1250"].abilities[0].run(p,oo);assert.strictEqual(oo.st,"s");assert.strictEqual(G.P[1].field.filter(y=>y.st==="x").length,0,"CPUは自分のキャラをリムーブしない");
+    p.partner=w.inst("B11085");vo.actedT=G.turnNo;p.field=p.field.filter(y=>y!==vo);p.rm.push(vo);await D["1248"].selfRemovedOwnTurn(p,vo);assert.ok(p.field.includes(vo));assert.strictEqual(vo.st,"s")}],
 ];

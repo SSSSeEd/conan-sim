@@ -164,6 +164,77 @@ DEF["1235"]={ // 千葉和伸 B11071
     run:async(p,x)=>{const [s]=await pickCards(p,"スタンさせる［警視庁］のキャラ（レベル7以下）","",p.field.filter(y=>y!==x&&y.st==="a"&&lvOf(y)<=7&&hasTrait(y,"警視庁")),{min:1,max:1});
       if(!s)return false;const lv=lvOf(s);stunC(s);await rmChar(p,lvLe(lv),`リムーブするキャラ（レベル${lv}以下）`);return true}}]};
 
+// --- レベル6 ---
+DEF["1173"]={ // 毛利蘭 B11005（【パートナー青】突撃は本体が判定）
+  apSelf:p=>condOk("事件青＆白",p)&&myTurn(p)&&evTot(p)>=5?3000:0};
+DEF["1179"]={ // 小林澄子 B11011
+  enter:async(p,x)=>{if(!p.field.some(y=>y!==x&&hasTrait(y,"少年探偵団")))return;drawN(p,2);await discard(p,1)},
+  onAllyEnter:async(p,self,y)=>{if(y===self||!myTurn(p)||turnCount(self,"p11c")||!isChar(y)||lvOf(y)>4||!hasTrait(y,"少年探偵団"))return;
+    useTurn(self,"p11c");const t=await chooseChar(p,"スリープさせるキャラ",z=>z.st==="a");if(t)sleepC(t)}};
+DEF["1180"]={ // 日原誠人 B11012（現場以外では［工藤新一］扱いは core.js の ALIAS_OFF、ミスリード2は本体）
+  abilities:[{label:"アクティブ状態の［工藤新一］をスタン: レベル6以下のキャラをリムーブ",turn1:true,
+    can:p=>p.field.some(y=>y.st==="a"&&named("工藤新一")(y)),aiCan:p=>oppHas(p,lvLe(6)),
+    run:async p=>{const [s]=await pickCards(p,"スタンさせる［工藤新一］","",p.field.filter(y=>y.st==="a"&&named("工藤新一")(y)),{min:1,max:1});
+      if(!s)return false;stunC(s);await rmChar(p,lvLe(6));return true}}]};
+// 自分の現場にいる【白】のキャラにデッキの上から1枚を裏向きでセットする（工藤優作）
+async function setOnWhite(p){const t=await chooseChar(p,"セットされる自分の【白】のキャラ",y=>!isOpp(p,y)&&hasColor(y,"白"),{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)setTop(p,t)}
+DEF["1203"]={ // 工藤優作 B11037
+  enter:async p=>{if(myTurn(p))await setOnWhite(p)},
+  disguise:async p=>{if(myTurn(p))await setOnWhite(p);
+    else if(p.deck.length){const y=p.deck.pop();p.hand.push(y);log(`　${p.name} はデッキの下から1枚を手札に加えた`,"n")}}};
+DEF["1211"]={ // 茶木神太郎 B11045
+  onOppDisguise:async(p,self)=>{if(turnCount(self,"p11d")||self.st==="a")return;useTurn(self,"p11d");activateC(self)},
+  hirameki:async o=>{opp(o).noDisg=G.turnNo;log(`　${opp(o).name} はこのターン中【変装】を使用できない`,"n")}};
+DEF["1220"]={ // 世良真純 B11055
+  enter:async(p,x)=>{if(!p.field.some(y=>y!==x&&colorsOf(C(y).c).some(ch=>ch!=="赤")))return;
+    const f=y=>isOpp(p,y)&&lvOf(y)<=6;const can2=p.solved&&x.st==="a"&&oppHas(p,f);
+    const v=p.cpu?(can2?2:1):await ask(`${p.name}: 世良真純 登場時`,"1つ選んで行います",[{label:"突撃［事件］を得る",value:1,primary:true},
+      ...(p.solved&&x.st==="a"?[{label:"スリープ: 相手のレベル6以下を手札に移し、相手は手札を1枚リムーブ",value:2}]:[])]);
+    if(v===1)giveKw(x,"突撃［事件］");
+    else if(v===2){sleepC(x);const t=await chooseChar(p,"手札に移す相手のキャラ（レベル6以下）",f);if(t)toHandFromField(t);const o=opp(p);await discard(o,1)}}};
+DEF["1222"]={ // 赤井秀一 B11057（突撃［キャラ］は本体）
+  enter:async p=>{if(myTurn(p))await lvDown1(p)},disguise:async p=>{if(myTurn(p))await lvDown1(p)}};
+async function lvDown1(p){const t=await chooseChar(p,"ターン終了時までレベル－1するキャラ",y=>isOpp(p,y));
+  if(t){t.lvT=(t.lvT||0)-1;log(`　${C(t).nm} をターン終了時までレベル－1（Lv${lvOf(t)}）`,"n")}}
+DEF["1224"]={ // アンドレ・キャメル B11059（【事件緑＆赤】突撃は本体）
+  apSelf:p=>myTurn(p)?1000:0,
+  onAction:async(p,self,actor,target)=>{if(actor!==self||!target||apOf(target)>apOf(self)-4000||immune(p,target))return;
+    if(await yes(p,"アンドレ・キャメル",`${C(target).nm} をデッキの下に移しますか？`,true))toDeckBottom(target)}};
+DEF["1227"]={ // 宮野エレーナ B11062
+  lvSelf:p=>p.solved?1:0,
+  abilities:[{label:"レベル7のアクティブ状態のキャラをスタン: そのAP以下のキャラをリムーブ",turn1:true,
+    can:p=>p.solved&&partnerIs(p,"赤")&&p.field.some(y=>y.st==="a"&&lvOf(y)===7),aiCan:p=>oppHas(p,y=>true),
+    run:async p=>{const [s]=await pickCards(p,"スタンさせるレベル7のキャラ","",p.field.filter(y=>y.st==="a"&&lvOf(y)===7),{min:1,max:1});
+      if(!s)return false;const ap=apOf(s);stunC(s);await rmChar(p,apLe(ap),`リムーブするキャラ（AP${ap}以下）`);return true}}]};
+DEF["1233"]={ // 宮本由美 B11069
+  gale:async p=>{if(!p.solved)drawN(p,1)},
+  enter:async(p,x)=>{if(!p.solved)return;
+    if(myTurn(p)){if(p.field.some(y=>y!==x&&/【疾風】/.test(C(y).f||"")))giveKw(x,"突撃");return}
+    if(x.st!=="a"||!oppHas(p,apLe(5000)))return;
+    if(!await yes(p,"宮本由美","このキャラをスリープさせて、相手のAP5000以下のキャラを手札に移しますか？",true))return;
+    sleepC(x);const t=await chooseChar(p,"手札に移す相手のキャラ（AP5000以下）",y=>isOpp(p,y)&&apOf(y)<=5000);if(t)toHandFromField(t)}};
+DEF["1234"]={ // 三池苗子 B11070
+  gale:async(p,x)=>{apTurn(x,1000)},
+  enter:async(p,x)=>{if(!p.solved||!condOk("事件黄＆黒",p)||x.st!=="a"||!p.field.some(y=>lvOf(y)>=8&&colorAny(y,"黄","黒")))return;
+    if(!await yes(p,"三池苗子","このキャラをスリープさせて、このキャラのAP以下のキャラをリムーブしますか？",()=>oppHas(p,apLe(apOf(x)))))return;
+    const ap=apOf(x);sleepC(x);await rmChar(p,y=>y!==x&&apOf(y)<=ap,`リムーブするキャラ（AP${ap}以下）`)}};
+DEF["1248"]={ // ウォッカ B11085（突撃［キャラ］は本体）
+  onAction:async(p,self,actor)=>{if(actor===self)self.actedT=G.turnNo},
+  selfRemovedOwnTurn:async(p,x)=>{if(!partnerIs(p,"黒")||x.actedT!==G.turnNo||!p.rm.includes(x))return;
+    if(!await yes(p,"ウォッカ","リムーブエリアからスリープ状態で登場させますか？",true))return;
+    await enterFromRmS(p,y=>y===x,"スリープ状態で登場させるキャラ")}};
+DEF["1250"]={ // 狼男 B11087
+  abilities:[{label:"スリープ: レベル4以下の自分の【黒】のキャラをリムーブしてもよい。そのレベル以下のキャラをスタン",
+    can:(p,x)=>p.solved&&x.st==="a",aiCan:p=>false,
+    run:async(p,x)=>{sleepCost(x);const cs=p.field.filter(y=>y!==x&&lvOf(y)<=4&&hasColor(y,"黒"));
+      const [y]=await pickCards(p,"リムーブする自分の【黒】のキャラ（レベル4以下・しなくてもよい）","",cs,{min:0,max:1,ai:c=>[]});
+      if(!y)return true;const lv=lvOf(y);removeCard(y,"効果",{by:p,effect:true});await runQueue();
+      const t=await chooseChar(p,`スタンさせるキャラ（レベル${lv}以下）`,z=>lvOf(z)<=lv);if(t)stunC(t);return true}}]};
+DEF["1255"]={ // ラム B11092
+  enter:async(p,x)=>{if(!partnerIs(p,"黒")||p.deck.length<4)return;
+    if(!await yes(p,"ラム","デッキの上から3枚をリムーブしますか？",()=>p.deck.length>10))return;
+    const n=p.deck.slice(0,3).filter(y=>C(y).ci&&hasColor(y,"黒")).length;millSelf(p,3);if(n>=3)giveKw(x,"突撃")}};
+
 // --- 事件 ---
 const solvedDiscard={solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")}};
 DEF["1257"]={...solvedDiscard, // ドライマティーニ B11094
