@@ -307,3 +307,78 @@ DEF["0760"]={ // 小泉紅子 B07031
     run:async(p,x)=>{sleepCost(x);await discard(p,1);await rmChar(p,y=>y!==x);
       if(setCostCount(p,()=>true)>=2&&p.rm.some(y=>isChar(y)&&hasColor(y,"白")&&lvOf(y)<=3)&&await yes(p,"小泉紅子","裏向きのセットを合わせて2枚リムーブして、リムーブエリアのレベル3以下の【白】を登場させますか？",true)){
         await payFieldSets(p,()=>true,2);await enterFromRm(p,y=>hasColor(y,"白")&&lvOf(y)<=3,"登場させる【白】のキャラ（レベル3以下）")}return true}}]};
+
+// ================= 第4弾 =================
+const sleepHirameki=async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)};
+const fbi=y=>isChar(y)&&hasTrait(y,"FBI");
+const ownT=(p)=>({ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});
+DEF["0193"]={ // 遠山和葉 B02023
+  enter:async p=>{const t=await chooseChar(p,"セット先のキャラ",mine1(p,()=>true),ownT(p));if(t)setTop(p,t)},
+  abilities:[{label:"裏向きのセットを1枚リムーブ: キャラを1枚スリープ",turn1:true,can:p=>setCostCount(p,()=>true)>=1,aiCan:p=>setCostCount(p,()=>true)>=1&&oppHas(p,y=>y.st==="a"),
+    run:async p=>{if(!await payFieldSets(p,()=>true,1))return false;const t=await chooseChar(p,"スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t);return true}}],
+  hirameki:sleepHirameki};
+DEF["0448"]={ // アンドレ・キャメル B04056
+  lpSelf:p=>p.solved?1:0,
+  enter:async p=>{if(p.solved||!p.hand.some(fbi))return;if(!await yes(p,"アンドレ・キャメル","手札の［FBI］のキャラを1枚リムーブして2枚引きますか？",true))return;
+    await discard(p,1,"リムーブする［FBI］のキャラ",p,fbi);drawN(p,2)}};
+DEF["0569"]={ // ジェイムズ・ブラック B05069
+  abilities:[{label:"スリープ: レベル8以下のキャラを1枚リムーブ（［FBI］が3枚以上）",can:(p,x)=>partnerIs(p,"赤")&&x.st==="a"&&p.field.filter(fbi).length>=3,aiCan:p=>oppHas(p,y=>lvOf(y)>=5&&lvOf(y)<=8),
+    run:async(p,x)=>{sleepCost(x);await rmChar(p,y=>y!==x&&lvLe(8)(y));return true}}],
+  hirameki:sleepHirameki};
+DEF["0661"]={ // 鬼丸猛 B06038
+  kwSelf:p=>partnerIs(p,"緑")?["突撃"]:[],
+  contactWin:async p=>{drawN(p,1)},
+  onCaseGain:async(p,x,actor)=>{if(actor!==x)return;const o=opp(p);if(o.hand.length)await discard(o,1,"リムーブする手札",o)}};
+DEF["0669"]={ // 峰さやか B06048
+  enter:async p=>{const g=await lookTopRm(p,3,y=>hasTrait(y,"YAIBA"),"手札に加える［YAIBA］のカード");if(g&&p.solved)await discard(p,1)}};
+DEF["0672"]={ // 柳生十兵衛三厳 B06051
+  contactWin:async(p,x)=>{if(condOk("事件YAIBA",p)!==true||turnCount(x,"yg")||!p.hand.length)return;
+    if(!await yes(p,"柳生十兵衛三厳","手札を1枚リムーブして、証拠を1つ得ますか？",true))return;useTurn(x,"yg");await discard(p,1);gainEv(p,1)}};
+DEF["0777"]={ // 白馬探 B07048
+  enter:async(p,x)=>{setTop(p,x)},
+  abilities:[{label:"裏向きのセットを合わせて2枚リムーブ: 1枚引き、手札を1枚リムーブ",turn1:true,can:p=>partnerIs(p,"白")&&setCostCount(p,()=>true)>=2,aiCan:p=>setCostCount(p,()=>true)>=2,
+    run:async p=>{if(!await payFieldSets(p,()=>true,2))return false;drawN(p,1);await discard(p,1);return true}}]};
+const ciBlackCard=y=>C(y).ci&&hasColor(y,"黒");
+DEF["0825"]={ // キャンティ B07098
+  enter:async p=>{if(p.solved)return;millSelf(p,2);if(p.rm.some(y=>C(y).ci))drawN(p,1)},
+  abilities:[{label:"手札の【カットイン】を持つ【黒】を1枚リムーブ: リムーブエリアのそれ1枚につきAP＋1000",turn1:true,can:p=>p.solved&&p.hand.some(ciBlackCard),aiCan:p=>myTurn(p)&&p.hand.length>=3&&p.rm.filter(ciBlackCard).length>=2,
+    run:async(p,x)=>{await discard(p,1,"リムーブする【カットイン】を持つ【黒】",p,ciBlackCard);apTurn(x,1000*p.rm.filter(ciBlackCard).length);return true}}]};
+DEF["0952"]={ // 脇田兼則 B09007
+  enter:async(p,x)=>{if(!partnerIs(p,"黒")||!p.solved||!p.hand.some(y=>isChar(y)&&exactName("ラム")(y)&&lvOf(y)<=8))return;
+    if(!await yes(p,"脇田兼則","このキャラをリムーブして、手札のレベル8以下の［ラム］を登場させますか？",true))return;
+    removeCard(x,"効果",{by:p,effect:true});await runQueue();await playFromHand(p,y=>exactName("ラム")(y)&&lvOf(y)<=8,"登場させる［ラム］")},
+  leaveOppTurn:async p=>{drawN(p,1)}};
+DEF["1033"]={ // ジン B09094
+  kwSelf:p=>{const k=[];if(condOk("事件赤＆黒",p)===true)k.push("突撃［キャラ］");if(opp(p).refreshed)k.push("突撃［事件］");return k},
+  enter:async p=>{if(!opp(p).refreshed)millSelf(opp(p),2)}};
+DEF["1036"]={ // コルン B09097
+  enter:async p=>{if(condOk("事件赤＆黒",p)!==true||p.solved)return;const f=y=>colorAny(y,"赤","黒");if(!p.hand.some(f))return;
+    if(!await yes(p,"コルン","手札の【赤】か【黒】を1枚リムーブして2枚引きますか？",true))return;
+    const [y]=await discard(p,1,"リムーブする【赤】か【黒】のカード",p,f);drawN(p,2);if(y&&lvOf(y)>=7)millSelf(opp(p),3)}};
+DEF["1042"]={ // ライ B09103
+  apSelf:p=>myTurn(p)&&opp(p).refreshed?2000:0,
+  enter:async p=>{if(!p.solved)millSelf(opp(p),3)},hirameki:sleepHirameki};
+DEF["1129"]={ // 鬼塚八蔵 B10073
+  enter:async(p,x)=>{if(p.solved&&x.viaAb)drawN(p,1)},
+  hirameki:async o=>{await pickRmToHand(o,keisatsu,"手札に加える［降谷零］［諸伏景光］［伊達航］［萩原研二］［松田陣平］")}};
+DEF["1143"]={ // バーボン B10088
+  kwSelf:()=>["突撃"],
+  contactWin:async(p,x)=>{if(!partnerIs(p,"黒")||!bondOk(p,"スコッチ")||turnCount(x,"bb")||p.deck.length<3)return;
+    if(!await yes(p,"バーボン","デッキの上から3枚をリムーブしますか？（カットインを持つ【黒】が3枚以上なら、リムーブエリアのレベル3以下の【黒】を登場）",()=>p.deck.length>10))return;
+    useTurn(x,"bb");if(millSelf(p,3).filter(ciBlack).length>=3)await enterFromRm(p,y=>hasColor(y,"黒")&&lvOf(y)<=3,"登場させる【黒】のキャラ（レベル3以下）")}};
+DEF["0485"]={ // 遠山和葉 PR098
+  enter:async p=>{if(!p.solved)await lookTop(p,2,y=>isChar(y)&&hasTrait(y,"高校生"),{max:1,title:"手札に加える［高校生］のキャラ"})},
+  abilities:[{label:"他の［高校生］のキャラをターン終了時までAP＋1000",turn1:true,can:(p,x)=>p.solved&&p.field.some(y=>y!==x&&hasTrait(y,"高校生")),aiCan:(p,x)=>myTurn(p)&&p.field.some(y=>y!==x&&hasTrait(y,"高校生")&&y.st==="a"),
+    run:async(p,x)=>{const t=await chooseChar(p,"AP＋1000する［高校生］",y=>!isOpp(p,y)&&y!==x&&hasTrait(y,"高校生"),ownT(p));if(!t)return false;apTurn(t,1000);return true}}]};
+DEF["1062"]={ // 紫紅の爪 PR291
+  event:async(p,x)=>{if(!partnerIs(p,"白")||!p.solved)return noEff();
+    await rmChar(p,y=>apOf(y)>=7000);if(p.rm.includes(x))toPartnerArea(p,x);
+    if(p.field.some(exactName("怪盗キッド"))){const cs=p.hand.filter(y=>isChar(y)&&hasColor(y,"白")&&lvOf(y)<=3);
+      if(cs.length){const [y]=await pickCards(p,"スリープ状態で登場させる【白】のキャラ（レベル3以下）","",cs,{max:1,ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});if(y)await enterByEffect(p,y,"s")}}},
+  ai:p=>partnerIs(p,"白")&&p.solved&&oppHas(p,y=>apOf(y)>=7000),
+  hirameki:async(o,e)=>{if(o.rm.includes(e))toPartnerArea(o,e)}};
+DEF["1161"]={ // ジョディ・スターリング PR308
+  abilities:[{label:"スリープ＋デッキの上から3枚リムーブ: ［FBI］が2枚以上ならレベル7以下をリムーブ。相手のキャラをレベル－1",turn1:true,
+    can:(p,x)=>partnerIs(p,"赤")&&x.st==="a"&&p.deck.length>=3,aiCan:p=>p.deck.length>10&&oppHas(p,y=>lvOf(y)>=5),
+    run:async(p,x)=>{sleepCost(x);if(millSelf(p,3).filter(fbi).length>=2)await rmChar(p,y=>y!==x&&lvLe(7)(y));
+      const t=await chooseChar(p,"ターン終了時までレベル－1するキャラ",y=>isOpp(p,y));if(t){t.lvT=(t.lvT||0)-1;log(`　${C(t).nm} をターン終了時までレベル－1`,"n")}return true}}]};
