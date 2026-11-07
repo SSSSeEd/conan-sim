@@ -436,3 +436,32 @@ DEF["1260"]={ // 諸伏景光＆スコッチ B11097
     useTurn(self,"p11s");drawN(p,1);
     if(faceDownEv(p).length>=2&&await yes(p,"諸伏景光＆スコッチ","裏向きの証拠を2つ表向きにして、カードを1枚引きますか？",true)){flipEvidence(p,2);drawN(p,1)}},
   partnerToo:true};
+
+// --- パートナーエリアへ移す型（engine.js の toPartnerArea / activatePartner / paReturn。MRの相手ターン中の移動も同じ仕組み）---
+const isGale=y=>/【疾風】/.test(C(y).f||"");
+// 「【疾風】を持つレベルN以下の【黄】か【黒】のキャラ」
+const galeYK=n=>y=>isChar(y)&&isGale(y)&&lvOf(y)<=n&&colorAny(y,"黄","黒");
+// 候補から1枚まで選び、パートナーエリアへ移す。「相手のターンのメインフェイズ開始時に登場させてもよい／しなければリムーブ」つき
+async function toPaWithReturn(p,cands,title){
+  if(!cands.length)return null;
+  const [y]=await pickCards(p,title,"",cands,{ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});
+  if(!y)return null;toPartnerArea(p,y,{ret:true});return y}
+// FILEの一番上（パートナー以外）をリムーブ
+function fileTopRm(p){const top=[...p.file].reverse().find(y=>y!==p.partner);if(!top)return false;
+  p.file.splice(p.file.indexOf(top),1);p.rm.push(top);log(`　FILEの上の ${C(top).nm} をリムーブ`,"n");return true}
+
+DEF["1252"]={ // 犯人 B11089
+  enter:async p=>{if(!myTurn(p))return;const o=opp(p);const was=o.pLoc==="file";activatePartner(o);
+    log(`　${o.name} のパートナーをアクティブにした${was?"（FILEからパートナーエリアへ）":""}`,"n")},
+  hirameki:async o=>{const n=Math.min(2,faceDownEv(o).length);if(n)flipEvidence(o,n)}};
+DEF["1247"]={ // スコッチ B11084
+  abilities:[{label:"このキャラをリムーブエリアに移し手札を1枚リムーブ: リムーブエリアの【疾風】のレベル6以下の【黄】か【黒】をパートナーエリアへ",
+    can:p=>condOk("事件黄＆黒",p)&&p.file.length>=7&&p.hand.length>=1&&p.rm.some(galeYK(6)),
+    aiCan:p=>p.hand.length>=2&&p.rm.some(y=>galeYK(6)(y)&&lvOf(y)>=5),
+    run:async(p,x)=>{removeCard(x,"コスト",{by:p});await discard(p,1);await runQueue();
+      await toPaWithReturn(p,p.rm.filter(galeYK(6)),"パートナーエリアに移すキャラ");return true}}]};
+DEF["1263"]={...solvedDiscard, // 警視庁公安部の潜入捜査官 B11100
+  abilities:[{label:"FILEの上から1枚をリムーブ: 手札の【疾風】のFILEの枚数以下のレベルの【黄】か【黒】をパートナーエリアへ",turn1:true,
+    can:p=>p.solved&&p.file.some(y=>y!==p.partner)&&p.hand.some(galeYK(p.file.length-1)),
+    aiCan:p=>p.hand.some(y=>galeYK(p.file.length-1)(y)&&lvOf(y)>=5),
+    run:async p=>{if(!fileTopRm(p))return false;await toPaWithReturn(p,p.hand.filter(galeYK(p.file.length)),"パートナーエリアに移すキャラ");return true}}]};
