@@ -235,6 +235,50 @@ DEF["1255"]={ // ラム B11092
     if(!await yes(p,"ラム","デッキの上から3枚をリムーブしますか？",()=>p.deck.length>10))return;
     const n=p.deck.slice(0,3).filter(y=>C(y).ci&&hasColor(y,"黒")).length;millSelf(p,3);if(n>=3)giveKw(x,"突撃")}};
 
+// --- レベル5 ---
+DEF["1181"]={ // 間宮マス代 B11013（ヒラメキは auto.js）
+  enter:async(p,x)=>{if(!p.solved&&p.field.some(y=>y!==x&&hasTrait(y,"少年探偵団")))drawN(p,1)},
+  abilities:[{label:"スリープ＋［少年探偵団］をデッキの下へ: レベル6以下のキャラをリムーブ",
+    can:(p,x)=>p.solved&&x.st==="a"&&p.field.some(y=>y!==x&&hasTrait(y,"少年探偵団")),aiCan:p=>p.field.length>2&&oppHas(p,lvLe(6)),
+    run:async(p,x)=>{const [c]=await pickCards(p,"コスト: デッキの下に移す［少年探偵団］","",p.field.filter(y=>y!==x&&hasTrait(y,"少年探偵団")),{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>lvOf(a)-lvOf(b))});
+      if(!c)return false;sleepCost(x);toDeckBottom(c);await rmChar(p,lvLe(6));return true}}]};
+DEF["1187"]={ // 伊織無我 B11020（突撃［キャラ］は本体）
+  kwSelf:p=>condOk("絆大岡紅葉",p)?["突撃［事件］"]:[],
+  enter:async(p,x)=>{if(p.file.length>=8){x.iorT=G.turnNo;log(`　${C(x).nm} はターン終了時まで「コンタクトでリムーブしたら相手のキャラにセット」を得た`,"n")}},
+  contactWin:async(p,x)=>{if(x.iorT!==G.turnNo||turnCount(x,"p11i"))return;
+    const t=await chooseChar(p,"セットされる相手のキャラ",y=>isOpp(p,y));if(!t)return;useTurn(x,"p11i");setTop(opp(p),t)}};
+DEF["1190"]={ // 島袋君恵 B11023
+  leaveOppTurn:async(p,x)=>{if(!p.rm.includes(x)||!await yes(p,"島袋君恵","このキャラをリムーブエリアからデッキの下に移して、リムーブエリアのレベル3のキャラを手札に加えますか？",true))return;
+    detach(x);p.deck.push(x);log(`　${C(x).nm} をデッキの下に移した`,"n");await pickRmToHand(p,y=>isChar(y)&&lvOf(y)===3,"手札に加えるレベル3のキャラ")}};
+DEF["1200"]={ // 中森青子 B11034（【事件青＆白】【パートナー白】突撃は本体）
+  enter:async(p,x)=>{if(evTot(p)>=5)apTurn(x,1000)}};
+DEF["1210"]={ // 鈴木朋子 B11044
+  kwSelf:(p,x)=>(x.set||[]).length?["突撃"]:[],
+  enter:async(p,x)=>{const [y]=await pickCards(p,"このキャラにセットする［漆黒の星］","",p.rm.filter(exactName("漆黒の星")),{ai:c=>c.slice(0,1)});
+    if(!y)return;detach(y);x.set=x.set||[];x.set.push({c:y,up:true});log(`　${C(y).nm} を ${C(x).nm} にセット`,"n")}};
+DEF["1212"]={ // 土井塔克樹 B11046（ミスリード1は本体。変装で入れ替わるときは engine の disguiseReplaced）
+  disguiseReplaced:async(p,x,by)=>{if(myTurn(p)||!anyExact("怪盗キッド")(by))return false;
+    if(!await yes(p,"土井塔克樹","デッキの下に移す代わりにリムーブして、表向きの証拠を2つまで裏向きにしますか？",true))return false;
+    const ups=p.ev.filter(e=>e.up);const gs=await pickCards(p,"裏向きにする証拠","",ups,{min:0,max:2,ai:c=>c.slice(0,2)});
+    for(const e of gs)e.up=false;log(`　${p.name} は表向きの証拠を${gs.length}つ裏向きにした`,"n");return true}};
+DEF["1213"]={ // 富沢雄三 B11047（現場にいるときの［鈴木財閥］は core.js の hasTrait）
+  abilities:[{label:"このキャラをリムーブエリアへ: リムーブエリアのすべてのカードをデッキの下に移してシャッフル",can:()=>true,aiCan:()=>false,
+    run:async(p,x)=>{removeCard(x,"コスト",{by:p});const cs=p.rm.slice();for(const y of cs){detach(y);p.deck.push(y)}shuffle(p.deck);
+      log(`　リムーブエリアの${cs.length}枚をデッキの下に移して、デッキをシャッフル`,"n");return true}}]};
+DEF["1236"]={ // 安室透 B11072（【パートナー黄】突撃は本体、ヒラメキは auto.js）
+  apSelf:(p,x)=>myTurn(p)?1000*p.field.filter(y=>y!==x&&hasTrait(y,"喫茶ポアロ")).length:0};
+DEF["1239"]={ // 白鳥任三郎 B11075
+  enter:async p=>{const shown=[];let got=null;
+    while(p.deck.length){const y=p.deck.shift();if(isChar(y)&&lvOf(y)>=5&&hasTrait(y,"警察")){got=y;break}shown.push(y)}
+    log(`　${p.name} はデッキの上から${shown.length+(got?1:0)}枚を公開`,"n");
+    if(got){p.hand.push(got);log(`　${p.name} は ${C(got).nm} を手札に加えた`)}
+    for(const y of shown)p.deck.push(y);shuffle(p.deck);if(shown.length)log("　残りをデッキの下に移して、デッキをシャッフル","n");checkDeck(p)}};
+DEF["1241"]={ // 諸伏高明 B11077
+  gale:async(p,x)=>{apTurn(x,1000)},
+  enter:async(p,x)=>{if(!condOk("事件黄＆黒",p)||p.deck.length<4)return;
+    if(!await yes(p,"諸伏高明","デッキの上から3枚をリムーブしますか？",()=>p.deck.length>10))return;
+    const g=p.deck.slice(0,3).some(y=>isChar(y)&&/【疾風】/.test(C(y).f||""));millSelf(p,3);if(g)giveKw(x,"突撃")}};
+
 // --- 事件 ---
 const solvedDiscard={solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")}};
 DEF["1257"]={...solvedDiscard, // ドライマティーニ B11094

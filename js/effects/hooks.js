@@ -38,6 +38,7 @@ const FX={
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
   async disguise(p,x){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await d.disguise(p,x)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
     const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onOppDisguise&&o.field.includes(y))await fxIf(o,y,"変装",()=>e.onOppDisguise(o,y,x))}}, // 相手が【変装】を使用したとき（茶木神太郎）
+  async disguiseReplaced(p,mine,by){const d=def(mine);return !!(d&&d.disguiseReplaced&&await d.disguiseReplaced(p,mine,by))}, // 変装で入れ替わるキャラが、デッキの下の代わりにリムーブされるか
   async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await d.hirameki(o,e);return true}return false},
   async cutin(p,card,mine,own=true){const d=def(card);if(own&&d&&d.cutin)await fxIf(p,card,"カットイン",()=>d.cutin(p,card,mine));
     if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await fxIf(p,mine,"コンタクト",()=>def(mine).onCutinInContact(p,mine,card))},

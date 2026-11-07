@@ -412,7 +412,7 @@ async function contactRight(q,ct,tp){
   }else{
     detach(x);const fi=q.field.indexOf(mine);
     Object.assign(x,{st:mine.st,apM:mine.apM,apT:mine.apT,apC:mine.apC,lpM:mine.lpM,lpT:mine.lpT,kw:mine.kw.slice(),fresh:mine.fresh});
-    q.field[fi]=x;resetMods(mine);q.deck.push(mine);
+    q.field[fi]=x;resetMods(mine);if(await FX.disguiseReplaced(q,mine,x))q.rm.push(mine);else q.deck.push(mine); // 土井塔克樹 B11046: デッキの下の代わりにリムーブ
     if(ct.a===mine)ct.a=x;else ct.d=x;
     log(`${q.name} は ${C(mine).nm} を ${C(x).nm} に変装（AP${apOf(x)}）`);
     render();await FX.disguise(q,x);
