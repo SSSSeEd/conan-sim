@@ -426,4 +426,36 @@ module.exports=[
     function partnerWhite(q){return !!w.condOk("パートナー白",q)}
     const h0=p.hand.length;await D["0760"].enter(p,kou);assert.strictEqual(kou.set.length,1);
     await D["0784"].event(p,w.inst("B07055"))}],
+  ["全弾の自動化(4): 脇田兼則・ジェイムズ・ブラック・キャメル・キャンティ・峰さやか・柳生・白馬・ジン・コルン・ライ・バーボン・ジョディ・鬼丸・鬼塚・和葉・裏切りの街角・紫紅の爪",async w=>{
+    const D=w.ev("DEF");
+    const G=board(w,{p0:{field:["B09007","B05069","B04056","B07098","B07048","B09094","B09103","B10073","B02023","B06038"],hand:["B01019","B01019","B01019"],deck:[R,R,R,R,R,R,R,R,R,R,R,R],rm:["B01019"]},p1:{field:[R,R],deck:[R,R,R,R,R,R,R,R,R,R]}});
+    const p=G.P[0],o=G.P[1],[wk,jb,cam,can,haku,gin,rai,oni,kaz,onim]=p.field;G.turn=0;
+    // ライ: 事件編の登場時に相手のデッキ3枚、痕跡［発見済み］でAP＋2000
+    let d=o.deck.length;await D["1042"].enter(p,rai);assert.strictEqual(o.deck.length,d-3);
+    assert.strictEqual(D["1042"].apSelf(p),0);o.refreshed=true;assert.strictEqual(D["1042"].apSelf(p),2000);
+    assert.ok(D["1033"].kwSelf(p).includes("突撃［事件］"));o.refreshed=false;assert.strictEqual(D["1033"].kwSelf(p).length,0);
+    d=o.deck.length;await D["1033"].enter(p,gin);assert.strictEqual(o.deck.length,d-2);
+    // 白馬探: セット
+    await D["0777"].enter(p,haku);assert.strictEqual(haku.set.length,1);
+    // 解決編: キャメルLP＋1、事件編ではない
+    p.solved=true;assert.strictEqual(D["0448"].lpSelf(p),1);p.solved=false;
+    // 鬼塚: 解決編でなければ引かない
+    const h=p.hand.length;await D["1129"].enter(p,oni);assert.strictEqual(p.hand.length,h);
+    // 和葉: 登場時にセット
+    await D["0193"].enter(p,kaz);assert.ok(p.field.some(y=>y!==haku&&y.set&&y.set.length));
+    // 紫紅の爪: パートナーが白でなければ効果なし
+    await D["1062"].event(p,w.inst("PR291"));
+    // 鬼丸: 事件編の間は判定しない
+    await D["0661"].contactWin(p,onim)}],
+  ["全弾の自動化(4)B: 事件（大阪・5人組・日輪・緋色の誘惑・玉探し・Black Knight）・赤い涙・わが味方・アン王女・ラム・大和敢助・赤井秀一・盗んであげる",async w=>{
+    const D=w.ev("DEF");const fx=w.ev("flipEvidence");
+    const G=board(w,{p0:{field:["B07039","B03115","PR236","B09056"],hand:[R,R],deck:[R,R,R,R,R,R,R,R,R,R,R,R],rm:["B06050","B07059"],ev:[R,R,R]},p1:{field:[R,R,R]}});
+    const p=G.P[0],[an,ram,ya,aka]=p.field;G.turn=0;p.solved=true;
+    for(const id of ["1095","1138","0790","0791","0686","0842"]){const a=D[id].abilities[0];assert.ok(a.label&&a.run&&a.can,id)}
+    const a686=D["0686"].abilities[0];p.ev.forEach(e=>e.up=false);assert.ok(a686.can(p));const n=p.hand.length;await a686.run(p);assert.strictEqual(p.ev.filter(e=>e.up).length,2);
+    assert.ok(!a686.can(p)||p.ev.filter(e=>!e.up).length>=2);
+    await D["0364"].enter(p,ram);
+    ya.st="a";await D["0934"].abilities[0].run(p,ya);assert.strictEqual(ya.st,"s");
+    await D["0768"].abilities[0].can(p,an);
+    await D["0998"].enter(p,aka)}],
 ];
