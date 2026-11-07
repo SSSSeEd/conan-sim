@@ -22,6 +22,8 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
   if(wasField&&G){G.queue.push({x,p,turn:G.turn,by:opt.by||null,effect:!!opt.effect});
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
+// MRが現場に登場したら、自分の現場にいる他のMRをリムーブ（マニュアル §9: MRは同時に1枚だけ。パートナーエリアのMRは未実装）
+function mrReplace(p,x){if(!isMR(x))return;for(const y of p.field.slice())if(y!==x&&isMR(y))removeCard(y,"MR入れ替え")}
 // 現場を離れるキャラにセットされていたカードをリムーブエリアへ。表向きのイベントは「リムーブエリアに置かれたとき」（刃新陰流風車 など）を予約
 function dropSets(p,x){const ss=x.set||[];x.set=[];for(const s of ss)p.rm.push(s.c);
   const ev=ss.filter(s=>s.up&&!s.under).map(s=>s.c);if(ev.length&&G)G.queue.push({setRm:ev,p,turn:G.turn})}
@@ -222,7 +224,7 @@ async function useFromHand(p,x,viaHint=false){
       const t=p.cpu?[p.field.slice().sort((a,b)=>(C(a).lv||0)-(C(b).lv||0))[0]]:await chooseCards("スイッチ","現場が5体です。リムーブして入れ替えるキャラを選んでください。",p.field,{min:1,max:1});
       if(!t.length)return false;removeCard(t[0],"スイッチ");
     }
-    detach(x);x.st=FX.entersSleeping(x)?"s":"a";x.fresh=true;p.field.push(x);
+    detach(x);x.st=FX.entersSleeping(x)?"s":"a";x.fresh=true;p.field.push(x);mrReplace(p,x);
     if(!viaHint)p.usedHand=true;
     log(`${p.name} は ${c.nm}（Lv${c.lv}）を登場させた${viaHint?"（ネクストヒント）":""}`);
     render();await runQueue();await FX.enter(p,x);

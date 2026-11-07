@@ -154,4 +154,10 @@ module.exports=[
     assert.ok(w.ev("hasTrait")(x,"長野県警"));
     const h=q.hand.length;await w.FX.endTurn(q);assert.strictEqual(q.hand.length,h,"+1-1");assert.strictEqual(q.rm.length,1);
     q.partner=w.inst("B01079");const d0=q.deck.length,r0=q.rm.length;await w.FX.enter(q,x);assert.strictEqual(q.deck.length,d0-3);assert.ok(q.rm.length>=r0+3)}],
+  ["MR（マニュアル §9）: 現場にMRが登場したら、現場の既存のMRはリムーブ（MR以外は残る）",async w=>{
+    const G=board(w,{p0:{field:["B05005",R],hand:["B05027"]},p1:{field:["B05005"]}});const p=G.P[0],[a,r]=p.field,b=p.hand[0];
+    assert.ok(w.ev("isMR")(a)&&w.ev("isMR")(b)&&!w.ev("isMR")(r));
+    await w.ev("enterByEffect")(p,b);
+    assert.ok(!p.field.includes(a)&&p.rm.includes(a),"既存のMRはリムーブ");assert.ok(p.field.includes(b)&&p.field.includes(r));
+    assert.strictEqual(G.P[1].field.length,1,"相手のMRはそのまま")}],
 ];
