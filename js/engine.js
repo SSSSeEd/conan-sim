@@ -16,14 +16,29 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
   const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);
   detach(x);resetMods(x);
   if(wasField)dropSets(p,x);
+  // MRが相手のターン中に現場を離れたときは、リムーブエリアではなくパートナーエリアへ移る（自分のターン中は移らない）
+  if(wasField&&isMR(x)&&G&&G.turn!==p.idx){x.paRet=0;p.pa.push(x);if(why)log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ（${why}）`);return}
   p.rm.push(x);
   const c=C(x);
   if(why)log(`${p.name} の ${c.nm} をリムーブ（${why}）`);
   if(wasField&&G){G.queue.push({x,p,turn:G.turn,by:opt.by||null,effect:!!opt.effect});
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
-// MRが現場に登場したら、自分の現場にいる他のMRをリムーブ（マニュアル §9: MRは同時に1枚だけ。パートナーエリアのMRは未実装）
-function mrReplace(p,x){if(!isMR(x))return;for(const y of p.field.slice())if(y!==x&&isMR(y))removeCard(y,"MR入れ替え")}
+// MRが現場かパートナーエリアに来たら、自分の現場・パートナーエリアにいる他のMRをリムーブ（マニュアル §9: MRは同時に1枚だけ）
+function mrReplace(p,x){if(!isMR(x))return;for(const y of [...p.field,...p.pa])if(y!==x&&isMR(y)){const wasPa=p.pa.includes(y);if(wasPa){detach(y);resetMods(y);y.paRet=0;p.rm.push(y);log(`${p.name} の ${C(y).nm} をリムーブ（MR入れ替え）`)}else removeCard(y,"MR入れ替え")}}
+// ===== パートナーエリア（パートナー本体のほかに、効果で移されたキャラやMRが置かれる）=====
+// 現場とパートナーエリアの能力・フックを見るための一覧（FILE中のパートナー本体は含めない）
+const areaCards=p=>[...(p.pLoc==="area"?[p.partner]:[]),...p.pa];
+const inArea=(p,y)=>y===p.partner?p.pLoc==="area":p.pa.includes(y);
+// 効果でキャラをパートナーエリアへ移す。ret=true なら「相手のターンのメインフェイズ開始時、登場させてもよい。しなければリムーブ」（beginTurn → FX.paReturn）
+function toPartnerArea(p,x,{ret=false,why="効果"}={}){
+  const wasField=p.field.includes(x);detach(x);resetMods(x);if(wasField)dropSets(p,x);
+  x.paRet=ret?G.turnNo+1:0;p.pa.push(x);mrReplace(p,x);
+  log(`　${p.name} は ${C(x).nm} をパートナーエリアに移した（${why}）`,"n")}
+// 相手のパートナーをアクティブにする。FILEにいる（アシスト中）なら、パートナーエリアに戻してアクティブにする（犯人 B11089）
+function activatePartner(q){
+  if(q.pLoc==="file"){q.file.splice(q.file.indexOf(q.partner),1);q.pLoc="area"}
+  q.partner.st="a"}
 // 現場を離れるキャラにセットされていたカードをリムーブエリアへ。表向きのイベントは「リムーブエリアに置かれたとき」（刃新陰流風車 など）を予約
 function dropSets(p,x){const ss=x.set||[];x.set=[];for(const s of ss)p.rm.push(s.c);
   const ev=ss.filter(s=>s.up&&!s.under).map(s=>s.c);if(ev.length&&G)G.queue.push({setRm:ev,p,turn:G.turn})}
@@ -127,6 +142,7 @@ function loadSave(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null
 function resumeGame(s){
   UID=s.uid;
   G={...unpackRefs(s.g),over:false,ui:{mode:null},undo:[],busy:0};
+  for(const p of G.P)p.pa=p.pa||[]; // パートナーエリアの追加分（古い保存データ用）
   uiNewGame();
   G.rec.log.forEach(([t,m],i)=>uiLog(m,G.logC[i]||undefined));
   uiLog("— 中断したところから再開 —","t");
@@ -190,7 +206,11 @@ function beginTurn(){
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
   G.phase="main";recTurnStart(p);render();saveGame();
-  if(p.cpu){const t=cpuTurn(p);if(G.sim)G.sim.next=t}
+  const go=()=>{if(p.cpu)return cpuTurn(p)};
+  // メインフェイズ開始時: 相手が効果でパートナーエリアに移したキャラを、持ち主が登場させるか決める
+  const q=opp(p);
+  const t=q.pa.some(x=>x.paRet===G.turnNo)?FX.paReturn(q).then(()=>{saveGame();return go()}):go();
+  if(t&&G.sim)G.sim.next=t
 }
 async function endTurn(){
   if(G.over||G.ending)return;

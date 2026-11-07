@@ -267,4 +267,34 @@ module.exports=[
     await D["1241"].gale(p,mo);assert.strictEqual(w.apOf(mo),w.ev("C")(mo).ap+1000);
     p.ev.forEach(e=>e.up=true);const kid=w.inst("B02038");G.turn=1;assert.strictEqual(await D["1212"].disguiseReplaced(p,dt,kid),true);assert.ok(p.ev.every(e=>!e.up)||p.ev.some(e=>!e.up));
     G.turn=0;assert.strictEqual(await D["1212"].disguiseReplaced(p,dt,kid),false)}],
+  ["パートナーエリア: 犯人 B11089 は自分ターンの登場時に相手のパートナーをアクティブにし、アシスト中ならパートナーエリアに戻す。ヒラメキは裏向きの証拠を2つまで表向きに",async w=>{
+    const G=board(w,{p0:{field:["B11089"],ev:[R,R,R]},p1:{}});const p=G.P[0],o=G.P[1],[x]=p.field,D=w.ev("DEF")["1252"];
+    o.partner.st="s";await D.enter(p,x);assert.strictEqual(o.partner.st,"a");
+    o.partner.st="s";o.pLoc="file";o.file.push(o.partner);await D.enter(p,x);assert.strictEqual(o.pLoc,"area");assert.ok(!o.file.includes(o.partner));assert.strictEqual(o.partner.st,"a");
+    o.partner.st="s";G.turn=1;await D.enter(p,x);assert.strictEqual(o.partner.st,"s","相手ターン中は何もしない");
+    await D.hirameki(p);assert.strictEqual(p.ev.filter(e=>e.up).length,2);p.ev.forEach(e=>e.up=false);p.ev.length=1;await D.hirameki(p);assert.strictEqual(p.ev.filter(e=>e.up).length,1)}],
+  ["パートナーエリア: スコッチ B11084 はコストで自分をリムーブし、リムーブエリアの【疾風】Lv6以下の【黄】か【黒】をパートナーエリアへ。相手ターン開始時に登場させるか、しなければリムーブ",async w=>{
+    const G=board(w,{p0:{field:["B11084"],hand:[R,R],rm:["B09074","B01019"],file:[R,R,R,R,R,R,R]},p1:{}});const p=G.P[0],[x]=p.field,a=w.ev("DEF")["1247"].abilities[0];
+    p.caseC=w.inst("B11100");assert.ok(a.can(p,x),"事件黄＆黒・FILE7");const f=p.file.pop();assert.ok(!a.can(p,x),"FILE7枚未満では宣言できない");p.file.push(f);
+    await a.run(p,x);const y=p.pa[0];
+    assert.ok(!p.field.includes(x)&&p.rm.includes(x),"自分はリムーブエリアへ");assert.strictEqual(p.hand.length,1);
+    assert.strictEqual(w.C(y).nm,"松田陣平");assert.strictEqual(w.zoneOf(y),"pa");assert.strictEqual(w.ownerOf(y),p);assert.strictEqual(y.paRet,G.turnNo+1);
+    G.turn=1;G.turnNo++;await w.FX.paReturn(p);assert.ok(p.field.includes(y),"登場する");assert.strictEqual(p.pa.length,0);
+    G.turn=0;w.toPartnerArea(p,y,{ret:true});G.turn=1;G.turnNo++;w.ev("globalThis.__yes0=yes;yes=async()=>false");
+    try{await w.FX.paReturn(p)}finally{w.ev("yes=globalThis.__yes0")}
+    assert.ok(p.rm.includes(y),"登場させないとリムーブエリアへ");assert.strictEqual(p.pa.length,0);
+    w.toPartnerArea(p,y,{ret:false});G.turnNo+=2;assert.strictEqual(y.paRet,0);await w.FX.paReturn(p);assert.strictEqual(p.pa.length,1,"期限のないものは動かない")}],
+  ["パートナーエリア: 警視庁公安部の潜入捜査官 B11100 は FILE の上を1枚リムーブして、手札のFILEの枚数以下の【疾風】の【黄】か【黒】をパートナーエリアへ（解決編のみ・ターン1）",async w=>{
+    const G=board(w,{p0:{hand:["B09074","B09072"],file:[R,R,R,R,R]},p1:{}});const p=G.P[0];p.caseC=w.inst("B11100");const a=w.ev("DEF")["1263"].abilities[0];
+    assert.ok(!a.can(p,p.caseC),"事件編では宣言できない");p.solved=true;assert.ok(a.can(p,p.caseC));
+    await a.run(p,p.caseC);assert.strictEqual(p.file.length,4);assert.strictEqual(p.pa.length,1);assert.ok(p.pa[0].paRet);
+    const lv=w.C(p.pa[0]).lv;assert.ok(lv<=5,"FILE5枚のときリムーブ前後どちらでも…Lv"+lv);
+    p.file=[R,R].map(n=>w.inst(n));p.hand=[w.inst("B09072")];assert.ok(!a.can(p,p.caseC),"FILE2枚→コスト後1枚でLv6は移せない")}],
+  ["パートナーエリア: MRは相手のターン中に現場を離れるとパートナーエリアへ（自分のターンはリムーブ）。もう1枚のMRが出ると入れ替わる。パートナーエリアのMRも能力・フックが働く",async w=>{
+    const G=board(w,{p0:{field:["B11030","B11095"]},p1:{field:[R]}});const p=G.P[0],[mr,mr2]=p.field;
+    w.mrReplace(p,mr2);assert.ok(!p.field.includes(mr)&&p.rm.includes(mr),"MRは同時に1枚");
+    G.turn=0;w.removeCard(mr2,"効果");assert.ok(p.rm.includes(mr2),"自分ターンはリムーブ");p.rm.pop();p.field.push(mr2);
+    G.turn=1;w.removeCard(mr2,"効果",{by:G.P[1]});await w.runQueue();assert.ok(p.pa.includes(mr2));assert.ok(!p.rm.includes(mr2));assert.strictEqual(w.zoneOf(mr2),"pa");assert.ok(w.ev("inArea")(p,mr2));
+    const ab=w.FX.abilities(p,mr2);assert.ok(ab.length===0||ab.every(a=>a.partner),"パートナーエリアでは partner:true の能力だけ");
+    const mr3=w.inst("B11030");p.field.push(mr3);w.mrReplace(p,mr3);assert.ok(!p.pa.includes(mr2)&&p.rm.includes(mr2),"現場にMRが出たらパートナーエリアのMRもリムーブ")}],
 ];

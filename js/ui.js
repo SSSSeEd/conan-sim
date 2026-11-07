@@ -72,7 +72,7 @@ function buildActs(box,x,p,z){
       }
       if(z==="partner"){btn2(box,"アシスト",()=>assist(p),{disabled:x.st!=="a"});btn2(box,FX.eraseEvidence(p)?"証拠隠滅（相手の敗北）":"事件解決",()=>solve(p),{disabled:x.st!=="a"||!p.solved,primary:p.solved&&p.ev.length>=p.level})}
     }
-    if(z==="field"||z==="case"){
+    if(z==="field"||z==="case"||z==="pa"){
       for(const a of FX.abilities(p,x))btn2(box,`能力: ${a.label}${a.turn1?"（ターン1）":""}`,()=>FX.useAbility(p,x,a),{disabled:!a.ok});
     }
   }
@@ -188,6 +188,7 @@ function sideEl(p,top){
   ce.onclick=()=>showDetail(p.caseC,true);box(ce);
   if(p.pLoc==="area"){const pe=cardEl(p.partner);if(G.ui.act&&G.ui.act.a===p.partner)pe.classList.add("acting");if(!p.cpu&&G.turn===p.idx&&!G.over&&p.partner.st==="a")pe.classList.add("ready");pe.onclick=()=>showDetail(p.partner,true);box(pe)}
   else{const d=document.createElement("div");d.className="slot";d.innerHTML='<span style="color:var(--ink-dim);font-size:11px;text-align:center">パートナー<br>FILE中</span>';sp.appendChild(d)}
+  for(const x of p.pa){const e=cardEl(x);e.title="パートナーエリア";e.classList.add("in-pa");e.onclick=()=>showDetail(x,true);box(e)} // パートナーエリアに移ったキャラ・MR
   // 中: 現場
   const sl=document.createElement("div");sl.className="slots";
   const human=!p.cpu&&G.turn===p.idx&&!G.over;

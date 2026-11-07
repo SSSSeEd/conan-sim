@@ -5,7 +5,7 @@ function inst(n){return {u:UID++,n,st:"a",fresh:false,apM:0,apT:0,apC:0,lpM:0,lp
 function C(x){return DB[x.n]}
 function mkPlayer(idx,name,deck,cpu){
   const p={idx,name,cpu,deck:shuffle(deck.main.map(inst)),hand:[],field:[],partner:inst(deck.partner),pLoc:"area",
-    caseC:inst(deck.caseN),solved:false,level:7,file:[],ev:[],rm:[],usedHand:false,hinted:false,refreshed:false,lost:false};
+    pa:[],caseC:inst(deck.caseN),solved:false,level:7,file:[],ev:[],rm:[],usedHand:false,hinted:false,refreshed:false,lost:false};
   return p;
 }
 const opp=p=>G.P[1-p.idx];
@@ -17,12 +17,13 @@ function caseLevel(p,first){
 function colorsOf(s){return [...(s||"")].filter(ch=>COLOR_VAR[ch])}
 function apOf(x){const c=C(x);return (c.ap||0)+x.apM+x.apT+x.apC+(x.apA||0)+(window.FX?FX.apBonus(x):0)}
 function lpOf(x){const c=C(x);return (c.lp||0)+x.lpM+x.lpT+(window.FX&&FX.lpBonus?FX.lpBonus(x):0)}
-function ownerOf(x){for(const p of G.P){if(p.field.includes(x)||p.partner===x||p.hand.includes(x)||p.caseC===x||p.file.includes(x)||p.ev.includes(x)||p.rm.includes(x)||p.deck.includes(x))return p}return null}
+function ownerOf(x){for(const p of G.P){if(p.field.includes(x)||p.partner===x||(p.pa||[]).includes(x)||p.hand.includes(x)||p.caseC===x||p.file.includes(x)||p.ev.includes(x)||p.rm.includes(x)||p.deck.includes(x))return p}return null}
 function zoneOf(x){const p=ownerOf(x);if(!p)return null;
   if(p.partner===x)return p.pLoc==="file"?"file":"partner";
+  if((p.pa||[]).includes(x))return "pa";
   for(const z of ["field","hand","file","ev","rm","deck"])if(p[z].includes(x))return z;
   if(p.caseC===x)return "case";return null}
-function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","hand","file","ev","rm","deck"]){const i=p[z].indexOf(x);if(i>=0){p[z].splice(i,1);
+function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;for(const z of ["field","pa","hand","file","ev","rm","deck"]){const i=(p[z]||[]).indexOf(x);if(i>=0){p[z].splice(i,1);
   if(z==="rm"&&G&&G.queue&&C(x).t==="キャラ")G.queue.push({rmLeft:true,x,p}); // リムーブエリアから離れたときの効果（effects.js の onLeave）
   return p}}return p}
 
