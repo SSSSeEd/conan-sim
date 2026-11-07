@@ -10,7 +10,10 @@ function searchOn(p){if(window.SEARCH)return true;const s=G.cfg.search;return s?
 function evalState(me){
   const p=G.P[me],o=G.P[1-me];
   if(G.over)return G.winner===me?1e5:-1e5;
-  const side=q=>{let v=0;for(const x of q.field)v+=(C(x).lv||0)*8+apOf(x)/250+lpOf(x)*25+(x.st==="a"?15:0);return v};
+  // キーワードの価値: 突撃・迅速は出したばかりでも動ける、ブレットはガードされない、ミスリードは相手の推理を減らす
+  const noAct=!!(G.cfg.noAct&&G.cfg.noAct[me]); // 比較実験用（tools/vs.js の search-noact）: 突撃などの価値とアクションの出し方を使わない旧探索
+  const side=q=>{let v=0;for(const x of q.field){v+=(C(x).lv||0)*8+apOf(x)/250+lpOf(x)*25+(x.st==="a"?15:0);
+    if(noAct)continue;const k=staticKw(x,q);v+=(k.rush?14:0)+(k.rushC||k.rushE?8:0)+(k.swift?14:0)+(k.bullet?10:0)+k.misread*6}return v};
   const ev=q=>q.ev.length*60+(q.solved?40:0)+(q.solved&&q.ev.length>=q.level?300:0);
   return ev(p)-ev(o)+side(p)-side(o)+(p.hand.length-o.hand.length)*12+(Math.min(p.file.length,9)-Math.min(o.file.length,9))*6;
 }
@@ -42,6 +45,7 @@ async function rollout(p,plan){
   try{await cpuTurn(g.P[p.idx]);if(g.sim.next)await g.sim.next;v=evalState(p.idx)}
   catch(e){console.warn("search",e);v=-1e9}
   finally{G=real}
+  if(g.sim.rushSeen)ROLL_RUSH=true; // この手番に、起きたまま（突撃・迅速で）アクションできるキャラがいた → アクション先も試す
   return v;
 }
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
@@ -49,14 +53,24 @@ async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
 function recSearch(p,tried,best){
   if(!G.rec)return;
-  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
   (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
 }
+// アクションの出し方（plan.act）。突撃・迅速で出たばかりでもアクションできるキャラ（x.fresh）の動かし方を変えて試す
+//   chara: キャラへのアクションを優先（倒せる相手なら価値を問わず）、無ければ事件 / case: 事件へのアクションを優先 / stay: アクションしない（起こしたまま）
+// 突撃は手札を出したあとに付くことが多く、手番のはじめにはわからない。そこで、まず出し方の組み合わせを試し、
+// 試しの中で「出たばかりでアクションできるキャラ」がいたときだけ、いちばん良かった組み合わせにアクションの出し方を足して試す
+const ACT_MODES=["chara","case","stay"];
+let ROLL_RUSH=false;
 async function chooseTurnPlan(p){
-  const plans=turnPlans(p);if(plans.length<=2)return null;
+  const plans=turnPlans(p);
   let best=null,bv=-Infinity;
-  const tried=[];
-  for(const pl of plans){const v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  const tried=[];ROLL_RUSH=false;
+  if(plans.length<=2){ // 選択肢は無いが、突撃キャラがいるかだけ見る
+    const v=await rollout(p,plans[0]);if(!ROLL_RUSH)return null;best=plans[0];bv=v;tried.push([best,v])}
+  else for(const pl of plans){const v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  if(ROLL_RUSH&&!(G.cfg.noAct&&G.cfg.noAct[p.idx])){const b0=best;
+    for(const act of ACT_MODES){const pl={...b0,act},v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
   recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;

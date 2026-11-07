@@ -130,12 +130,25 @@ async function cpuTurn(p){
   if(G.over)return;
   // 相手が事件を解決編にしていて、次のターンに解決しそうなら、キャラへのアクションをやめて全員で相手の事件にアクションし、証拠を減らして抵抗する
   const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0;
+  // 2.8) 出たばかりでもアクションできるキャラ（突撃・迅速）。探索（plan.act）で動かし方を選ぶ。stay は動かさず起こしておく
+  const hold=new Set();
+  {const rushers=()=>p.field.filter(x=>x.fresh&&x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case"))).sort((a,b)=>apOf(b)-apOf(a));
+    const rs=rushers();
+    if(rs.length&&G.sim)G.sim.rushSeen=true;
+    if(plan.act==="stay")for(const x of rs)hold.add(x);
+    else if(plan.act&&!resist)for(const x of rs){
+      for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
+        if(G.over||!p.field.includes(x)||x.st!=="a")break;
+        if(way==="chara"){const t=o.field.filter(y=>y.st!=="a"&&canAct(x,p,"chara")&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
+          if(t){await declareAction(p,x,t);await step();break}}
+        else if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");await step();break}}}}
+  if(G.over)return;
   // 3) キャラへのアクション（勝てる相手）
   for(;!resist;){
-    const atks=p.field.filter(x=>canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
+    const atks=p.field.filter(x=>!hold.has(x)&&canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
     // 「必ずガードする」相手のキャラがいれば、APで勝てるキャラでアクションしてガードさせる
     const fg=o.field.find(y=>staticKw(y,o).mustGuard&&canGuardNow(o,y));
-    if(fg){const a=p.field.filter(x=>x.st==="a"&&!staticKw(x,p).bullet&&apOf(x)>=apOf(fg)).sort((a,b)=>apOf(a)-apOf(b))
+    if(fg){const a=p.field.filter(x=>x.st==="a"&&!hold.has(x)&&!staticKw(x,p).bullet&&apOf(x)>=apOf(fg)).sort((a,b)=>apOf(a)-apOf(b))
         .find(x=>canAct(x,p,"chara")&&o.field.some(y=>y.st!=="a")||canAct(x,p,"case")&&o.ev.length>0);
       if(a){await declareAction(p,a,canAct(a,p,"chara")&&o.field.find(y=>y.st!=="a")||"case");await step();if(G.over)break;continue}}
     let tg=o.field.filter(y=>y.st!=="a").sort((a,b)=>(C(b).lv||0)-(C(a).lv||0));
@@ -147,7 +160,7 @@ async function cpuTurn(p){
   if(G.over)return;
   // 4) 事件へのアクション / 推理
   const keep=resist?0:p.field.length>=3?1:0;
-  let actors=p.field.filter(x=>x.st==="a").sort((a,b)=>lpOf(b)-lpOf(a));
+  let actors=p.field.filter(x=>x.st==="a"&&!hold.has(x)).sort((a,b)=>lpOf(b)-lpOf(a));
   if(ai2(p,"rsnw"))actors.sort((a,b)=>(C(a).lv||0)-(C(b).lv||0)||lpOf(b)-lpOf(a)); // SeEd: 弱いキャラから動かし、強いキャラを起こして残す
   const oppNear=o.solved&&o.ev.length>=o.level-2; // 相手が次のターンに勝ちそう
   let left=actors.length;
