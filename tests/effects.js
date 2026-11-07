@@ -332,4 +332,14 @@ module.exports=[
     G.turn=1;p.rm=[w.inst("B11043")];await D["1214"].oppEndTurn(p,lu);assert.strictEqual(p.field.includes(lu),false);assert.ok(p.hand.some(y=>w.C(y).nm==="鈴木園子"),"ルパンがリムーブされて鈴木財閥を回収");
     G.turn=0;p.deck=[w.inst("B11085"),w.inst(R),w.inst(R),w.inst(R)];p.solved=false;await D["1251"].enter(p,yu);assert.strictEqual(p.deck.length,1);assert.ok(p.hand.some(y=>w.C(y).nm==="ウォッカ"));
     const gh=w.inst("B11090");p.field.push(gh);const a=D["1253"].abilities[0];assert.ok(a.can(p,gh));const ap0=w.apOf(jr);await a.run(p,gh);assert.strictEqual(p.field.includes(gh),false);assert.strictEqual(w.apOf(jr),ap0+1000)}],
+  ["レベル3(P11): 島袋弥琴はカード名［島袋君恵］へのカットインでAP＋3000。瓜生祥子は［女流棋士］へのカットインで1枚引く。真田一三は相手ターンにキッドと入れ替わったらリムーブして下から1枚。大和敢助は相手ターンのリムーブで【疾風】を探す。火傷の男は自分の効果でリムーブされたら1枚引く",async w=>{
+    const G=board(w,{p0:{hand:["B11024"],field:["B11039","B11078","B11091"],deck:[R,R,R,R,R]},p1:{}});
+    const p=G.P[0],[sa,ya,ya2]=p.field,D=w.ev("DEF"),mi=p.hand[0];
+    G.contact={a:w.inst("B01006"),d:p.field[0]};p.field.push(G.contact.a);
+    assert.strictEqual(w.cutinAp(mi,p),1000,"君恵ではないので＋1000");
+    const kimi=w.inst("B11023");p.field.push(kimi);G.contact={a:kimi,d:G.P[1].field[0]||w.inst(R)};assert.strictEqual(w.cutinAp(mi,p),3000);
+    G.turn=1;const kid=w.inst("B02038"),h0=p.hand.length;p.deck.push(kid);await D["1205"].disguise(p,sa,kid);
+    assert.strictEqual(p.field.includes(sa),false);assert.ok(p.rm.includes(sa));assert.strictEqual(p.hand.length,h0,"1枚加えて1枚リムーブ");
+    p.deck=[w.inst("B09074"),w.inst(R)];await D["1242"].leaveOppTurn(p,ya);assert.ok(p.hand.some(y=>w.C(y).nm.includes("松田")),"疾風のキャラを手札に");
+    G.turn=0;const n=p.hand.length;p.deck=[w.inst(R),w.inst(R)];await D["1254"].selfRemovedOwnTurn(p,ya2);assert.strictEqual(p.hand.length,n+1)}],
 ];

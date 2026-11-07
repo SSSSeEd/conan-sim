@@ -440,7 +440,7 @@ async function contactRight(q,ct,tp){
     q.field[fi]=x;resetMods(mine);if(await FX.disguiseReplaced(q,mine,x))q.rm.push(mine);else q.deck.push(mine); // 土井塔克樹 B11046: デッキの下の代わりにリムーブ
     if(ct.a===mine)ct.a=x;else ct.d=x;
     log(`${q.name} は ${C(mine).nm} を ${C(x).nm} に変装（AP${apOf(x)}）`);
-    render();await FX.disguise(q,x);
+    render();await FX.disguise(q,x,mine);
   }
   render();
   if(!q.cpu)await sleep(50);

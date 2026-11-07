@@ -348,6 +348,19 @@ DEF["1253"]={ // 亡霊船長 B11090
     run:async(p,x)=>{removeCard(x,"コスト",{by:p});const cs=p.field.slice();
       const ts=await pickCards(p,"AP＋1000する自分のキャラ（好きな数）","",cs,{min:0,max:cs.length,ai:c=>c});for(const y of ts)apTurn(y,1000);return true}}]};
 
+// --- レベル3 ---
+DEF["1205"]={ // 真田一三 B11039（入れ替わったキャラはこの時点でデッキの下にあるので、下から1枚は［怪盗キッド］になる）
+  disguise:async(p,x,mine)=>{if(myTurn(p)||!mine||!anyExact("怪盗キッド")(mine))return;
+    if(!await yes(p,"真田一三","このキャラをリムーブして、デッキの下から1枚を手札に加え、手札を1枚リムーブしますか？",true))return;
+    removeCard(x,"効果",{by:p,effect:true});await runQueue();
+    const b=p.deck.pop();if(b){p.hand.push(b);log(`　${p.name} はデッキの下から ${C(b).nm} を手札に加えた`)}await discard(p,1)}};
+DEF["1225"]={ // 瓜生祥子 B11060（ミスリード1は本体）
+  cutin:async(p,card,mine)=>{if(mine&&(hasTrait(mine,"女流棋士")||hasTrait(mine,"棋士")))drawN(p,1)}};
+DEF["1242"]={ // 大和敢助 B11078
+  leaveOppTurn:async p=>{await lookTopRm(p,2,y=>isChar(y)&&/【疾風】/.test(C(y).f||""),"手札に加える【疾風】を持つキャラ")}};
+DEF["1254"]={ // 火傷の男 B11091（ミスリード1は本体）
+  selfRemovedOwnTurn:async p=>{drawN(p,1)}};
+
 // --- 事件 ---
 const solvedDiscard={solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")}};
 DEF["1257"]={...solvedDiscard, // ドライマティーニ B11094
