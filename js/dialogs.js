@@ -54,6 +54,48 @@ function orderCards(title,cards,{body,okLabel="この順番で戻す",keepLabel=
   });
 }
 
+// ===== 対戦記録（JSON）を取り込んで、アプリ内でフィードバックを見る =====
+// 記録JSON v2（アプリの「全記録を書き出す」）の配列または1試合分。分析は js/feedback.js（tools/feedback.js と共通）
+function feedbackReport(records,srcLabel){
+  const recs=(Array.isArray(records)?records:[records]).filter(r=>r&&r.deckLists&&r.acts);
+  return modal((m,done)=>{
+    let res=[];try{res=Feedback.analyze(recs,{parse:t=>parseDeckText(t),nameOf:n=>(DB[n]||{}).nm||n})}catch(e){console.warn(e)}
+    const close='<div class="opts"><button class="primary" id="frClose">閉じる</button></div>';
+    if(!res.length){
+      m.insertAdjacentHTML("beforeend",`<div class="mt">フィードバック</div><div class="mb">分析できる対戦記録がありません。「全記録を書き出す（JSON）」で保存した記録JSON（v2）を読み込んでください。${recs.length!==(Array.isArray(records)?records.length:1)?"\n（行動の記録が無い古い形式の記録は対象外です）":""}</div>${close}`);
+      m.querySelector("#frClose").onclick=()=>done();return}
+    const n=recs.length;
+    m.insertAdjacentHTML("beforeend",`<div class="mt">フィードバック</div>
+      <div class="mb" style="font-size:12px;color:var(--ink-dim)">${esc(srcLabel||"")} ${n}戦を分析（あなたの席のデッキごと）。試合数が少ないうちは傾向として見てください。</div>
+      <div class="frbody">${res.map(dk=>`<div class="frdeck"><div class="frh">${esc(dk.label)}<span>${dk.games}戦 ${dk.wins}勝（勝率${dk.games?Math.round(dk.wins/dk.games*100):0}%）</span></div>
+        <ul class="frtips">${dk.tips.map(t=>`<li class="fr-${t.kind}">${hl(t.text)}</li>`).join("")}</ul>
+        ${dk.memo&&dk.memo.length?`<div class="meta">自分のメモ: ${dk.memo.map(esc).join(" / ")}</div>`:""}
+        <details><summary>カード別の使用率（${dk.rows.length}種）</summary><table class="frt"><tr><th>カード</th><th>枚数</th><th>使用率</th><th>使った時の勝率</th><th>使わない時の勝率</th></tr>${dk.rows.map(r=>`<tr><td>${esc(r.nm)}</td><td>${r.copies}</td><td>${r.rate}%</td><td>${r.playedG?r.wPlayed+"%":"-"}</td><td>${r.notPlayedG?r.wNot+"%":"-"}</td></tr>`).join("")}</table></details></div>`).join("")}</div>
+      <div class="opts"><button id="frCopy">Markdownでコピー</button>${close.replace('<div class="opts">','').replace('</div>','')}</div>`);
+    m.querySelector("#frClose").onclick=()=>done();
+    m.querySelector("#frCopy").onclick=async()=>{try{await navigator.clipboard.writeText(Feedback.toMarkdown(res));toast("コピーしました")}catch(e){toast("コピーできませんでした")}};
+  });
+}
+// 記録JSONの取り込み画面: ファイルを選ぶか、中身を貼り付ける
+function feedbackImport(){
+  return modal((m,done)=>{
+    m.insertAdjacentHTML("beforeend",`<div class="mt">記録JSONを読み込む</div>
+      <div class="mb" style="font-size:12px;color:var(--ink-dim)">「全記録を書き出す（JSON）」で保存したファイルを選ぶか、中身を貼り付けてください。</div>
+      <input type="file" id="fiFile" accept=".json,application/json">
+      <textarea id="fiText" rows="5" placeholder="ここにJSONを貼り付け" style="width:100%;box-sizing:border-box;margin-top:6px;font-size:12px"></textarea>
+      <div class="dmsg" id="fiMsg"></div>
+      <div class="opts"><button class="primary" id="fiGo">フィードバックを見る</button><button id="fiClose">閉じる</button></div>`);
+    const msg=t=>{const e=m.querySelector("#fiMsg");e.className="dmsg bad";e.textContent=t};
+    const run=async(txt,label)=>{let j;try{j=JSON.parse(txt)}catch(e){msg("JSONとして読めませんでした");return}
+      const a=(Array.isArray(j)?j:[j]).filter(r=>r&&r.deckLists&&r.acts);
+      if(!a.length){msg("対戦記録が見つかりません（記録JSON v2 の配列、または1試合分が必要です）");return}
+      done();await feedbackReport(a,label)};
+    m.querySelector("#fiFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>run(String(rd.result),f.name);rd.readAsText(f)};
+    m.querySelector("#fiGo").onclick=()=>{const t=m.querySelector("#fiText").value.trim();if(!t){msg("ファイルを選ぶか、JSONを貼り付けてください");return}run(t,"貼り付けた記録")};
+    m.querySelector("#fiClose").onclick=()=>done();
+  });
+}
+
 // ===== 対戦後のフィードバック（改善点・CPUへのアドバイス） =====
 // 対戦記録に一緒に保存し、GitHubのIssueとしても送れる（Claudeが後で読める）
 const FB_REPO="SSSSeEd/conan-sim";
