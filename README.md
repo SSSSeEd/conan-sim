@@ -11,6 +11,7 @@
   - データ: `cards.js`（カード）/ `decks.js` `data.js`（デッキ）
 - `img/*.json` 縮小したカード画像（パック単位）
 - `manifest.json` `sw.js` `icons/` Webアプリ・オフライン用（sw.js はアプリ全体を見るため一番上に置く）
+- `js/deckfill.js` デッキ補完（設計は DECKFILL.md）
 - `tools/` `tests/` 開発用（下記）
 
 公開URL: https://sssseed.github.io/conan-sim/
@@ -21,6 +22,7 @@
 
 ## 開発用ツール（Node 22、ブラウザ不要）
 - `node tools/test.js [試合数]` 動作確認（デッキの読み込み、CPU同士の対戦がエラーなしで決着するか、`tests/rules.js` のルールの単体テスト）。PRごとに GitHub Actions でも走る
+- `node tools/fill_eval.js [回数]` デッキ補完の答え合わせ（環境デッキから入力だけ残して、元に戻せる割合）
 - `node tools/vs.js 試合数 seed A B` CPUの比較実験（base / combo / search）。100戦で1秒前後（探索ありは数秒）
 - `node tools/find_combos.js デッキ.txt [試合数]` 新しいデッキのコンボ探し
 - `node tools/vs_off.js 試合数 seed 機能名 [search]` CPUの機能1つの対照実験（機能あり vs なし。`none` で同じCPU同士の基準）

@@ -13,7 +13,8 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       ${i===1?`<label><input type="checkbox" id="cpu1" ${saved.cpu1===false?"":"checked"}> CPUが操作</label>`:`<label><input type="checkbox" id="cpu0"> CPUが操作（観戦）</label>`}</div>
       <div class="row"><select id="ps${i}" aria-label="デッキ一覧">${deckOptions(i,i===1?saved.cpu1!==false:false)}</select><button data-s="${i}">このデッキを使う</button></div>
       <div class="row">
-        <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button></div>
+        <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button>
+        <button data-fill="${i}" title="下のリストに書いたカード（15枚ほど）を元に、残りを環境デッキの実績などから選んで40枚にします">40枚に補完</button><label title="外すと、効果が未自動化のカードも候補に入れる"><input type="checkbox" id="fa${i}" checked> 自動化済みだけ</label></div>
       <div class="row"><input id="sh${i}" placeholder="共有ID 例: X3zM3U7m" size="16"><button data-f="${i}">conan-tcg-appから読込</button></div>
       <textarea id="dk${i}" spellcheck="false" aria-label="デッキリスト">${esc(saved["dk"+i]||PRESETS[i?1:0].text)}</textarea>
       <div class="dmsg" id="dm${i}"></div></div>`).join("")}
@@ -39,6 +40,11 @@ function showSetup(){document.documentElement.classList.remove("spectate");
     document.getElementById("cpu"+i).onchange=()=>{const ps=document.getElementById("ps"+i),v=ps.value;ps.innerHTML=deckOptions(i,isCpu(i));
       if([...ps.options].some(o=>o.value===v))ps.value=v;chk(i)};
     S.querySelector(`[data-r="${i}"]`).onclick=()=>{ta.value=randomDeck(document.getElementById("rc"+i).value).text;chk(i)};
+    S.querySelector(`[data-fill="${i}"]`).onclick=()=>{const d=parseDeckText(ta.value),m=document.getElementById("dm"+i);
+      if(d.errors.length||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"補完のもとになるカードを書いてください（15枚ほど）";return}
+      const r=fillDeck(d,{onlyAuto:document.getElementById("fa"+i).checked});ta.value=fillText(r);chk(i);
+      const lines=[...r.warns,`補った${r.main.length-d.main.length}枚: `+r.why.map(x=>`${C({n:x.n}).nm}×${x.k}（${x.why}）`).join("、")];
+      m.textContent+="\n"+lines.join("\n")};
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=document.getElementById("sh"+i).value.trim().replace(/.*deck\//,"");const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
   }
