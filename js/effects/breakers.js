@@ -14,7 +14,7 @@ const forceGuard=label=>({label,turn1:true,
   aiCan:p=>forceGuardTargets(p).length>0});
 DEF["0511"]={partial:true, // 江戸川コナン＆工藤新一 B05005（ネクストヒント時の効果は未対応）
   abilities:[forceGuard("相手のキャラに「必ずガードする」を与える")]};
-DEF["1061"]={partial:true, // 沖田総司 PR290（自分ターン中のレベル＋1は未対応。AP＋1000は apBonus）
+DEF["1061"]={lvSelf:p=>myTurn(p)?1:0, // 沖田総司 PR290（AP＋1000は apBonus）
   abilities:[{...forceGuard("相手のキャラに「必ずガードする」を与える"),can:p=>condOk("事件緑＆白",p)&&opp(p).field.length>0}]};
 DEF["0513"]={ // 妃英理 B05007
   enter:async(p,x)=>{const f=y=>C(y).t==="キャラ"&&lvOf(y)<=6&&(C(y).nm.includes("工藤新一")||hasTrait(y,"毛利探偵事務所"));
