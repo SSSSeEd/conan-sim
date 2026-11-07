@@ -360,3 +360,13 @@ html.portrait #peek .pkc .card{width:min(52vw,210px);height:calc(min(52vw,210px)
 .dmsg{font-size:12px;line-height:1.5;white-space:pre-wrap}
 .dmsg.bad{color:#ffb4ad}.dmsg.good{color:var(--ok)}
 #toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--manila);color:var(--manila-ink);padding:8px 14px;border-radius:6px;font-weight:700;z-index:60;max-width:80vw}
+
+/* 下部タブバー（セットアップ画面）。固定要素の下に操作部品が隠れないよう、#setup に下余白を取る */
+#tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:#0e1820;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+#tabbar button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;border-radius:0;padding:8px 2px 7px;color:var(--ink-dim);font-size:11px}
+#tabbar button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#tabbar button.on{color:var(--manila)}
+#tabbar button:hover:not(:disabled){color:var(--manila);border:0}
+#setup{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+#setup .tabp{display:flex;flex-direction:column;gap:14px}
+#setup .tabp>h2{font-family:var(--f-display);font-weight:400;font-size:18px;margin:0}

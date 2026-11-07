@@ -1,10 +1,25 @@
 "use strict";
+// ================= 下部タブ（対戦／デッキ／記録／フィードバック） =================
+const TABS=[["play","対戦",'<path d="M5 19 19 5M14 5h5v5M5 5l14 14"/>'],
+  ["decks","デッキ",'<rect x="4" y="7" width="11" height="14" rx="2"/><path d="M9 4h8a2 2 0 0 1 2 2v11"/>'],
+  ["rec","記録",'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'],
+  ["fb","フィードバック",'<path d="M4 5h16v11H9l-5 4z"/>']];
+function curTab(){let t="play";try{t=localStorage.getItem("conan-sim-tab")||"play"}catch(e){}return TABS.some(x=>x[0]===t)?t:"play"}
+function showTab(t){
+  try{localStorage.setItem("conan-sim-tab",t)}catch(e){}
+  document.querySelectorAll("#setup .tabp").forEach(e=>e.hidden=e.dataset.tab!==t);
+  const TB=document.getElementById("tabbar");
+  TB.innerHTML=TABS.map(([k,l,ic])=>`<button data-t="${k}" ${k===t?'class="on" aria-current="page"':""}><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${l}</span></button>`).join("");
+  TB.querySelectorAll("button").forEach(b=>b.onclick=()=>{showTab(b.dataset.t);scrollTo(0,0)});
+}
+
 // ================= セットアップ画面 =================
 function showSetup(){document.documentElement.classList.remove("spectate");
   G=null;
-  document.getElementById("app").hidden=true;const S=document.getElementById("setup");S.hidden=false;
+  document.getElementById("app").hidden=true;const S=document.getElementById("setup");S.hidden=false;const TB=document.getElementById("tabbar");TB.hidden=false;
   let saved={};try{saved=JSON.parse(localStorage.getItem("conan-sim-setup")||"{}")}catch(e){}
-  S.innerHTML=`<div><h1 style="font-size:24px">コナンTCG 卓上シミュレータ</h1>
+  const tab=curTab();
+  S.innerHTML=`<div class="tabp" data-tab="play"><div><h1 style="font-size:24px">コナンTCG 卓上シミュレータ</h1>
    <div class="hint">ルールマニュアル Ver.2.5 準拠の進行（オート・手札の使用・ネクストヒント・推理・アクション・ガード・コンタクト・ミスリード・ヒラメキ・リフレッシュ・事件解決）を自動で処理します。カード個別の効果は表示のみで、右パネルの手動操作で処理します。収録カード ${window.CARD_DB.length} 枚。</div></div>
    ${resumeBox()}
    <div class="cols">
@@ -20,11 +35,19 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       <div class="dmsg" id="dm${i}"></div></div>`).join("")}
    </div>
    <div class="row"><label>先攻: <select id="first"><option value="rand">ランダム</option><option value="0">あなた</option><option value="1">相手</option></select></label>
-     <button class="primary" id="go" style="font-size:14px;padding:8px 18px">対戦開始</button><button id="fbTop" style="margin-left:auto">フィードバックを送る</button></div>
+     <button class="primary" id="go" style="font-size:14px;padding:8px 18px">対戦開始</button></div>
    <div class="hint">デッキリストの書き方: 1行に「カードNo x枚数」。パートナーと事件はカードNoを書けば自動で判別します。conan-tcg-app の共有IDでの読込はブラウザから直接通信するため、環境によっては失敗します。その場合はリストを貼り付けてください。<br>
    操作: カードをクリックすると右パネルに操作が出ます。アクション［キャラ］は対象（赤く点滅）をクリック、Escでキャンセル。デッキ・FILE・証拠・リムーブの枚数をクリックすると中身と手動操作が開きます。</div>
-   <div class="box" id="myBox"></div>
-   <div class="box" id="recBox"></div>`;
+   </div>
+   <div class="tabp" data-tab="decks"><h2>デッキ</h2><div class="box" id="myBox"></div></div>
+   <div class="tabp" data-tab="rec"><h2>記録</h2><div class="box" id="recBox"></div></div>
+   <div class="tabp" data-tab="fb"><h2>フィードバック</h2><div class="box"><b>アプリへの改善点・CPUへの要望</b>
+    <div class="hint">気づいたことを書いて送ると、GitHubのIssueとして届きます（対戦後の画面からも書けます）。</div>
+    <div class="row"><button class="primary" id="fbTop">フィードバックを書く</button></div></div>
+    <div class="box"><b>対戦記録から傾向を見る</b>
+    <div class="hint">使われなかったカードや使い残しなどの傾向が見られます（書き出したJSONを読み込んでも同じです）。</div>
+    <div class="row"><button id="recFb" class="primary">この端末の記録でフィードバック</button><button id="recImp">記録JSONを読み込んでフィードバック</button></div></div></div>`;
+  showTab(tab);
   renderRecords();renderMyDecks();
   const rs=document.getElementById("resume");if(rs)rs.onclick=()=>{const v=loadSave();if(v)resumeGame(v);else showSetup()};
   const rd=document.getElementById("resumeDel");if(rd)rd.onclick=async()=>{if(await ask("途中の対戦を消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){clearSave();showSetup()}};
@@ -94,7 +117,6 @@ function renderRecords(){
    <div class="hint">対戦が終わるたびに、行動・その時に選べた選択肢・ログを自動で保存します（最新${REC_MAX}件）。「記録からフィードバック」で使われなかったカードや使い残しなどの傾向が見られます（書き出したJSONを読み込んでも同じです）。</div>
    <div class="reclist">${all.slice().reverse().slice(0,20).map((r,i)=>{const me=r.cpu[0]?null:0;const res=me===null?`${esc(r.names[r.winner])} 勝利`:r.winner===me?"勝ち":"負け";
      return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span>${r.feedback&&(r.feedback.app||r.feedback.cpu)?" ✎":""} ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
-   <div class="row"><button id="recFb" class="primary" ${all.length?"":"disabled"}>この端末の記録でフィードバック</button><button id="recImp">記録JSONを読み込んでフィードバック</button></div>
    <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>`;
   B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
     const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;
@@ -105,8 +127,8 @@ function renderRecords(){
     try{const f=new File([blob],name,{type:"application/json"}); // スマホは共有シートで保存
       if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia("(pointer:coarse)").matches){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove()};
-  const fb=document.getElementById("recFb");if(fb)fb.onclick=()=>feedbackReport(all,"この端末の記録");
-  document.getElementById("recImp").onclick=()=>feedbackImport();
+  const fb=document.getElementById("recFb");if(fb){fb.disabled=!all.length;fb.onclick=()=>feedbackReport(all,"この端末の記録")}
+  const ri=document.getElementById("recImp");if(ri)ri.onclick=()=>feedbackImport();
   const cl=document.getElementById("recClr");if(cl)cl.onclick=async()=>{if(await ask("対戦記録を全部消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){try{localStorage.removeItem(REC_KEY)}catch(e){}renderRecords()}};
 }
 // スマホ（縦・横）ではコンパクト表示

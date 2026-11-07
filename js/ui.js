@@ -247,7 +247,7 @@ function uiLog(msg,cls){
 function logCount(){return document.getElementById("log").children.length}
 // 新しい対戦の盤面を用意する（startGame から）
 function uiNewGame(){
-  document.getElementById("setup").hidden=true;document.getElementById("app").hidden=false;
+  document.getElementById("setup").hidden=true;document.getElementById("tabbar").hidden=true;document.getElementById("app").hidden=false;
   document.getElementById("board").innerHTML=`<div id="oppSide"></div><div id="mid"><div id="guide"></div><div id="log" aria-live="polite"></div></div><div id="meSide"></div>`;
   _sel=null;document.getElementById("selPane").innerHTML=SEL_HINT;document.getElementById("hoverPane").innerHTML="";
 }
