@@ -79,7 +79,9 @@ const FX={
     let xs=[...p.field.filter(y=>def(y)&&def(y).endTurn),...areaCards(p).filter(y=>def(y)&&def(y).endTurn&&def(y).partnerToo)];
     if(!p.cpu&&xs.length>1&&typeof orderCards==="function")xs=await orderCards(`${p.name}: ターン終了時の効果の順番`,xs,
       {body:"ターン終了時に発動する効果が複数あります。解決する順にカードをタップしてください（①から先に解決）。もう一度タップで取り消し。",okLabel:"この順番で解決",keepLabel:"表示の順のまま解決"});
-    for(const y of xs){const d=def(y);if(d&&d.endTurn&&here(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}},
+    for(const y of xs){const d=def(y);if(d&&d.endTurn&&here(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
+    const q=opp(p);for(const y of q.field.slice()){const d=def(y);if(d&&d.oppEndTurn&&q.field.includes(y))await fxIf(q,y,"ターン終了時",()=>d.oppEndTurn(q,y))}await runQueue()}, // 相手のターン終了時（ルパン）
+  ignoreCaseColor:(c,p)=>c.i==="1206"&&condOk("事件黒",p)===true, // シャロン・ヴィンヤード B11040: 【事件黒】手札から使用するとき事件の色を無視
   // 相手のターンのメインフェイズ開始時: 効果でパートナーエリアに移したキャラ(paRet)を、登場させてもよい。しなければリムーブエリアへ（スコッチ B11084・公安部の潜入捜査官）
   async paReturn(q){for(const x of q.pa.slice()){if(!x.paRet||x.paRet!==G.turnNo||!q.pa.includes(x))continue;x.paRet=0;
       if(await yes(q,C(x).nm,`${C(x).nm} をパートナーエリアから登場させますか？（しないとリムーブエリアへ）`,()=>true)){await enterByEffect(q,x,"a")}

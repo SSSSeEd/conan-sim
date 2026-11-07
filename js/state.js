@@ -114,7 +114,7 @@ function disguiseOk(x,p){
   const tags=[...t.matchAll(/【([^】]+)】/g)].map(m=>m[1]).filter(s=>s!=="変装");
   return tags.every(tg=>condOk(tg,p)!==false);
 }
-function canPlayColor(card,p){const cc=C(p.caseC).c||"";return colorsOf(card.c).every(ch=>cc.includes(ch))}
+function canPlayColor(card,p){if(window.FX&&FX.ignoreCaseColor&&FX.ignoreCaseColor(card,p))return true;const cc=C(p.caseC).c||"";return colorsOf(card.c).every(ch=>cc.includes(ch))}
 
 // ================= ログ =================
 // 記録に残してから画面に出す（画面への表示は ui.js の uiLog）

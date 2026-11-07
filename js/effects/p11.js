@@ -279,6 +279,75 @@ DEF["1241"]={ // 諸伏高明 B11077
     if(!await yes(p,"諸伏高明","デッキの上から3枚をリムーブしますか？",()=>p.deck.length>10))return;
     const g=p.deck.slice(0,3).some(y=>isChar(y)&&/【疾風】/.test(C(y).f||""));millSelf(p,3);if(g)giveKw(x,"突撃")}};
 
+// --- レベル4 ---
+const komaeN=p=>new Set(p.field.filter(isKomae).map(nameOf)).size; // 現場の、レベル4のそれぞれカード名の異なる［少年探偵団］の数
+// デッキの上からn枚見て、条件に合うカードを1枚まで手札に加え、残りをリムーブエリアに移す
+async function lookTopRm(p,n,filter,title){
+  const xs=p.deck.slice(0,n);if(!xs.length)return null;log(`　${p.name} はデッキの上から${xs.length}枚を見た`,"n");
+  const [g]=await pickCards(p,title,`デッキの上から${xs.length}枚。条件に合うカードを1枚まで手札に加え、残りはリムーブエリアへ。`,xs.filter(filter),{min:0,max:1,ai:c=>c.slice().sort((a,b)=>aiCardValue(p,b)-aiCardValue(p,a)).slice(0,1)});
+  for(const y of xs){detach(y);if(y===g){p.hand.push(y);log(`　${p.name} は ${C(y).nm} を手札に加えた`)}else p.rm.push(y)}
+  if(xs.length>(g?1:0))log(`　残り${xs.length-(g?1:0)}枚をリムーブエリアへ`,"n");checkDeck(p);return g||null}
+const komaeCut=(lim,name)=>async p=>{ // 小嶋元太・円谷光彦のカットイン: コンタクト中の（元太=Lv8以上／光彦=Lv7以下）のキャラをリムーブし、1枚引く
+  const ct=G.contact;if(!myTurn(p)||komaeN(p)<2||!ct)return;
+  await rmChar(p,y=>(y===ct.a||y===ct.d)&&lim(lvOf(y)),`リムーブするコンタクト中のキャラ（${name}）`);drawN(p,1)};
+const fileRush=k=>async(p,x)=>{if(condOk("FILE5",p))giveKw(x,k)}; // 【FILE5】【登場時】ターン終了時まで〚突撃…〛を持つ
+DEF["1175"]={ // 吉田歩美 B11007
+  enter:fileRush("突撃"),
+  disguise:async(p,x)=>{if(!myTurn(p)||komaeN(p)<3)return;
+    await rmChar(p,y=>y.st==="s"&&lvOf(y)<=7,"リムーブするスリープ状態のキャラ（レベル7以下）");drawN(p,1)}};
+DEF["1176"]={enter:fileRush("突撃［キャラ］"),cutin:komaeCut(l=>l>=8,"レベル8以上")}; // 小嶋元太 B11008
+DEF["1177"]={enter:fileRush("突撃［キャラ］"),cutin:komaeCut(l=>l<=7,"レベル7以下")}; // 円谷光彦 B11009
+DEF["1192"]={ // 服部静華 B11025（カットインの条件タグは本体が見る）
+  enter:async p=>{if(!condOk("事件緑＆赤",p)||p.solved)return;const f=y=>hasColor(y,"緑")||hasColor(y,"赤");
+    if(!p.hand.some(f)||!await yes(p,"服部静華","手札の【緑】か【赤】のカードを1枚リムーブして、カードを2枚引きますか？",()=>p.hand.length>=2))return;
+    await discard(p,1,"リムーブする【緑】か【赤】のカード",p,f);drawN(p,2)},
+  cutin:async p=>{drawN(p,2);await discard(p,1)}};
+DEF["1193"]={ // 和田進一 B11026（すべてのエリアで［伊織無我］扱いは core.js の ALIAS_ALL）
+  enter:async(p,x)=>{
+    if(!p.solved){await lookTopRm(p,3,anyExact("服部平次","大岡紅葉","伊織無我"),"手札に加えるカード（服部平次・大岡紅葉・伊織無我）");return}
+    if(!condOk("FILE6",p)||x.st!=="a")return;
+    if(!await yes(p,"和田進一","このキャラをスリープさせて、相手のレベル7以下のキャラにデッキの上から1枚を裏向きでセットしますか？",()=>oppHas(p,lvLe(7))))return;
+    sleepC(x);const t=await chooseChar(p,"セットされる相手のキャラ（レベル7以下）",y=>isOpp(p,y)&&lvOf(y)<=7);if(t)setTop(opp(p),t)}};
+DEF["1204"]={ // 工藤有希子 B11038
+  enter:async p=>{const byName=new Map;
+    for(const y of [...p.deck,...p.hand,...p.rm,...p.field,...p.file,...p.ev])if(isChar(y)&&!byName.has(nameOf(y)))byName.set(nameOf(y),y);
+    if(!byName.size)return;
+    const cnt=n=>p.deck.filter(y=>isChar(y)&&nameOf(y)===n).length;
+    const [r]=await pickCards(p,"指定するキャラのカード名","デッキの上から4枚を見て、指定した名前のキャラを手札に加えます。",[...byName.values()],{min:1,max:1,
+      ai:cs=>cs.slice().sort((a,b)=>cnt(nameOf(b))-cnt(nameOf(a))||lvOf(b)-lvOf(a)).slice(0,1)});
+    if(!r)return;const n=nameOf(r);log(`　${p.name} はカード名［${n}］を指定した`,"n");
+    await lookTop(p,4,y=>isChar(y)&&nameOf(y)===n,{max:1,title:`［${n}］を1枚まで手札に`})}};
+DEF["1206"]={ // シャロン・ヴィンヤード B11040（事件の色を無視は FX.ignoreCaseColor）
+  disguiseReplaced:async(p,x,by)=>{if(myTurn(p)||!anyExact("ベルモット")(by))return false;
+    if(!await yes(p,"シャロン・ヴィンヤード","デッキの下に移す代わりにリムーブして、アクション中のキャラ1枚をスタンさせますか？",true))return false;
+    const ct=G.contact;const t=await chooseChar(p,"スタンさせるアクション中のキャラ",y=>!!ct&&(y===ct.a||y===ct.d||y===by));if(t)stunC(t);return true}};
+DEF["1208"]={ // 鈴木次郎吉 B11042（ヒラメキは auto.js）
+  apSelf:()=>allChars().some(exactName("怪盗キッド"))?2000:0};
+DEF["1209"]={ // 鈴木園子 B11043
+  enter:async p=>{if(!condOk("事件青＆白",p))return;const xs=p.deck.slice(0,3);if(!xs.length)return;
+    log(`　${p.name} はデッキの上から${xs.length}枚を公開: ${xs.map(y=>C(y).nm).join("、")}`,"n");
+    const miss=!xs.some(y=>isChar(y)&&(hasTrait(y,"高校生")||hasTrait(y,"怪盗")));
+    const [h]=await pickCards(p,"手札に加えるカード","公開した3枚から1枚を手札に加えます。",xs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>aiCardValue(p,b)-aiCardValue(p,a)).slice(0,1)});
+    const [r]=await pickCards(p,"リムーブエリアに移すカード","残りから1枚をリムーブエリアに移します（残りはデッキの下）。",xs.filter(y=>y!==h),{min:1,max:1,ai:c=>c.slice().sort((a,b)=>aiCardValue(p,a)-aiCardValue(p,b)).slice(0,1)});
+    for(const y of xs){detach(y);if(y===h){p.hand.push(y);log(`　${p.name} は ${C(y).nm} を手札に加えた`)}else if(y===r)p.rm.push(y);else p.deck.push(y)}
+    checkDeck(p);if(miss)await discard(p,1)}};
+DEF["1214"]={ // ルパン B11048
+  oppEndTurn:async(p,x)=>{const f=y=>isChar(y)&&hasTrait(y,"鈴木財閥");
+    if(!await yes(p,"ルパン","このキャラを現場からリムーブしますか？",()=>p.rm.some(f)))return;removeCard(x,"効果",{by:p,effect:true});await runQueue()},
+  leaveOppTurn:async p=>{await pickRmToHand(p,y=>isChar(y)&&hasTrait(y,"鈴木財閥"),"手札に加える［鈴木財閥］のキャラ")}};
+DEF["1240"]={ // 目暮十三 B11076（ヒラメキは auto.js）
+  enter:async p=>{const cs=p.rm.filter(y=>isChar(y)&&hasTrait(y,"警察"));if(!cs.length)return;
+    const got=await pickCards(p,"デッキの下に移す［警察］のキャラ（3枚まで）","",cs,{min:0,max:3,ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,3)});
+    for(const y of got){detach(y);p.deck.push(y)}
+    if(got.length){log(`　リムーブエリアの${got.length}枚をデッキの下に移した`,"n");shuffle(p.deck);log("　デッキをシャッフル","n")}}};
+DEF["1251"]={ // キール B11088
+  enter:async p=>{const g=await lookTopRm(p,3,y=>isChar(y)&&hasTrait(y,"黒ずくめの組織"),"手札に加える［黒ずくめの組織］のキャラ");
+    if(g&&p.solved)await discard(p,1)}};
+DEF["1253"]={ // 亡霊船長 B11090
+  abilities:[{label:"このキャラをリムーブエリアへ: 自分のキャラを好きな数選び、ターン終了時までAP＋1000",can:(p,x)=>p.field.some(y=>y!==x),aiCan:p=>false,
+    run:async(p,x)=>{removeCard(x,"コスト",{by:p});const cs=p.field.slice();
+      const ts=await pickCards(p,"AP＋1000する自分のキャラ（好きな数）","",cs,{min:0,max:cs.length,ai:c=>c});for(const y of ts)apTurn(y,1000);return true}}]};
+
 // --- 事件 ---
 const solvedDiscard={solvedTrigger:async p=>{await discard(p,1,"解決編になったとき: 手札をリムーブ")}};
 DEF["1257"]={...solvedDiscard, // ドライマティーニ B11094
