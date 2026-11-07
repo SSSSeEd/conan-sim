@@ -294,7 +294,7 @@ module.exports=[
     const G=board(w,{p0:{field:["B11030","B11095"]},p1:{field:[R]}});const p=G.P[0],[mr,mr2]=p.field;
     w.mrReplace(p,mr2);assert.ok(!p.field.includes(mr)&&p.rm.includes(mr),"MRは同時に1枚");
     G.turn=0;w.removeCard(mr2,"効果");assert.ok(p.rm.includes(mr2),"自分ターンはリムーブ");p.rm.pop();p.field.push(mr2);
-    G.turn=1;w.removeCard(mr2,"効果",{by:G.P[1]});assert.strictEqual(G.queue.length,1,"パートナーエリアへ移っても現場リムーブ時は発動する");await w.runQueue();assert.ok(p.pa.includes(mr2));assert.ok(!p.rm.includes(mr2));assert.strictEqual(w.zoneOf(mr2),"pa");assert.ok(w.ev("inArea")(p,mr2));
+    G.queue.length=0;G.turn=1;w.removeCard(mr2,"効果",{by:G.P[1]});assert.strictEqual(G.queue.length,1,"パートナーエリアへ移っても現場リムーブ時は発動する");await w.runQueue();assert.ok(p.pa.includes(mr2));assert.ok(!p.rm.includes(mr2));assert.strictEqual(w.zoneOf(mr2),"pa");assert.ok(w.ev("inArea")(p,mr2));
     const ab=w.FX.abilities(p,mr2);assert.ok(ab.length===0||ab.every(a=>a.partner),"パートナーエリアでは partner:true の能力だけ");
     const mr3=w.inst("B11030");p.field.push(mr3);w.mrReplace(p,mr3);assert.ok(!p.pa.includes(mr2)&&p.rm.includes(mr2),"現場にMRが出たらパートナーエリアのMRもリムーブ")}],
 ];
