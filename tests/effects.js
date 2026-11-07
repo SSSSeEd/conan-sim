@@ -251,4 +251,20 @@ module.exports=[
     await D["1234"].gale(p,mi);assert.strictEqual(w.apOf(mi),w.ev("C")(mi).ap+1000);
     p.field.push(w.inst("B03119"));G.P[1].field[0].st="s";G.P[1].field[1].st="s";await D["1250"].abilities[0].run(p,oo);assert.strictEqual(oo.st,"s");assert.strictEqual(G.P[1].field.filter(y=>y.st==="x").length,0,"CPUは自分のキャラをリムーブしない");
     p.partner=w.inst("B11085");vo.actedT=G.turnNo;p.field=p.field.filter(y=>y!==vo);p.rm.push(vo);await D["1248"].selfRemovedOwnTurn(p,vo);assert.ok(p.field.includes(vo));assert.strictEqual(vo.st,"s")}],
+  ["レベル5(P11): 間宮マス代・伊織無我・島袋君恵・中森青子・鈴木朋子",async w=>{
+    const G=board(w,{p0:{field:["B11013","B11020","B11023","B11034","B11044","B11046"],deck:[R,R,R,R,R],rm:["B11050","B01019"]},p1:{field:[R,R],ev:[R,R,R,R,R]}});
+    const p=G.P[0],[ma,io,si,na,tm,dt]=p.field,D=w.ev("DEF");p.field.push(w.inst("B01006"));
+    const n=p.hand.length;await D["1181"].enter(p,ma);assert.strictEqual(p.hand.length,n+1);
+    p.solved=true;const a=D["1181"].abilities[0];assert.ok(a.can(p,ma));await a.run(p,ma);assert.strictEqual(G.P[1].field.length,1);assert.strictEqual(ma.st,"s");
+    await D["1200"].enter(p,na);assert.strictEqual(w.apOf(na),w.ev("C")(na).ap+1000);
+    assert.ok(!w.FX.kwExtra(tm,p).includes("突撃"));await D["1210"].enter(p,tm);assert.strictEqual(tm.set.length,1);assert.ok(w.FX.kwExtra(tm,p).includes("突撃"));
+    p.file=[R,R,R,R,R,R,R,R].map(n=>w.inst(n));await D["1187"].enter(p,io);assert.strictEqual(io.iorT,G.turnNo);
+    G.turn=1;p.rm.push(si);const h=p.hand.length;await D["1190"].leaveOppTurn(p,si);assert.ok(p.deck.includes(si))}],
+  ["レベル5(P11): 富沢雄三はリムーブエリアを全部デッキの下に。白鳥任三郎はレベル5以上の［警察］が出るまで公開。諸伏高明の疾風。土井塔克樹は相手ターンのキッドの変装でリムーブ",async w=>{
+    const G=board(w,{p0:{field:["B11047","B11075","B11077","B11046"],rm:["B01019","B01019"],ev:[R,R]},p1:{}});const p=G.P[0],[to,si,mo,dt]=p.field,D=w.ev("DEF");
+    assert.ok(w.hasTrait(to,"鈴木財閥"));await D["1213"].abilities[0].run(p,to);assert.strictEqual(p.rm.length,0);assert.strictEqual(p.field.includes(to),false);
+    p.deck=[w.inst("B01019"),w.inst("B01019"),w.inst("B11075")];const before=p.deck.length;await D["1239"].enter(p,si);assert.strictEqual(p.hand.length,1,"レベル5以上の警察が出たら手札に");assert.strictEqual(p.deck.length,before-1);
+    await D["1241"].gale(p,mo);assert.strictEqual(w.apOf(mo),w.ev("C")(mo).ap+1000);
+    p.ev.forEach(e=>e.up=true);const kid=w.inst("B02038");G.turn=1;assert.strictEqual(await D["1212"].disguiseReplaced(p,dt,kid),true);assert.ok(p.ev.every(e=>!e.up)||p.ev.some(e=>!e.up));
+    G.turn=0;assert.strictEqual(await D["1212"].disguiseReplaced(p,dt,kid),false)}],
 ];
