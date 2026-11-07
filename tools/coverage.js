@@ -3,6 +3,11 @@
 // デッキ名を渡すとそのデッキの未自動化カード、--top で複数デッキに入っている未自動化カードを出す
 const H=require("./headless");
 const w=H.load({seed:1});
+// 弾ごとの未自動化カード: node tools/coverage.js --set CT-P11（新弾の自動化を優先して進めるとき用）
+if(process.argv[2]==="--set"){const pk=process.argv[3]||"CT-P11";const seen=new Set;let all=0,ok=0;
+  for(const c of w.CARD_DB){if(c.pk!==pk||seen.has(c.i))continue;seen.add(c.i);if(!(c.f||c.hr||c.ci))continue;all++;
+    if(w.FX.automated({n:c.n}))ok++;else console.log(c.n,c.i,c.t,c.c,c.nm)}
+  console.log(`${pk}: 効果のあるカード ${all}種のうち自動化済み ${ok}（${all?Math.floor(ok/all*100):100}%）`);process.exit(0)}
 const decks=[...w.ev("PRESETS"),...w.ENV_DECKS.decks];const q=process.argv[2];
 let sum=0,n=0,ready=0;const miss={};
 for(const d of decks){const r=w.autoRate(w.parseDeckText(d.text));const ng=new Map;

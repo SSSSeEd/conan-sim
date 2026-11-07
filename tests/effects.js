@@ -160,4 +160,28 @@ module.exports=[
     await w.ev("enterByEffect")(p,b);
     assert.ok(!p.field.includes(a)&&p.rm.includes(a),"既存のMRはリムーブ");assert.ok(p.field.includes(b)&&p.field.includes(r));
     assert.strictEqual(G.P[1].field.length,1,"相手のMRはそのまま")}],
+  // --- 新弾 CT-P11「月下のSHOW TIME!」 ---
+  ["毛利小五郎 B11014: 登場時、リムーブエリアのレベル4以下の［妃英理］か［毛利探偵事務所］をスリープ状態で登場",async w=>{
+    const G=board(w,{p0:{field:["B11014"],rm:["B01013",R]}});const p=G.P[0],[x]=p.field;
+    await w.FX.enter(p,x);assert.strictEqual(p.field.length,2);assert.strictEqual(p.field[1].st,"s");assert.strictEqual(p.rm.length,1)}],
+  ["中森銀三 B11032: 証拠が合わせて5つ以上でパートナー白なら手札でレベル－1。登場時にFILEが7枚以下ならスリープ",async w=>{
+    const G=board(w,{p0:{hand:["B11032"],ev:[R,R,R],file:[R]},p1:{ev:[R,R],field:[R]}});const p=G.P[0],h=p.hand[0];
+    p.partner=w.inst("B11032");p.caseC=w.inst("B11098");
+    assert.strictEqual(w.FX.handLevel(p,h),7);p.ev.pop();assert.strictEqual(w.FX.handLevel(p,h),null);
+    p.field.push(h);p.hand=[];await w.FX.enter(p,h);assert.strictEqual(h.st,"s");assert.strictEqual(G.P[1].field.length,0)}],
+  ["沖矢昴 B11053: 相手ターンに現場リムーブされたらカードを1枚引き、手札が6枚以上なら1枚リムーブ",async w=>{
+    const G=board(w,{p0:{field:["B11053"],hand:[R,R,R,R,R]}});const p=G.P[0],[x]=p.field,n=p.hand.length;
+    await w.ev("DEF")["1218"].leaveOppTurn(p,x);assert.strictEqual(p.hand.length,n)}],
+  ["ジョディ B11054: AP8000以下をリムーブ。APが4000以上低ければリムーブエリアのレベル2の【緑】か【赤】をスリープ登場",async w=>{
+    const G=board(w,{p0:{field:["B11054"],rm:["B11053"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field;
+    p.caseC=w.inst("B11099");const a=w.ev("DEF")["1219"].abilities[0];assert.ok(a.can(p,x));
+    await a.run(p,x);assert.strictEqual(x.st,"s");assert.strictEqual(G.P[1].field.length,0);assert.strictEqual(p.field.length,1,"Lv8のB11053は条件外")}],
+  ["服部平次 B11021: APが4000以上低いキャラを指定してアクションしたら、レベル7以下をリムーブ（ターン1）",async w=>{
+    const G=board(w,{p0:{field:["B11021"]},p1:{field:[R,R]}});const p=G.P[0],[x]=p.field,[t]=G.P[1].field;
+    await w.FX.onAction(p,x,t);assert.strictEqual(G.P[1].field.length,1);
+    await w.FX.onAction(p,x,G.P[1].field[0]);assert.strictEqual(G.P[1].field.length,1,"ターン1")}],
+  ["あんた何者や B11099: 解決編で裏向きの証拠2つを表向きにして、キャラをAP－3000",async w=>{
+    const G=board(w,{p0:{ev:[R,R,R],solved:true},p1:{field:[R]}});const p=G.P[0];p.caseC=w.inst("B11099");
+    const a=w.ev("DEF")["1262"].abilities[0];assert.ok(a.can(p,p.caseC));const t=G.P[1].field[0],ap=w.apOf(t);
+    await a.run(p,p.caseC);assert.strictEqual(p.ev.filter(e=>e.up).length,2);assert.strictEqual(w.apOf(t),ap-3000)}],
 ];
