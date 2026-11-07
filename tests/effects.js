@@ -426,6 +426,17 @@ module.exports=[
     function partnerWhite(q){return !!w.condOk("パートナー白",q)}
     const h0=p.hand.length;await D["0760"].enter(p,kou);assert.strictEqual(kou.set.length,1);
     await D["0784"].event(p,w.inst("B07055"))}],
+  ["全弾の自動化(4)B: 事件（大阪・5人組・日輪・緋色の誘惑・玉探し・Black Knight）・赤い涙・わが味方・アン王女・ラム・大和敢助・赤井秀一・盗んであげる",async w=>{
+    const D=w.ev("DEF");const fx=w.ev("flipEvidence");
+    const G=board(w,{p0:{field:["B07039","B03115","PR236","B09056"],hand:[R,R],deck:[R,R,R,R,R,R,R,R,R,R,R,R],rm:["B06050","B07059"],ev:[R,R,R]},p1:{field:[R,R,R]}});
+    const p=G.P[0],[an,ram,ya,aka]=p.field;G.turn=0;p.solved=true;
+    for(const id of ["1095","1138","0790","0791","0686","0842"]){const a=D[id].abilities[0];assert.ok(a.label&&a.run&&a.can,id)}
+    const a686=D["0686"].abilities[0];p.ev.forEach(e=>e.up=false);assert.ok(a686.can(p));const n=p.hand.length;await a686.run(p);assert.strictEqual(p.ev.filter(e=>e.up).length,2);
+    assert.ok(!a686.can(p)||p.ev.filter(e=>!e.up).length>=2);
+    await D["0364"].enter(p,ram);
+    ya.st="a";await D["0934"].abilities[0].run(p,ya);assert.strictEqual(ya.st,"s");
+    await D["0768"].abilities[0].can(p,an);
+    await D["0998"].enter(p,aka)}],
   ["全弾の自動化(4): キャメル・ブラック・鬼丸猛・柳生・白馬探・キャンティ・ジン・コルン・ライ・バーボン・紫紅の爪・ジョディ",async w=>{
     const D=w.ev("DEF");
     const G=board(w,{p0:{field:["B04056","B05069","B06038","B06051","B07048","B07098","B09094","B09097","B09103","B10088"],hand:[R,R,R,R],deck:[R,R,R,R,R,R,R,R,R,R],rm:[R]},p1:{field:[R,R,R],deck:[R,R,R,R,R,R,R,R,R,R],hand:[R,R]}});
