@@ -367,4 +367,20 @@ module.exports=[
     const h1=p.hand.length;await D["1084"].abilities[0].run(p,hh);assert.strictEqual(p.hand.length,h1+1);assert.strictEqual(w.ev("faceDownSet")(kazu).length+w.ev("faceDownSet")(otaki).length,0);
     assert.strictEqual(w.ev("lvOf")(p.field[0]),w.C(p.field[0]).lv);
     const os=w.inst("PR290");p.field.push(os);const l0=w.C(os).lv;assert.strictEqual(w.ev("lvOf")(os),l0+1,"自分ターン中はレベル＋1");G.turn=1;assert.strictEqual(w.ev("lvOf")(os),l0)}],
+  ["全弾の自動化(2): 降谷零・伊達航・諸伏景光・萩原研二・風見裕也・羽田秀𠮷・ジョディ・新出智明・カルバドス・京極真・黒羽快斗・赤井秀一&ジン",async w=>{
+    const D=w.ev("DEF"),lv=w.ev("lvOf");
+    const G=board(w,{p0:{field:["B10067","B10077","B10052"],hand:[R,R,R],deck:[R,R,R,R,R,R,R,R,R,R],rm:["B01019"]},p1:{field:["B08078",R]}});
+    const p=G.P[0],[fu,ha,ha2]=p.field;G.turn=0;
+    const ap0=w.apOf(fu);ha.apT=0;
+    assert.ok(w.FX.kwExtra(fu,p).length===0,"絆なしならアクティブ指定なし");
+    const m=w.inst("B10066");p.field.push(m);// 伊達航
+    fu.st="s";await w.FX.endTurn(p);assert.strictEqual(fu.st,"a","絆伊達航: ターン終了時にアクティブ");
+    const n0=p.field.length;await D["1130"].enter(p,m);assert.strictEqual(p.field.length,n0+1,"リムーブエリアの能力なしキャラを登場");
+    const h0=p.hand.length;await D["1111"].endTurn(p);assert.strictEqual(p.hand.length,h0+1,"能力なしキャラがいるので1枚引く");
+    const y=p.field[p.field.length-1];const sum=()=>G.P[1].field.reduce((n,q)=>n+lv(q),0);const l0=sum();await D["1111"].onAllyEnter(p,ha2,y);assert.strictEqual(sum(),l0-1);
+    const kal=w.inst("B10091");p.field.push(kal);const bl=()=>w.inst("B10090");p.field.push(bl(),bl(),bl());
+    assert.ok(w.FX.kwExtra(kal,p).includes("突撃")===(p.field.filter(q=>w.C(q).ci&&w.C(q).c.includes("黒")).length>=4));
+    const ky=w.inst("B10037");p.field.push(ky);ky.kyWin=undefined;assert.ok(!D["1097"].abilities[0].can(p,ky));
+    const o=G.P[1];o.deck=[w.inst(R),w.inst(R),w.inst(R)];const r0=o.rm.length;
+    const ag=w.inst("B09110");p.field.push(ag);await D["1049"].enter(p,ag);assert.ok(o.rm.length>=r0)}],
 ];

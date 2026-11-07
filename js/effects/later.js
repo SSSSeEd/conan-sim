@@ -80,3 +80,89 @@ DEF["1085"]={ // 大滝悟郎 B10024
   abilities:[{label:"スリープ: ［警察］のキャラにデッキの上から1枚を裏向きでセット",can:(p,x)=>x.st==="a"&&p.field.some(y=>hasTrait(y,"警察"))&&p.deck.length>0,aiCan:p=>p.deck.length>8,
     run:async(p,x)=>{sleepCost(x);const t=await chooseChar(p,"セット先の［警察］のキャラ",y=>!isOpp(p,y)&&hasTrait(y,"警察"),{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)setTop(p,t);return true}}],
   hirameki:async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}};
+
+// ================= 第2弾 =================
+const plainChar=y=>isChar(y)&&!(C(y).f||"").trim(); // 【カットイン】と【ヒラメキ】以外の元の能力を持たない
+const exact=anyExact; // カード名［A］か［B］…
+const bondOk=(p,n)=>condOk("絆"+n,p)===true;
+const KEISATSU5=["降谷零","諸伏景光","伊達航","萩原研二","松田陣平"];
+const keisatsu=exact(...KEISATSU5);
+const lookKeisatsu=(p,n)=>lookTopRm(p,n,keisatsu,"手札に加えるカード（降谷零・諸伏景光・伊達航・萩原研二・松田陣平）");
+
+// --- 黄（降谷・諸伏・伊達・萩原・松田）---
+DEF["1123"]={ // 降谷零 B10067
+  kwSelf:(p,x)=>bondOk(p,"諸伏景光")?["アクティブ指定"]:[],
+  apSelf:(p,x)=>myTurn(p)?1000*(+bondOk(p,"萩原研二")+bondOk(p,"松田陣平")):0,
+  endTurn:async(p,x)=>{if(bondOk(p,"伊達航")){activateC(x)}}};
+DEF["1122"]={ // 伊達航 B10066
+  contactWin:async(p,x)=>{if(!bondOk(p,"降谷零")||turnCount(x,"dt"))return;const f=y=>exact("諸伏景光","萩原研二","松田陣平")(y);
+    if(!p.hand.some(f)||!oppHas(p,lvLe(7)))return;
+    if(!await yes(p,"伊達航","手札の［諸伏景光］［萩原研二］［松田陣平］を1枚リムーブして、レベル7以下のキャラをリムーブしますか？",true))return;
+    useTurn(x,"dt");await discard(p,1,"リムーブするカード",p,f);await rmChar(p,lvLe(7))}};
+DEF["1124"]={ // 諸伏景光 B10068
+  enter:async p=>{if(partnerIs(p,"黄"))await rmChar(p,apLe(8000))},
+  endTurn:async p=>{if(bondOk(p,"降谷零"))await lookKeisatsu(p,2)}};
+DEF["1133"]={ // 萩原研二 B10077
+  apSelf:p=>myTurn(p)&&bondOk(p,"松田陣平")?1000:0,
+  enter:async p=>{await lookKeisatsu(p,3)}};
+DEF["1130"]={ // 風見裕也 B10074
+  enter:async p=>{await enterFromRm(p,plainChar,"登場させる（【カットイン】と【ヒラメキ】以外の能力を持たないキャラ）")},
+  hirameki:async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}};
+
+// --- 赤（羽田・ジョディ・新出）---
+DEF["1111"]={ // 羽田秀𠮷 B10052
+  endTurn:async p=>{if(p.field.some(plainChar))drawN(p,1)},
+  onAllyEnter:async(p,x,y)=>{if(!myTurn(p)||!plainChar(y))return;const t=await chooseChar(p,"ターン終了時までレベル－1するキャラ",z=>isOpp(p,z));if(t){t.lvT=(t.lvT||0)-1;log(`　${C(t).nm} をターン終了時までレベル－1`,"n")}},
+  abilities:[{label:"スリープ＋手札を1枚リムーブ: レベル9以下のキャラを1枚リムーブ",can:(p,x)=>x.st==="a"&&p.hand.length>=1,aiCan:p=>p.hand.length>=3&&oppHas(p,y=>lvOf(y)>=6&&lvOf(y)<=9),
+    run:async(p,x)=>{sleepCost(x);await discard(p,1);await rmChar(p,y=>y!==x&&lvLe(9)(y));return true}}]};
+DEF["1109"]={ // ジョディ・スターリング B10050
+  enter:async p=>{if(!partnerIs(p,"赤"))return;await rmChar(p,lvLe(7));drawN(p,1)},
+  abilities:[{label:"スリープ＋このキャラをリムーブエリアへ＋手札を1枚リムーブ: キャラを1枚リムーブ",
+    can:(p,x)=>x.st==="a"&&p.hand.length>=1&&p.field.some(y=>plainChar(y)&&lvOf(y)>=5),aiCan:p=>p.hand.length>=3&&oppHas(p,y=>lvOf(y)>=7),
+    run:async(p,x)=>{sleepCost(x);removeCard(x,"コスト",{by:p});await discard(p,1);await runQueue();await rmChar(p,()=>true);return true}}]};
+DEF["1113"]={ // 新出智明 B10054
+  enter:async p=>{if(condOk("事件赤＆黄",p)!==true)return;
+    const got=await lookTop(p,4,y=>colorAny(y,"赤","黄"),{max:1,title:"手札に加える【赤】か【黄】のカード"});
+    if(got.length&&lvOf(got[0])<=6)await discard(p,1)}};
+
+// --- 黒（ヘルエンジェル・ウォッカ・カルバドス）---
+const ciBlack=y=>C(y).ci&&hasColor(y,"黒");
+DEF["1144"]={ // ヘルエンジェル B10089
+  abilities:[{label:"デッキの上から3枚リムーブ: カットインを持つ【黒】が3枚以上なら、カットインを持つレベル8以上の【黒】に突撃",turn1:true,
+    can:p=>partnerIs(p,"黒")&&p.deck.length>=3,aiCan:p=>myTurn(p)&&p.deck.length>10&&p.field.some(y=>y.st==="a"&&ciBlack(y)&&lvOf(y)>=8),
+    run:async p=>{const xs=millSelf(p,3);if(xs.filter(ciBlack).length>=3){
+      const t=await chooseChar(p,"突撃を与えるキャラ",y=>!isOpp(p,y)&&ciBlack(y)&&lvOf(y)>=8,{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)giveKw(t,"突撃")}return true}}]};
+DEF["1145"]={ // ウォッカ B10090
+  enter:async(p,x)=>{if(!partnerIs(p,"黒")||p.deck.length<3)return;
+    if(!await yes(p,"ウォッカ","デッキの上から3枚をリムーブしますか？（カットインを持つ【黒】が3枚以上なら突撃）",()=>p.deck.length>10))return;
+    if(millSelf(p,3).filter(ciBlack).length>=3)giveKw(x,"突撃")}};
+DEF["1146"]={ // カルバドス B10091
+  kwSelf:p=>p.field.filter(ciBlack).length>=4?["突撃"]:[],
+  cutin:async(p,card,mine)=>{if(!myTurn(p)||!partnerIs(p,"黒")||!mine||!ciBlack(mine)||!hasColor(mine,"黒")||lvOf(mine)<8)return;
+    if(!p.rm.includes(card)||p.field.length>=5)return;if(await enterFromRmCard(p,card))card.ciEnter=G.turnNo},
+  endTurn:async(p,x)=>{if(x.ciEnter!==G.turnNo||!p.field.length)return;
+    const [t]=await pickCards(p,"デッキの下に移すキャラ（必ず選ぶ）","",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>lvOf(a)-lvOf(b))});if(t)toDeckBottom(t)}};
+async function enterFromRmCard(p,card){if(!p.rm.includes(card))return false;return await enterByEffect(p,card,"a")}
+
+// --- 白（京極真・黒羽快斗）---
+DEF["1097"]={ // 京極真 B10037
+  onAllyContactWin:async(p,x,winner,victim)=>{if(winner===x||exactName("京極真")(winner)||apOf(winner)<10000||!p.hand.length)return;
+    if(!await yes(p,"京極真","手札を1枚リムーブして、このキャラをAP＋4000しますか？",()=>p.hand.length>=2))return;await discard(p,1);apTurn(x,4000)},
+  contactWin:async(p,x)=>{x.kyWin=G.turnNo},
+  abilities:[{label:"1枚引き、このキャラをアクティブに",turn1:true,
+    can:(p,x)=>condOk("事件緑＆白",p)===true&&apOf(x)>=10000&&x.kyWin===G.turnNo,aiCan:(p,x)=>x.st!=="a",
+    run:async(p,x)=>{drawN(p,1);activateC(x);return true}}]};
+DEF["1098"]={ // 黒羽快斗 B10038
+  enter:async(p,x)=>{if(x.viaAb)x.kaitoGrant=G.turnNo},
+  contactWin:async(p,x)=>{if(x.kaitoGrant!==G.turnNo||turnCount(x,"kg"))return;useTurn(x,"kg");await enterFromRm(p,y=>lvOf(y)<=3,"登場させるキャラ（レベル3以下）")},
+  hirameki:async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}};
+
+// --- 赤黒 ---
+DEF["1049"]={ // 赤井秀一&ジン B09110
+  enter:async p=>{if(condOk("事件赤＆黒",p)!==true)return;const t=await rmChar(p,y=>lvOf(y)>=7,"リムーブするキャラ（レベル7以上）");
+    if(!t||opp(p).field.includes(t))return;const o=opp(p),nm=nameOf(t);let n=0;
+    while(o.deck.length&&n<10){const y=popDeck(o);n++;o.rm.push(y);log(`　${o.name} のデッキの上: ${C(y).nm} を公開してリムーブエリアへ`,"n");if(isChar(y)&&sameName(y,t))break}
+    checkDeck(o)},
+  abilities:[{label:"1枚引き、手札を1枚リムーブするか、このキャラをリムーブ",turn1:true,partner:true,can:()=>true,aiCan:p=>p.hand.length>=3,
+    run:async(p,x)=>{drawN(p,1);const i=p.hand.length?await pickMode(p,"赤井秀一&ジン",["手札を1枚リムーブ","このキャラをリムーブ"],0):1;
+      if(i===0)await discard(p,1);else if(inArea(p,x)){detach(x);p.rm.push(x)}else removeCard(x,"コスト",{by:p});await runQueue();return true}}]};
