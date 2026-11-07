@@ -42,7 +42,10 @@ function activatePartner(q){
   if(q.pLoc==="file"){q.file.splice(q.file.indexOf(q.partner),1);q.pLoc="area"}
   q.partner.st="a"}
 // 現場を離れるキャラにセットされていたカードをリムーブエリアへ。表向きのイベントは「リムーブエリアに置かれたとき」（刃新陰流風車 など）を予約
-function dropSets(p,x){const ss=x.set||[];x.set=[];for(const s of ss)p.rm.push(s.c);
+// セットのトリガー予約（runQueue → FX.onLeave）。setOn=キャラにカードがセットされた、setOff=セットされていたカードが現場から離れた（効果: onSetOn / onSetOff）
+function noteSetOn(p,h,n=1){if(G&&G.queue&&n>0)G.queue.push({setOn:true,x:h,p,n,turn:G.turn})}
+function noteSetOff(p,h,card,down){if(G&&G.queue)G.queue.push({setOff:true,x:h,p,card,down:!!down,turn:G.turn})}
+function dropSets(p,x){const ss=x.set||[];x.set=[];for(const s of ss){p.rm.push(s.c);if(!s.under)noteSetOff(p,x,s.c,!s.up)}
   const ev=ss.filter(s=>s.up&&!s.under).map(s=>s.c);if(ev.length&&G)G.queue.push({setRm:ev,p,turn:G.turn})}
 // MRが相手ターン中に現場を離れた場合は、行き先（手札・デッキなど）に一度置かれてから、すぐパートナーエリアへ移る（離れ方は問わない）
 function mrSweep(){if(!G)return;for(const p of G.P)for(const z of ["hand","deck","rm","file","ev"])for(const x of p[z].slice())
@@ -224,23 +227,24 @@ async function endTurn(){
   if(G.over)return;
   const ends=[...p.field,...opp(p).field].filter(x=>/ターン終了時/.test(C(x).f||"")&&!FX.automated(x));
   if(ends.length)log(`ターン終了時の能力を確認: ${ends.map(x=>C(x).nm).join("、")}`,"n");
-  for(const q of G.P)for(const x of [...q.field,q.partner]){x.apT=0;x.apA=0;x.lvT=0;x.lpT=0;x.kw=[];x.nmT=null}
+  for(const q of G.P)for(const x of [...q.field,q.partner]){x.apT=0;x.apA=0;x.lvT=0;x.lpT=0;x.kw=[];x.nmT=null;x.cSafe=false}
   G.ui.mode=null;G.turn=1-G.turn;beginTurn();
 }
 
 // 手札の使用（ネクストヒント経由は viaHint）
-function playableReason(p,x,viaHint){
+function playableReason(p,x,viaHint,byEffect=false){
   const c=C(x);
   if(G.turn!==p.idx)return "自分のターンではない";
-  if(!viaHint&&p.usedHand)return "このターンはもう手札を使用した";
-  if(!viaHint&&p.hinted)return "このターンはネクストヒントをした";
+  if(!viaHint&&!byEffect&&p.usedHand)return "このターンはもう手札を使用した";
+  if(!viaHint&&!byEffect&&p.hinted)return "このターンはネクストヒントをした";
   const lv=(window.FX&&FX.handLevel(p,x))??(c.lv||0);
   if(lv>p.file.length)return `レベル${lv} > FILE${p.file.length}枚`;
   if(!canPlayColor(c,p))return `事件の色（${C(p.caseC).c}）と合わない`;
   return (window.FX&&FX.useBlock(p,x))||null;
 }
-async function useFromHand(p,x,viaHint=false){
-  const r=playableReason(p,x,viaHint);if(r){toast(r);return false}
+// byEffect: 効果で手札から使用する（「手札の使用」の1ターン1回に数えない）
+async function useFromHand(p,x,viaHint=false,byEffect=false){
+  const r=playableReason(p,x,viaHint,byEffect);if(r){toast(r);return false}
   recAct(p,viaHint?"hintUse":"use",x);
   const c=C(x);
   if(!window.SIM_FAST&&!G.sim&&!(c.t==="イベント"&&FX.automated(x))){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
@@ -250,12 +254,12 @@ async function useFromHand(p,x,viaHint=false){
       if(!t.length)return false;removeCard(t[0],"スイッチ");
     }
     detach(x);x.st=FX.entersSleeping(x)?"s":"a";x.fresh=true;p.field.push(x);mrReplace(p,x);
-    if(!viaHint)p.usedHand=true;
+    if(!viaHint&&!byEffect)p.usedHand=true;
     log(`${p.name} は ${c.nm}（Lv${c.lv}）を登場させた${viaHint?"（ネクストヒント）":""}`);
     render();await runQueue();await FX.enter(p,x);
   }else{
     detach(x);p.rm.push(x);
-    if(!viaHint)p.usedHand=true;
+    if(!viaHint&&!byEffect)p.usedHand=true;
     log(`${p.name} はイベント ${c.nm} を使用した${viaHint?"（ネクストヒント）":""}`);
     render();await FX.event(p,x);
   }
@@ -357,7 +361,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
     else if(o.cpu)guard=cpuGuard(o,x,target,guards);
     else{const g=await chooseCards(`${o.name}: ガード`,`${C(x).nm}（AP${apOf(x)}）が${kind==="case"?"事件":C(target).nm+"（AP"+apOf(target)+"）"}にアクション。アクティブなキャラをスリープしてガードできます。`,guards,{min:0,max:1,okLabel:"ガード"});guard=g[0]||null}
   }
-  if(guard){if(guard.st==="a")guard.st="s";log(`${o.name} の ${C(guard).nm}（AP${apOf(guard)}）がガード`);
+  if(guard){if(guard.st==="a")guard.st="s";log(`${o.name} の ${C(guard).nm}（AP${apOf(guard)}）がガード`);await FX.onGuarded(p,x,guard);
     {render();await cutin(guard,`${o.name}: ガード`,`${C(guard).nm}（AP${apOf(guard)}）`,{who:o})}await contact(p,x,guard)}
   else if(kind==="chara")await contact(p,x,target);
   else{
@@ -403,7 +407,7 @@ async function contact(p,a,d){ // p=ターンプレイヤー(攻撃側)
   for(const x of [ct.a,ct.d])x.apC=0;
   G.contact=null;
   if(won){await cutin(ct.d,"リムーブ！",`${C(ct.a).nm} AP${A} ≧ ${C(ct.d).nm} AP${D}`,{who:p,ms:1100});
-    if(ct.safe===ct.d)log(`　${C(ct.d).nm} はこのコンタクトによってリムーブされない`,"n");
+    if(ct.safe===ct.d||ct.d.cSafe)log(`　${C(ct.d).nm} はこのコンタクトによってリムーブされない`,"n");
     else{removeCard(ct.d,"コンタクト",{by:p});render();await FX.contactWin(p,ct.a,ct.d)}}
   else{await cutin(ct.d,"防いだ！",`${C(ct.a).nm} AP${A} ＜ ${C(ct.d).nm} AP${D}`,{who:o,ms:1100});log("　アクションした側のAPが低いので何も起きない","n")}
   render();await runQueue();

@@ -35,7 +35,7 @@ DEF["1139"]={ // 帰らざる刑事 B10083
   solvedTrigger:solvedDisc,
   abilities:[{label:"裏向きの証拠を3つ表向きに: 現場の［松田陣平］を表向きの証拠にする",turn1:true,can:p=>p.solved&&p.file.length>=5&&evDown(p)>=3&&p.field.some(named("松田陣平")),
     run:async p=>{if(!flipEvidence(p,3))return false;const t=await chooseChar(p,"表向きの証拠にする［松田陣平］",y=>!isOpp(p,y)&&named("松田陣平")(y));
-      if(t){for(const s of t.set||[])p.rm.push(s.c);t.set=[];detach(t);resetMods(t);t.up=true;p.ev.push(t);log(`　${C(t).nm} を表向きの証拠にした`,"n")}return true}}]};
+      if(t){dropSets(p,t);detach(t);resetMods(t);t.up=true;p.ev.push(t);log(`　${C(t).nm} を表向きの証拠にした`,"n")}return true}}]};
 DEF["0770"]={ // 黒羽盗一 B07041
   enter:async p=>{if(!partnerIs(p,"白"))return;const t=await chooseChar(p,"登場時: スタンさせるキャラ",y=>true,{ai:cs=>cs.filter(y=>isOpp(p,y)).sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});
     if(t){if(t.st==="x")log("　（スタン状態のキャラは代わりにスリープさせる）","n"),sleepC(t);else stunC(t)}},

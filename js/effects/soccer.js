@@ -15,7 +15,7 @@ DEF["1065"]={ // 工藤新一 B10003
   actionEnd:async(p,x)=>{if(!p.field.includes(x)||turnCount(x,"shin")||!faceDownSet(x).length)return;useTurn(x,"shin");
     const can2=p.field.some(y=>y!==x&&hasTrait(y,"サッカー選手")&&!faceDownSet(y).length);
     const v=p.cpu?(can2?"move":"hand"):await ask(`${p.name}: 工藤新一 アクション終了時`,"",[{label:"セットされたカードを手札に",value:"hand",primary:true},...(can2?[{label:"セットを他のサッカー選手に移す",value:"move"}]:[])]);
-    if(v==="hand"){const s=faceDownSet(x)[0];x.set.splice(x.set.indexOf(s),1);p.hand.push(s.c);log(`　セットされていたカードを手札に`,"n")}else await moveSet(p,x)}};
+    if(v==="hand"){const s=faceDownSet(x)[0];x.set.splice(x.set.indexOf(s),1);p.hand.push(s.c);log(`　セットされていたカードを手札に`,"n");noteSetOff(p,x,s.c,true)}else await moveSet(p,x)}};
 DEF["1066"]={ // 江戸川コナン B10004
   abilities:[{label:"セットを1枚リムーブ: AP8000以下のキャラをリムーブ",
     can:(p,x)=>partnerIs(p,"青")&&p.file.length>=5&&turnCount(x,"conan")<3&&faceDownSet(x).length>0&&p.field.some(y=>y!==x&&hasTrait(y,"サッカー選手"))&&allChars().some(y=>y!==x&&apOf(y)<=8000),
@@ -47,12 +47,12 @@ DEF["1079"]={ // キック力増強シューズ
   event:async(p,x)=>{if(!partnerIs(p,"青")){log("　パートナーの色が条件を満たさないので効果なし","n");return}
     const t=await chooseChar(p,"リムーブするキャラ（AP8000以下）",y=>apOf(y)<=8000);if(t)removeCard(t,"効果",{by:p,effect:true});
     const cs=p.field.filter(y=>C(y).nm.includes("江戸川コナン"));if(!cs.length)return;
-    const [c]=await pickCards(p,"セットする江戸川コナン","",cs,{min:1,max:1});if(c){detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　キック力増強シューズを ${C(c).nm} にセット`,"n")}},
+    const [c]=await pickCards(p,"セットする江戸川コナン","",cs,{min:1,max:1});if(c){detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　キック力増強シューズを ${C(c).nm} にセット`,"n");noteSetOn(p,c)}},
   ai:p=>opp(p).field.some(y=>apOf(y)<=8000),
   // セットされているキャラが得る能力
   grants:[{label:"ベルトをリムーブ: AP8000以上のキャラをリムーブ",turn1:true,
     can:(p,x)=>(x.set||[]).some(s=>s.up&&idOf(s.c)==="1080")&&allChars().some(y=>apOf(y)>=8000),
-    run:async(p,x)=>{const s=x.set.find(s=>s.up&&idOf(s.c)==="1080");if(!s)return false;x.set.splice(x.set.indexOf(s),1);p.rm.push(s.c);
+    run:async(p,x)=>{const s=x.set.find(s=>s.up&&idOf(s.c)==="1080");if(!s)return false;x.set.splice(x.set.indexOf(s),1);p.rm.push(s.c);noteSetOff(p,x,s.c,false);
       log(`　コスト: ${C(x).nm} にセットされたベルトをリムーブ`,"n");
       const t=await chooseChar(p,"リムーブするキャラ（AP8000以上）",y=>apOf(y)>=8000);if(t)removeCard(t,"効果",{by:p,effect:true});return true},
     aiCan:p=>opp(p).field.some(y=>apOf(y)>=8000)}]};
@@ -70,12 +70,12 @@ DEF["1078"]={guardWhileSleeping:true}; // レイ・カーティス
 DEF["0019"]={ // シャッフルロマンス
   event:async(p,x)=>{await lookTop(p,5,()=>true,{title:"カードを1枚まで手札に"});
     if(!p.field.length)return;const [c]=await pickCards(p,"シャッフルロマンスをセットするキャラ","",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>apOf(b)-apOf(a))});
-    if(c){detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　シャッフルロマンスを ${C(c).nm} にセット（コンタクト中AP＋2000）`,"n")}},
+    if(c){detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　シャッフルロマンスを ${C(c).nm} にセット（コンタクト中AP＋2000）`,"n");noteSetOn(p,c)}},
   ai:p=>true};
 DEF["0954"]={ // 赤木守
   hirameki:async o=>{const cs=o.rm.filter(y=>C(y).t==="キャラ"&&hasTrait(y,"サッカー選手"));const [y]=await pickCards(o,"ヒラメキ: 手札に加えるサッカー選手","",cs,{ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});if(y){detach(y);o.hand.push(y);log(`　${C(y).nm} を手札に`)}}};
 const setBelt=(p,x,c)=>{const bonus=hasTrait(c,"サッカー選手")&&!faceDownSet(c).length;
-  detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　ベルトを ${C(c).nm} にセット`,"n");
+  detach(x);c.set=c.set||[];c.set.push({c:x,up:true});log(`　ベルトを ${C(c).nm} にセット`,"n");noteSetOn(p,c);
   if(bonus){setTop(p,c);drawN(p,1)}};
 const isConan=y=>C(y).nm.includes("江戸川コナン");
 const hasGadget=p=>p.field.some(y=>hasTrait(y,"ガジェット")||(y.set||[]).some(s=>s.up&&hasTrait(s.c,"ガジェット")));

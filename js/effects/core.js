@@ -58,7 +58,7 @@ function activateC(x){x.st=x.st==="x"?"s":"a";log(`　${C(x).nm} を${x.st==="a"
 function toDeckBottom(x){const p=ownerOf(x);const wasField=p.field.includes(x);
   if(wasField)dropSets(p,x);
   detach(x);resetMods(x);p.deck.push(x);log(`　${p.name} の ${C(x).nm} をデッキの下へ`,"n")}
-function setTop(p,x){const c=popDeck(p);if(!c)return;x.set=x.set||[];x.set.push({c,up:false});log(`　${C(x).nm} にデッキの上から1枚を裏向きでセット`,"n")}
+function setTop(p,x){const c=popDeck(p);if(!c)return;x.set=x.set||[];x.set.push({c,up:false});log(`　${C(x).nm} にデッキの上から1枚を裏向きでセット`,"n");noteSetOn(ownerOf(x)||p,x)}
 
 // 現場のキャラを選ぶ（両者の現場から）
 async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
@@ -121,9 +121,9 @@ async function moveSet(p,from){
   const to=await chooseChar(p,"セットを移すキャラ",y=>p.field.includes(y)&&y!==from&&hasTrait(y,"サッカー選手")&&!faceDownSet(y).length,{ai:cs=>cs.slice(0,1)});
   if(!to)return;
   const s=fd[0];from.set.splice(from.set.indexOf(s),1);to.set=to.set||[];to.set.push(s);
-  log(`　${C(from).nm} の裏向きのカードを ${C(to).nm} に移した`,"n");
+  log(`　${C(from).nm} の裏向きのカードを ${C(to).nm} に移した`,"n");noteSetOn(p,to);
 }
-function removeSetCost(p,x){const fd=faceDownSet(x);if(!fd.length)return false;const s=fd[0];x.set.splice(x.set.indexOf(s),1);p.rm.push(s.c);log(`　${C(x).nm} の裏向きのカードを1枚リムーブ（コスト）`,"n");return true}
+function removeSetCost(p,x){const fd=faceDownSet(x);if(!fd.length)return false;const s=fd[0];x.set.splice(x.set.indexOf(s),1);p.rm.push(s.c);log(`　${C(x).nm} の裏向きのカードを1枚リムーブ（コスト）`,"n");noteSetOff(p,x,s.c,true);return true}
 function flipEvidence(p,n){const fd=p.ev.filter(e=>!e.up);if(fd.length<n)return false;for(let i=0;i<n;i++)fd[fd.length-1-i].up=true;log(`　${p.name} は裏向きの証拠を${n}つ表向きにした`,"n");return true}
 const lookFilterColor=col=>x=>hasColor(x,col);
 const turnCount=(x,key)=>(x.used&&x.used[key]&&x.used[key].t===G.turnNo)?x.used[key].n:0;
@@ -167,7 +167,8 @@ async function rmChar(p,f,title="リムーブするキャラ"){const t=await cho
 async function bottomChar(p,f,title="デッキの下に移すキャラ"){const t=await chooseChar(p,title,f);if(t)toDeckBottom(t);return t}
 const apLe=v=>y=>apOf(y)<=v,lvLe=v=>y=>lvOf(y)<=v;
 // 宣言能力の部品: 【スリープ】コスト
-const sleepCost=(x)=>{x.st="s";log(`　コスト: ${C(x).nm} をスリープ`,"n")};
+// G.costFree={x}: 楠川探偵 B05033 など「コストを支払う代わりに」宣言したとき、x のスリープのコストは払わない（hooks.js の abilities）
+const sleepCost=(x)=>{if(G.costFree&&G.costFree.x===x){log(`　（コストの代わりに支払い済み: ${C(x).nm} はスリープしない）`,"n");return}x.st="s";log(`　コスト: ${C(x).nm} をスリープ`,"n")};
 const myTurn=p=>G.turn===p.idx;
 
 // 色をまたいで使う部品（各デッキの所にあったものをここへ移した）

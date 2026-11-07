@@ -284,9 +284,9 @@ DEF["0982"]={ // 中森青子 B09039
   enter:async p=>{const c=[...p.pa,...p.rm].filter(bigJewel);if(!c.length)return;const [y]=await pickCards(p,"手札に加える［ビッグジュエル］のイベント","",c,{max:1,ai:c=>c.slice(0,1)});
     if(y){detach(y);p.hand.push(y);log(`　${C(y).nm} を手札に`,"n")}},
   abilities:[{label:"手札のレベル5の［ビッグジュエル］のイベントを1枚使用: リムーブエリアのレベル3以下の【白】を手札に、手札を1枚リムーブ",turn1:true,
-    can:p=>p.hand.some(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false)),aiCan:p=>p.hand.some(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false)),
-    run:async(p,x)=>{const [e]=await pickCards(p,"使用する［ビッグジュエル］のイベント（レベル5）","",p.hand.filter(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false)),{min:1,max:1,ai:c=>c.slice(0,1)});
-      if(!e||!await useFromHand(p,e))return false;
+    can:p=>p.hand.some(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false,true)),aiCan:p=>p.hand.some(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false,true)),
+    run:async(p,x)=>{const [e]=await pickCards(p,"使用する［ビッグジュエル］のイベント（レベル5）","",p.hand.filter(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false,true)),{min:1,max:1,ai:c=>c.slice(0,1)});
+      if(!e||!await useFromHand(p,e,false,true))return false;
       const n=p.hand.length;await pickRmToHand(p,y=>isChar(y)&&hasColor(y,"白")&&lvOf(y)<=3,"手札に加える【白】のキャラ（レベル3以下）");if(p.hand.length>n)await discard(p,1);return true}}]};
 DEF["0789"]={ // クリスタル・マザー B07060
   event:async(p,x)=>{if(!partnerIs(p,"白"))return noEff();drawN(p,1);
@@ -407,11 +407,11 @@ DEF["0791"]=flipCase(2,"裏向きの証拠2つを表に: リムーブエリア�
 DEF["0686"]=flipCase(2,"裏向きの証拠2つを表に: リムーブエリアの［YAIBA］のイベントを手札に",()=>true, // 伝説の玉探し B06065
   rmEv(y=>hasTrait(y,"YAIBA"),"手札に加える［YAIBA］のイベント"));
 DEF["0842"]=flipCase(2,"裏向きの証拠2つを表に: ［シャッフルロマンス］を手札に加える／使用する",p=>p.rm.some(anyExact("シャッフルロマンス"))||p.hand.some(y=>anyExact("シャッフルロマンス")(y)&&C(y).t==="イベント"), // The Black Knight D10026
-  async p=>{const inRm=p.rm.filter(anyExact("シャッフルロマンス")),inHand=p.hand.filter(y=>anyExact("シャッフルロマンス")(y)&&C(y).t==="イベント"&&!playableReason(p,y,false));
+  async p=>{const inRm=p.rm.filter(anyExact("シャッフルロマンス")),inHand=p.hand.filter(y=>anyExact("シャッフルロマンス")(y)&&C(y).t==="イベント"&&!playableReason(p,y,false,true));
     const opts=[];if(inRm.length)opts.push(0);if(inHand.length)opts.push(1);
     let m=opts[0];if(opts.length>1)m=opts[await pickMode(p,"The Black Knight",["リムーブエリアの［シャッフルロマンス］を手札に加える","手札の［シャッフルロマンス］のイベントを使用する"],0)];
     if(m===0)await pickRmToHand(p,anyExact("シャッフルロマンス"),"手札に加える［シャッフルロマンス］");
-    else if(m===1)await useFromHand(p,inHand[0])});
+    else if(m===1)await useFromHand(p,inHand[0],false,true)});
 DEF["0788"]={ // 赤い涙 B07059
   event:async(p,x)=>{if(!partnerIs(p,"白"))return noEff();await rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）");if(p.rm.includes(x))toPartnerArea(p,x)},
   ai:p=>partnerIs(p,"白")&&oppHas(p,apLe(8000)),hirameki:async(o,e)=>{if(o.rm.includes(e))toPartnerArea(o,e)}};
