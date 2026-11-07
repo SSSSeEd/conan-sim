@@ -141,3 +141,54 @@ DEF["1262"]={...solvedDiscard, // あんた何者や B11099
   abilities:[{label:"裏向きの証拠2つを表に: キャラをAP－3000",turn1:true,can:p=>p.solved&&faceDownEv(p).length>=2,
     run:async p=>{if(!flipEvidence(p,2))return false;const t=await chooseChar(p,"AP－3000するキャラ");if(t)apTurn(t,-3000);return true},
     aiCan:p=>oppHas(p,y=>true)}]};
+
+// --- MR（レベル9）---
+DEF["1196"]={ // 工藤優作＆黒羽盗一 B11030
+  enter:async p=>{if(partnerIs(p,"白"))await rmChar(p,lvLe(9))},
+  abilities:[
+    {label:"自分の【白】のキャラにデッキの上から1枚を裏向きでセット",turn1:true,can:p=>p.field.some(y=>hasColor(y,"白")),aiCan:p=>p.deck.length>8,
+      run:async p=>{const t=await chooseChar(p,"セットされる自分の【白】のキャラ",y=>!isOpp(p,y)&&hasColor(y,"白"),{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)setTop(p,t);return true}},
+    {label:"カードを1枚引く（手札5枚以上なら1枚リムーブ）",turn1:true,partner:true,can:p=>p.field.some(y=>faceDownSet(y).length),aiCan:p=>true,
+      run:async p=>{drawN(p,1);if(p.hand.length>=5)await discard(p,1);return true}}],
+  partnerToo:true};
+DEF["1217"]={ // 宮野志保＆宮野明美 B11052
+  lvSelf:p=>p.solved&&myTurn(p)?-2:0,
+  abilities:[{label:"レベル7のキャラをスタン: レベル9以下のキャラをリムーブ",turn1:true,
+    can:p=>partnerIs(p,"赤")&&p.field.some(y=>y.st!=="x"&&lvOf(y)===7),aiCan:p=>oppHas(p,lvLe(9)),
+    run:async p=>{const [s]=await pickCards(p,"スタンさせるレベル7のキャラ","",p.field.filter(y=>y.st!=="x"&&lvOf(y)===7),{min:1,max:1});
+      if(!s)return false;stunC(s);await rmChar(p,lvLe(9));return true}}],
+  endTurn:async p=>{if(!p.field.some(y=>y.st==="x"))return;drawN(p,2);await discard(p,1)},
+  partnerToo:true};
+DEF["1245"]={ // ジン＆ベルモット B11082
+  onAllyEnter:async(p,self,y)=>{if(y===self||!myTurn(p)||!partnerIs(p,"黒")||turnCount(self,"p11m")||!hasTrait(y,"黒ずくめの組織"))return;
+    useTurn(self,"p11m");await rmChar(p,lvLe(9))},
+  abilities:[{label:"レベル7以下の【黒】のキャラをスタン: 相手のターン終了時まで「現場リムーブ時に1枚引く」を与える",turn1:true,partner:true,
+    can:p=>p.field.some(y=>y.st!=="x"&&hasColor(y,"黒")&&lvOf(y)<=7),aiCan:p=>false,
+    run:async p=>{const [s]=await pickCards(p,"スタンさせる【黒】のキャラ（レベル7以下）","",p.field.filter(y=>y.st!=="x"&&hasColor(y,"黒")&&lvOf(y)<=7),{min:1,max:1});
+      if(!s)return false;stunC(s);s.leaveDrawT=G.turnNo+1;log(`　${C(s).nm} は相手のターン終了時まで「現場リムーブ時: 1枚引く」を得た`,"n");return true}}],
+  partnerToo:true};
+DEF["1258"]={ // 江戸川コナン＆怪盗キッド B11095
+  enter:async p=>{const n=evTot(p);
+    if(n>=5){drawN(p,2);await discard(p,2)}
+    else if(p.hand.length&&await yes(p,"江戸川コナン＆怪盗キッド","手札を1枚リムーブして、証拠を1つ得ますか？",()=>p.hand.length>=2)){await discard(p,1);gainEv(p,1)}},
+  endTurn:async p=>{if(condOk("事件探偵VS怪盗",p)&&p.ev.length>=9){win(p,"江戸川コナン＆怪盗キッド");return}
+    drawN(p,1);if(p.hand.length>=5)await discard(p,1)},
+  abilities:[{label:"キャラを1枚デッキの下に移す",turn1:true,can:p=>condOk("事件探偵VS怪盗",p),aiCan:p=>oppHas(p,y=>lvOf(y)>=5),
+    run:async p=>{await bottomChar(p,()=>true);return true}}],
+  partnerToo:true};
+DEF["1259"]={ // 服部平次＆ジョディ・スターリング B11096
+  enter:async p=>{await rmChar(p,apLe(8000))},
+  onAction:async(p,self,actor,target)=>{if(!target||!p.field.includes(actor)||turnCount(self,"p11h")||!colorAny(actor,"緑","赤")||apOf(target)>apOf(actor)-4000||!p.hand.length)return;
+    if(!await yes(p,"服部平次＆ジョディ・スターリング","手札を1枚リムーブして、証拠を1つ得ますか？",()=>p.hand.length>=3))return;
+    useTurn(self,"p11h");await discard(p,1);gainEv(p,1)},
+  abilities:[{label:"キャラをターン終了時までAP－2000",turn1:true,partner:true,can:p=>true,aiCan:p=>myTurn(p)&&oppHas(p,y=>true),
+    run:async p=>{const t=await chooseChar(p,"AP－2000するキャラ");if(t)apTurn(t,-2000);return true}}],
+  partnerToo:true};
+DEF["1260"]={ // 諸伏景光＆スコッチ B11097
+  gale:async p=>{drawN(p,1);await discard(p,1)},
+  abilities:[{label:"AP8000以下のキャラをリムーブ",turn1:true,can:p=>true,aiCan:p=>oppHas(p,apLe(8000)),
+    run:async p=>{await rmChar(p,apLe(8000));return true}}],
+  onAllyEnter:async(p,self,y)=>{if(myTurn(p)||turnCount(self,"p11s")||!/【疾風】/.test(C(y).f||""))return;
+    useTurn(self,"p11s");drawN(p,1);
+    if(faceDownEv(p).length>=2&&await yes(p,"諸伏景光＆スコッチ","裏向きの証拠を2つ表向きにして、カードを1枚引きますか？",true)){flipEvidence(p,2);drawN(p,1)}},
+  partnerToo:true};
