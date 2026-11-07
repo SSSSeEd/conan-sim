@@ -79,7 +79,9 @@ const FX={
     let xs=[...p.field.filter(y=>def(y)&&def(y).endTurn),...(def(p.partner)&&def(p.partner).endTurn&&def(p.partner).partnerToo&&p.pLoc==="area"?[p.partner]:[])];
     if(!p.cpu&&xs.length>1&&typeof orderCards==="function")xs=await orderCards(`${p.name}: ターン終了時の効果の順番`,xs,
       {body:"ターン終了時に発動する効果が複数あります。解決する順にカードをタップしてください（①から先に解決）。もう一度タップで取り消し。",okLabel:"この順番で解決",keepLabel:"表示の順のまま解決"});
-    for(const y of xs){const d=def(y);if(d&&d.endTurn&&here(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}},
+    for(const y of xs){const d=def(y);if(d&&d.endTurn&&here(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
+    const q=opp(p);for(const y of q.field.slice()){const d=def(y);if(d&&d.oppEndTurn&&q.field.includes(y))await fxIf(q,y,"ターン終了時",()=>d.oppEndTurn(q,y))}await runQueue()}, // 相手のターン終了時（ルパン）
+  ignoreCaseColor:(c,p)=>c.i==="1206"&&condOk("事件黒",p)===true, // シャロン・ヴィンヤード B11040: 【事件黒】手札から使用するとき事件の色を無視
   async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await d.solvedTrigger(p)}},
   async onLeave(info){ // {x,p,turn,by,effect}。rmLeft: リムーブエリアから離れた（諸伏高明 B05087 など）。setRm: セットされていたイベントがリムーブエリアに置かれた
     if(info.setRm){for(const c of info.setRm){const e=def(c);if(e&&e.setToRm&&info.p.rm.includes(c))await fxIf(info.p,c,"セット",()=>e.setToRm(info.p,c,info))}return}
