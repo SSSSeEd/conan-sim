@@ -267,4 +267,37 @@ module.exports=[
     await D["1241"].gale(p,mo);assert.strictEqual(w.apOf(mo),w.ev("C")(mo).ap+1000);
     p.ev.forEach(e=>e.up=true);const kid=w.inst("B02038");G.turn=1;assert.strictEqual(await D["1212"].disguiseReplaced(p,dt,kid),true);assert.ok(p.ev.every(e=>!e.up)||p.ev.some(e=>!e.up));
     G.turn=0;assert.strictEqual(await D["1212"].disguiseReplaced(p,dt,kid),false)}],
+  ["レベル4(P11): 少年探偵団（吉田歩美・小嶋元太・円谷光彦）はFILE5で突撃、歩美は変装でスリープのLv7以下をリムーブして1枚引く、元太・光彦はカットインでコンタクト中のキャラをリムーブして1枚引く",async w=>{
+    const G=board(w,{p0:{field:["B11007","B11008","B11009"],file:[R,R,R,R,R],deck:[R,R,R,R,R]},p1:{field:["B11002",R,R]}});
+    const p=G.P[0],[ay,ge,mi]=p.field,D=w.ev("DEF"),[big,sm,sm2]=G.P[1].field;G.turn=0;
+    await D["1175"].enter(p,ay);assert.ok(ay.kw.includes("突撃"));await D["1176"].enter(p,ge);assert.ok(ge.kw.includes("突撃［キャラ］"));
+    p.file.pop();const k=w.inst("B11008");await D["1176"].enter(p,k);assert.ok(!k.kw.includes("突撃［キャラ］"),"FILE4では得ない");
+    sm.st="s";const n=p.hand.length;await D["1175"].disguise(p,ay);assert.strictEqual(G.P[1].field.includes(sm),false);assert.strictEqual(p.hand.length,n+1);
+    G.turn=1;await D["1175"].disguise(p,ay);assert.strictEqual(G.P[1].field.length,2,"相手ターンでは効かない");G.turn=0;
+    G.contact={a:mi,d:big};await D["1176"].cutin(p);assert.strictEqual(G.P[1].field.includes(big),false);assert.strictEqual(p.hand.length,n+2);
+    G.contact={a:mi,d:sm2};await D["1177"].cutin(p);assert.strictEqual(G.P[1].field.includes(sm2),false,"光彦はLv7以下をリムーブ");assert.strictEqual(p.hand.length,n+3);
+    }],
+  ["レベル4(P11): 服部静華（事件編で緑か赤を捨てて2枚引く／カットイン）・和田進一（［伊織無我］扱い・3枚見て探す・解決編でセット）",async w=>{
+    const G=board(w,{p0:{field:["B11025","B11026"],hand:["B11024",R],deck:["B01032",R,R,R,R]},p1:{field:[R,R]}});
+    const p=G.P[0],[sz,wa]=p.field,D=w.ev("DEF");p.caseC=w.inst("B11099");
+    assert.ok(w.ev("named")("伊織無我")(wa),"和田進一は伊織無我として扱う");assert.ok(w.ev("namesOf")(w.inst("B11026")).includes("伊織無我"),"現場以外でも");
+    await D["1192"].enter(p,sz);assert.strictEqual(p.hand.length,3,"緑のカードを1枚リムーブして2枚引く（－1＋2）");assert.strictEqual(p.rm.length,1);
+    const h=p.hand.length;await D["1192"].cutin(p);assert.strictEqual(p.hand.length,h+1);
+    p.deck=[w.inst(R),w.inst("B01032"),w.inst(R),w.inst(R)];const rm0=p.rm.length;await D["1193"].enter(p,wa);
+    assert.ok(p.hand.some(y=>w.C(y).nm==="服部平次"));assert.strictEqual(p.rm.length,rm0+2);assert.strictEqual(p.deck.length,1);
+    p.solved=true;p.file=[R,R,R,R,R,R].map(n=>w.inst(n));await D["1193"].enter(p,wa);assert.strictEqual(wa.st,"s");
+    assert.strictEqual(G.P[1].field.filter(y=>(y.set||[]).length).length,1)}],
+  ["レベル4(P11): 工藤有希子（名前指定）・シャロン（ベルモットの変装）・鈴木次郎吉・鈴木園子・ルパン・目暮十三・キール・亡霊船長",async w=>{
+    const G=board(w,{p0:{field:["B11038","B11040","B11042","B11043","B11048"],hand:["B11040"],rm:["B11068","B11042"],deck:[R,R,R,R,R,R]},p1:{field:["B01044"]}});
+    const p=G.P[0],[yu,sh,jr,so,lu]=p.field,D=w.ev("DEF");
+    p.deck=[w.inst(R),w.inst(R),w.inst(R),w.inst("B01006"),w.inst(R)];const h0=p.hand.length;await D["1204"].enter(p,yu);assert.strictEqual(p.hand.length,h0+1,"CPUは一番多い名前を指定して1枚手札に");assert.strictEqual(p.deck.length,4);
+    G.turn=1;assert.strictEqual(await D["1206"].disguiseReplaced(p,sh,w.inst("B02086")),true);assert.strictEqual(await D["1206"].disguiseReplaced(p,sh,w.inst(R)),false);
+    G.turn=0;const c0=w.C(p.hand[0]);assert.strictEqual(w.canPlayColor(c0,p),false);p.caseC=w.inst("B11094");assert.strictEqual(w.canPlayColor(c0,p),true,"【事件黒】なら事件の色を無視");
+    assert.strictEqual(w.apOf(jr),w.ev("C")(jr).ap+2000,"相手の現場に怪盗キッド");G.P[1].field=[];assert.strictEqual(w.apOf(jr),w.ev("C")(jr).ap);
+    p.caseC=w.inst("B11098");p.deck=[1,2,3,4].map(()=>w.inst("B11085"));const hn=p.hand.length;await D["1209"].enter(p,so);
+    assert.strictEqual(p.hand.length,hn+1-1,"高校生も怪盗もいないので1枚追加して1枚リムーブ");assert.strictEqual(p.deck.length,2);
+    p.rm=[w.inst("B11068"),w.inst("B11068"),w.inst("B11068"),w.inst("B11068")];await D["1240"].enter(p,lu);assert.strictEqual(p.rm.length,1);
+    G.turn=1;p.rm=[w.inst("B11043")];await D["1214"].oppEndTurn(p,lu);assert.strictEqual(p.field.includes(lu),false);assert.ok(p.hand.some(y=>w.C(y).nm==="鈴木園子"),"ルパンがリムーブされて鈴木財閥を回収");
+    G.turn=0;p.deck=[w.inst("B11085"),w.inst(R),w.inst(R),w.inst(R)];p.solved=false;await D["1251"].enter(p,yu);assert.strictEqual(p.deck.length,1);assert.ok(p.hand.some(y=>w.C(y).nm==="ウォッカ"));
+    const gh=w.inst("B11090");p.field.push(gh);const a=D["1253"].abilities[0];assert.ok(a.can(p,gh));const ap0=w.apOf(jr);await a.run(p,gh);assert.strictEqual(p.field.includes(gh),false);assert.strictEqual(w.apOf(jr),ap0+1000)}],
 ];
