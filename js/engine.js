@@ -17,7 +17,9 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
   detach(x);resetMods(x);
   if(wasField)dropSets(p,x);
   // MRが相手のターン中に現場を離れたときは、リムーブエリアではなくパートナーエリアへ移る（自分のターン中は移らない）
-  if(wasField&&isMR(x)&&G&&G.turn!==p.idx){x.paRet=0;p.pa.push(x);if(why)log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ（${why}）`);return}
+  if(wasField&&isMR(x)&&G&&G.turn!==p.idx){x.paRet=0;p.pa.push(x);if(why)log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ（${why}）`);
+    // リムーブしてからリムーブエリアの代わりにパートナーエリアへ置く扱いなので、現場リムーブ時の効果は発動する
+    G.queue.push({x,p,turn:G.turn,by:opt.by||null,effect:!!opt.effect});return}
   p.rm.push(x);
   const c=C(x);
   if(why)log(`${p.name} の ${c.nm} をリムーブ（${why}）`);
