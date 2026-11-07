@@ -7,6 +7,6 @@ const [N,SEED]=[+process.argv[2],+process.argv[3]],MA=process.argv[4],MB=process
   const res={aW:0,bW:0,draw:0};const off=m=>m.includes("combo")?AI_OFF0.filter(f=>f!=="combo"):AI_OFF0;
   for(let i=0;i<N;i++){const a=Math.floor(w.rnd()*E.length),b=Math.floor(w.rnd()*E.length);const sa=i%2;
     const ms=[];ms[sa]=MA;ms[1-sa]=MB;
-    const {winner}=await H.play(w,{decks:[w.parseDeckText(E[a].text),w.parseDeckText(E[b].text)],search:ms.map(m=>m.includes("search")),aiOff:ms.map(off)});
+    const {winner}=await H.play(w,{decks:[w.parseDeckText(E[a].text),w.parseDeckText(E[b].text)],search:ms.map(m=>m.includes("search")),aiOff:ms.map(off),noAct:ms.map(m=>m.includes("noact"))});
     if(winner===null)res.draw++;else if(winner===sa)res.aW++;else res.bW++}
   console.log(JSON.stringify({A:MA,B:MB,SEED,...res}),JSON.stringify(w.warns.slice(0,3)))})();
