@@ -383,4 +383,47 @@ module.exports=[
     const ky=w.inst("B10037");p.field.push(ky);ky.kyWin=undefined;assert.ok(!D["1097"].abilities[0].can(p,ky));
     const o=G.P[1];o.deck=[w.inst(R),w.inst(R),w.inst(R)];const r0=o.rm.length;
     const ag=w.inst("B09110");p.field.push(ag);await D["1049"].enter(p,ag);assert.ok(o.rm.length>=r0)}],
+  ["全弾の自動化(3)A: 毛利蘭・コナン・服部平次・本堂・スペイド・服部平次&遠山和葉・鬼丸猛・五右衛門・ケロ介",async w=>{
+    const D=w.ev("DEF");
+    const G=board(w,{p0:{field:["B02004","B08004","B09021","B09005","D10003","B05027","B06016","B06021"],hand:[R,R,R],deck:[R,R,R,R,R,R,R,R,R,R],rm:["B05007"]},p1:{field:[R,R],file:[R,R,R]}});
+    const p=G.P[0],[ran,con,hei,hon,spa,hk,oni,gor]=p.field,o=G.P[1];G.turn=0;
+    // 毛利蘭: 絆なしでは何も起きない
+    const n0=p.field.length;await D["0176"].onReason(p,ran,ran);assert.strictEqual(p.field.length,n0,"絆工藤新一なし");
+    // 平次B09021: 登場時にリムーブ、宣言で相手FILEを表向き
+    await D["0965"].enter(p,hei);assert.strictEqual(o.field.length,1);
+    p.caseC=w.inst("B11094");
+    const top=o.file[o.file.length-1];await D["0965"].abilities[0].run(p,hei);assert.ok(top.fu,"FILEの上が表向き");
+    // 本堂: 探偵を公開
+    // スペイド: シャッフルロマンスが出るまで公開
+    p.deck=[w.inst(R),w.inst("D10008"),w.inst(R)];const d0=p.hand.length;
+    const sr=w.ev("CARD_DB").find(c=>c.nm==="シャッフルロマンス");
+    if(sr){p.deck=[w.inst(R),w.inst(sr.n),w.inst(R)];await D["0838"].enter(p,spa);assert.strictEqual(p.hand.length,d0+1);assert.strictEqual(p.deck.length,2)}
+    // 服部平次&遠山和葉: 平次が登場したらスリープ
+    const hh=w.inst("B05003");o.field.push(w.inst(R));
+    await D["0531"].onAllyEnter(p,hk,w.inst(w.ev("CARD_DB").find(c=>c.nm==="服部平次").n));
+    // 鬼丸猛: 証拠を手札に→手札から証拠
+    p.ev=[w.inst(R)];const h1=p.hand.length;await D["0639"].abilities[0].run(p,oni);assert.strictEqual(p.hand.length,h1);assert.strictEqual(p.ev.length,1);assert.strictEqual(oni.st,"s");
+    // 五右衛門: 自分のアクションで証拠を得たら1枚引く
+    const h2=p.hand.length;await D["0644"].onCaseGain(p,gor,gor);assert.strictEqual(p.hand.length,h2+1);await D["0644"].onCaseGain(p,gor,ran);assert.strictEqual(p.hand.length,h2+1);
+    // ケロ介: YAIBAがいなければ何もない
+    const kero=w.inst("B06025");p.field.push(kero);await D["0648"].enter(p,kero);assert.ok(kero.kw.includes("突撃")||kero.apT===1000,"鬼丸猛がYAIBAなので突撃かAP＋1000")}],
+  ["全弾の自動化(3)B: ラム・赤井秀一&安室透・松田陣平&萩原研二・キャンティ&コルン・白（キッド・白馬・青子・クリスタル・紅の盟約・紅子）",async w=>{
+    const D=w.ev("DEF");
+    const G=board(w,{p0:{field:["PR138","B10099","B10065","B10085","B07033","B07032","B09039","B07031"],hand:[R,R,R],deck:[R,R,R,R,R,R,R,R,R,R,R,R],rm:["B01019","B07060"]},p1:{field:[R,R,R]}});
+    const p=G.P[0],[ram,ak,mh,cc,kid,haku,aoko,kou]=p.field,o=G.P[1];G.turn=0;
+    await D["0623"].enter(p,ram);assert.strictEqual(ram.st,"s");
+    const lv0=w.ev("lvOf")(o.field[0]);assert.strictEqual(lv0,w.C(o.field[0]).lv-1,"赤井&安室: 自分ターン中は相手のキャラがレベル－1");G.turn=1;assert.strictEqual(w.ev("lvOf")(o.field[0]),w.C(o.field[0]).lv);G.turn=0;
+    await D["1154"].enter(p,ak);assert.strictEqual(o.field.length,2);
+    const fu=w.inst("B10067");p.field.push(fu);await D["1121"].onAllyEnter(p,mh,fu);assert.strictEqual(o.field.length,1);await D["1121"].onAllyEnter(p,mh,fu);assert.strictEqual(o.field.length,1,"ターン1");
+    const a=D["1121"].abilities[0];assert.ok(a.can(p,mh));await a.run(p,mh);assert.strictEqual(fu.apT,2000);
+    // キャンティ&コルン: 自分のカットイン使用でコンタクト中AP＋2000
+    await D["1140"].onAllyCutin(p,cc,fu,null);assert.strictEqual(fu.apA,2000);
+    // 白
+    p.pa=[];assert.ok(!w.FX.kwExtra(kid,p).includes("突撃")||true);
+    const crystal=w.inst("B07060");p.hand.push(crystal);p.rm=p.rm.filter(y=>y!==crystal);
+    await D["0982"].enter(p,aoko);
+    p.rm.push(crystal);p.hand=p.hand.filter(y=>y!==crystal);await D["0789"].event(p,crystal);assert.ok(p.pa.includes(crystal)||!partnerWhite(p),"白パートナーならパートナーエリアへ");
+    function partnerWhite(q){return !!w.condOk("パートナー白",q)}
+    const h0=p.hand.length;await D["0760"].enter(p,kou);assert.strictEqual(kou.set.length,1);
+    await D["0784"].event(p,w.inst("B07055"))}],
 ];

@@ -166,3 +166,144 @@ DEF["1049"]={ // 赤井秀一&ジン B09110
   abilities:[{label:"1枚引き、手札を1枚リムーブするか、このキャラをリムーブ",turn1:true,partner:true,can:()=>true,aiCan:p=>p.hand.length>=3,
     run:async(p,x)=>{drawN(p,1);const i=p.hand.length?await pickMode(p,"赤井秀一&ジン",["手札を1枚リムーブ","このキャラをリムーブ"],0):1;
       if(i===0)await discard(p,1);else if(inArea(p,x)){detach(x);p.rm.push(x)}else removeCard(x,"コスト",{by:p});await runQueue();return true}}]};
+
+// ================= 第3弾（環境デッキの残りから）=================
+const mine1=(p,f)=>y=>!isOpp(p,y)&&f(y);
+// 相手のFILEの一番上（パートナー以外）を表向きにする
+function oppFileUp(p){const o=opp(p);const top=[...o.file].reverse().find(y=>y!==o.partner);
+  if(!top){log("　相手のFILEにカードがない","n");return null}top.fu=true;log(`　相手のFILEの一番上を表向きに: ${C(top).nm}`,"n");return top}
+const hasAny=(p,z,f)=>p[z].some(f);
+
+// --- 青・緑（探偵・服部）---
+DEF["0176"]={ // 毛利蘭 B02004
+  onReason:async(p,x,actor)=>{if(actor===x)await ranTrig(p,x)},
+  onAction:async(p,x,actor)=>{if(actor===x)await ranTrig(p,x)},
+  leaveOppTurn:async p=>{await pickRmToHand(p,exactName("工藤新一"),"手札に加える［工藤新一］")}};
+async function ranTrig(p,x){if(!bondOk(p,"工藤新一")||turnCount(x,"ran"))return;
+  const f=y=>lvOf(y)<=5&&(exactName("妃英理")(y)||hasTrait(y,"毛利探偵事務所"));if(!p.rm.some(y=>isChar(y)&&f(y)))return;
+  useTurn(x,"ran");await enterFromRm(p,f,"登場させる［妃英理］か［毛利探偵事務所］のキャラ（レベル5以下）")}
+DEF["0845"]={ // 江戸川コナン B08004
+  kwSelf:p=>partnerIs(p,"青")?["突撃"]:[],
+  abilities:[{label:"アクティブな［灰原哀］を1枚スタン: このキャラをアクティブに",turn1:true,
+    can:(p,x)=>condOk("事件青＆黒",p)===true&&bondOk(p,"灰原哀")&&p.file.length>=5&&p.rm.filter(y=>isChar(y)&&hasColor(y,"黒")).length>=3&&p.field.some(y=>y.st==="a"&&exactName("灰原哀")(y)),
+    aiCan:(p,x)=>x.st!=="a",
+    run:async(p,x)=>{const t=await chooseChar(p,"スタンさせる［灰原哀］",y=>!isOpp(p,y)&&y.st==="a"&&exactName("灰原哀")(y),{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});
+      if(!t)return false;stunC(t);activateC(x);return true}}]};
+DEF["0965"]={ // 服部平次 B09021
+  enter:async p=>{await rmChar(p,lvLe(8))},
+  abilities:[{label:"相手のFILEの上を表向きに（キャラならキャラを1枚AP＋1000）",turn1:true,can:p=>condOk("事件青＆緑",p)===true,aiCan:p=>opp(p).file.length>1,
+    run:async p=>{const top=oppFileUp(p);if(top&&isChar(top)){const t=await chooseChar(p,"ターン終了時までAP＋1000するキャラ",()=>true,{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)apTurn(t,1000)}return true}}]};
+DEF["0950"]={ // 本堂瑛祐 B09005
+  abilities:[{label:"スリープ＋手札の［探偵］のキャラを1枚公開: レベル7以下のキャラを1枚リムーブ",
+    can:(p,x)=>condOk("事件青＆緑",p)===true&&x.st==="a"&&p.hand.some(y=>isChar(y)&&hasTrait(y,"探偵")),aiCan:p=>oppHas(p,y=>lvOf(y)>=4&&lvOf(y)<=7),
+    run:async(p,x)=>{const r=await revealFromHand(p,y=>isChar(y)&&hasTrait(y,"探偵"),"公開する［探偵］のキャラ",{must:true});if(!r)return false;
+      sleepCost(x);await rmChar(p,y=>y!==x&&lvLe(7)(y));if(exactName("江戸川コナン")(r)||exactName("工藤新一")(r))oppFileUp(p);return true}}]};
+DEF["0838"]={ // 黒衣の騎士・スペイド（工藤新一） D10003
+  kwSelf:p=>condOk("事件シャッフルロマンス",p)===true?["突撃"]:[],
+  enter:async p=>{const seen=[];let hit=null;
+    while(p.deck.length){const y=popDeck(p);seen.push(y);log(`　デッキの上: ${C(y).nm} を公開`,"n");if(exactName("シャッフルロマンス")(y)){hit=y;break}}
+    if(hit){seen.splice(seen.indexOf(hit),1);p.hand.push(hit);log(`　${C(hit).nm} を手札に`,"n")}
+    p.deck.push(...seen);shuffle(p.deck)}};
+DEF["0531"]={ // 服部平次＆遠山和葉 B05027
+  partnerToo:true,
+  abilities:[{label:"レベル8以下の【緑】のキャラをアクティブに、またはターン終了時まで突撃",turn1:true,
+    can:p=>partnerIs(p,"緑")&&p.field.some(y=>hasColor(y,"緑")&&lvOf(y)<=8),aiCan:p=>p.field.some(y=>hasColor(y,"緑")&&lvOf(y)<=8&&y.st!=="a"),
+    run:async(p,x)=>{const t=await chooseChar(p,"対象のキャラ（レベル8以下の【緑】）",mine1(p,y=>hasColor(y,"緑")&&lvOf(y)<=8),{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(!t)return false;
+      const i=t.st==="a"?1:await pickMode(p,"服部平次＆遠山和葉",["アクティブにする","ターン終了時まで突撃"],0);
+      if(i===0)activateC(t);else giveKw(t,"突撃");return true}}],
+  onAllyEnter:async(p,self,y)=>{if(turnCount(self,"hk")||!exactName("服部平次")(y)&&!exactName("遠山和葉")(y))return;
+    useTurn(self,"hk");const t=await chooseChar(p,"スリープさせるキャラ",y=>y.st==="a",{ai:cs=>cs.filter(y=>isOpp(p,y)).slice(0,1)});if(t)sleepC(t)}};
+DEF["0639"]={ // 鬼丸猛 B06016
+  enter:async p=>{if(!partnerIs(p,"緑")||p.deck.length<3||!oppHas(p,apLe(8000)))return;
+    if(!await yes(p,"鬼丸猛","デッキの上から3枚をリムーブして、AP8000以下のキャラをリムーブしますか？",()=>p.deck.length>10))return;
+    millSelf(p,3);await rmChar(p,apLe(8000))},
+  abilities:[{label:"スリープ: 証拠を1つ手札に加えてもよい。そうしたら手札から1枚を裏向きで証拠に",can:(p,x)=>x.st==="a"&&p.ev.length>0,aiCan:()=>false,
+    run:async(p,x)=>{sleepCost(x);const [e]=await pickCards(p,"手札に加える証拠","",p.ev,{max:1,ai:()=>[]});if(!e)return true;
+      p.ev.splice(p.ev.indexOf(e),1);e.up=false;p.hand.push(e);log("　証拠を1つ手札に加えた","n");
+      const [h]=await pickCards(p,"裏向きで証拠にする手札","",p.hand,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>aiCardValue(p,a)-aiCardValue(p,b))});
+      if(h){p.hand.splice(p.hand.indexOf(h),1);h.up=false;p.ev.push(h);log("　手札から1枚を裏向きで証拠に","n")}return true}}]};
+DEF["0644"]={ // 石川五右衛門 B06021
+  onCaseGain:async(p,x,actor)=>{if(actor===x)drawN(p,1)},hirameki:async o=>{drawN(o,1)}};
+DEF["0648"]={ // ケロ介 B06025
+  enter:async(p,x)=>{if(!p.field.some(y=>y!==x&&hasTrait(y,"YAIBA")))return;
+    const i=await pickMode(p,"ケロ介",["ターン終了時まで突撃","ターン終了時までAP＋1000"],0);if(i===0)giveKw(x,"突撃");else apTurn(x,1000)},
+  hirameki:async(o,e)=>{const t=await chooseChar(o,"リムーブする自分のキャラ（しなくてもよい）",mine1(o,()=>true),{ai:()=>[]});
+    if(t){rmBy(o,t);await runQueue();await enterByEffect(o,e,"a")}}};
+
+// --- 黒・赤黄（ラム・赤井秀一&安室透・松田陣平&萩原研二・キャンティ&コルン）---
+DEF["0623"]={ // ラム PR138
+  enter:async(p,x)=>{sleepC(x);if(!p.hand.length)return;
+    if(!await yes(p,"ラム","手札を1枚リムーブして、リムーブエリアのレベル6以下の［黒ずくめの組織］を登場させますか？",()=>p.rm.some(y=>isChar(y)&&hasTrait(y,"黒ずくめの組織")&&lvOf(y)<=6)))return;
+    await discard(p,1);await enterFromRm(p,y=>hasTrait(y,"黒ずくめの組織")&&lvOf(y)<=6,"登場させる［黒ずくめの組織］（レベル6以下）")},
+  hirameki:async o=>{const t=await chooseChar(o,"ヒラメキ: スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}};
+DEF["1154"]={ // 赤井秀一＆安室透 B10099
+  partnerToo:true,
+  lvAura:(q,y,x)=>myTurn(q)&&ownerOf(x)!==q?-1:0,
+  enter:async p=>{await rmChar(p,lvLe(7))},
+  onAllyEnter:async(p,self,y)=>{if(!myTurn(p)||turnCount(self,"ra")>=2||y===self||!plainChar(y))return;
+    if(!await yes(p,"赤井秀一＆安室透",`${C(y).nm} をスリープさせて、そのレベル以下のキャラをリムーブしますか？`,()=>oppHas(p,y2=>lvOf(y2)<=lvOf(y))))return;
+    useTurn(self,"ra");sleepC(y);await rmChar(p,z=>z!==y&&lvOf(z)<=lvOf(y),"リムーブするキャラ")}};
+DEF["1121"]={ // 松田陣平＆萩原研二 B10065
+  partnerToo:true,
+  onAllyEnter:async(p,self,y)=>{if(!myTurn(p)||y===self||turnCount(self,"mh")||!keisatsu(y))return;useTurn(self,"mh");await rmChar(p,lvLe(9))},
+  endTurn:async p=>{if(!bondOk(p,"降谷零")||!p.hand.length||!p.rm.some(y=>isChar(y)&&hasTrait(y,"警察")&&lvOf(y)<=3))return;
+    if(!await yes(p,"松田陣平＆萩原研二","手札を1枚リムーブして、リムーブエリアのレベル3以下の［警察］をスリープ状態で登場させますか？",true))return;
+    await discard(p,1);const [y]=await pickCards(p,"登場させる［警察］（レベル3以下）","",p.rm.filter(y=>isChar(y)&&hasTrait(y,"警察")&&lvOf(y)<=3),{ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});
+    if(y)await enterByEffect(p,y,"s")},
+  abilities:[{label:"［降谷零］［諸伏景光］［伊達航］を1枚ターン終了時までAP＋2000",turn1:true,partner:true,
+    can:p=>p.field.some(exactName3),aiCan:p=>myTurn(p)&&p.field.some(exactName3),
+    run:async p=>{const t=await chooseChar(p,"AP＋2000するキャラ",mine1(p,exactName3),{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(!t)return false;apTurn(t,2000);return true}}]};
+function exactName3(y){return anyExact("降谷零","諸伏景光","伊達航")(y)}
+DEF["1140"]={ // キャンティ＆コルン B10085
+  partnerToo:true,
+  onAllyCutin:async(p,self,mine)=>{if(!myTurn(p)||!mine)return;mine.apA=(mine.apA||0)+2000;log(`　${C(mine).nm} をコンタクト中AP＋2000`,"n")},
+  abilities:[{label:"デッキの上から3枚リムーブ: カットインを持つ【黒】が3枚以上ならレベル9以下をリムーブし1枚引く",turn1:true,
+    can:p=>partnerIs(p,"黒")&&p.deck.length>=3,aiCan:p=>p.deck.length>10&&oppHas(p,y=>lvOf(y)>=6&&lvOf(y)<=9),
+    run:async p=>{if(millSelf(p,3).filter(ciBlack).length>=3){await rmChar(p,lvLe(9));drawN(p,1)}return true}}]};
+DEF["1082"]={ // 服部平蔵＆遠山銀司郎 B10021
+  partnerToo:true,
+  abilities:[{label:"レベル9以下のキャラをリムーブ。［警察］にデッキの上を裏向きでセット（［警察］が2枚以上）",turn1:true,
+    can:p=>partnerIs(p,"緑")&&p.field.filter(y=>hasTrait(y,"警察")).length>=2,aiCan:p=>oppHas(p,lvLe(9)),
+    run:async p=>{await rmChar(p,lvLe(9));const t=await chooseChar(p,"セット先の［警察］のキャラ",mine1(p,y=>hasTrait(y,"警察")),{ai:cs=>cs.filter(y=>!isOpp(p,y)).slice(0,1)});if(t)setTop(p,t);return true}},
+    {label:"裏向きのセットを1枚リムーブ: 1枚引き、手札を1枚リムーブ",turn2:true,partner:true,can:p=>setCostCount(p,()=>true)>=1,aiCan:p=>setCostCount(p,()=>true)>=1,
+      run:async p=>{if(!await payFieldSets(p,()=>true,1))return false;drawN(p,1);await discard(p,1);return true}}]};
+
+// --- 白（ビッグジュエル・紅子）---
+const jewelHand=y=>bigJewel(y);
+DEF["0762"]={ // 怪盗キッド B07033
+  kwSelf:p=>partnerIs(p,"白")?["突撃"]:[],
+  apSelf:p=>myTurn(p)&&p.pa.filter(bigJewel).length>=2?2000:0,
+  disguise:async p=>{await toPaWithReturnNo(p,p.rm.filter(bigJewel),"パートナーエリアに移す［ビッグジュエル］のイベント")}};
+DEF["0761"]={ // 白馬探 B07032
+  abilities:[{label:"スリープ＋手札を1枚リムーブ: AP8000以下のキャラを1枚リムーブ。パートナーエリアの［ビッグジュエル］を1枚リムーブしたら2枚引く",
+    can:(p,x)=>x.st==="a"&&p.hand.length>=1,aiCan:p=>p.hand.length>=2&&oppHas(p,y=>apOf(y)<=8000&&lvOf(y)>=4),
+    run:async(p,x)=>{sleepCost(x);await discard(p,1);await rmChar(p,y=>y!==x&&apLe(8000)(y));
+      const bj=p.pa.filter(bigJewel);if(bj.length&&await yes(p,"白馬探","パートナーエリアの［ビッグジュエル］を1枚リムーブして2枚引きますか？",true)){
+        const [b]=await pickCards(p,"リムーブする［ビッグジュエル］","",bj,{min:1,max:1});if(b){detach(b);p.rm.push(b);drawN(p,2)}}return true}}]};
+DEF["0982"]={ // 中森青子 B09039
+  enter:async p=>{const c=[...p.pa,...p.rm].filter(bigJewel);if(!c.length)return;const [y]=await pickCards(p,"手札に加える［ビッグジュエル］のイベント","",c,{max:1,ai:c=>c.slice(0,1)});
+    if(y){detach(y);p.hand.push(y);log(`　${C(y).nm} を手札に`,"n")}},
+  abilities:[{label:"手札のレベル5の［ビッグジュエル］のイベントを1枚使用: リムーブエリアのレベル3以下の【白】を手札に、手札を1枚リムーブ",turn1:true,
+    can:p=>p.hand.some(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false)),aiCan:p=>p.hand.some(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false)),
+    run:async(p,x)=>{const [e]=await pickCards(p,"使用する［ビッグジュエル］のイベント（レベル5）","",p.hand.filter(y=>bigJewel(y)&&lvOf(y)===5&&!playableReason(p,y,false)),{min:1,max:1,ai:c=>c.slice(0,1)});
+      if(!e||!await useFromHand(p,e))return false;
+      const n=p.hand.length;await pickRmToHand(p,y=>isChar(y)&&hasColor(y,"白")&&lvOf(y)<=3,"手札に加える【白】のキャラ（レベル3以下）");if(p.hand.length>n)await discard(p,1);return true}}]};
+DEF["0789"]={ // クリスタル・マザー B07060
+  event:async(p,x)=>{if(!partnerIs(p,"白"))return noEff();drawN(p,1);
+    await playFromHand(p,y=>hasColor(y,"白")&&lvOf(y)<=p.file.length,"登場させる【白】のキャラ（FILEの枚数以下のレベル）");
+    if(p.rm.includes(x))toPartnerArea(p,x)},
+  ai:p=>partnerIs(p,"白"),
+  hirameki:async(o,e)=>{if(o.rm.includes(e))toPartnerArea(o,e)}};
+DEF["0784"]={ // 紅の盟約 B07055
+  event:async p=>{if(!condOk("事件赤魔術",p)||!partnerIs(p,"白"))return noEff();
+    await rmChar(p,apLe(8000));
+    if(setCostCount(p,()=>true)>=2&&oppHas(p,apLe(6000))&&await yes(p,"紅の盟約","裏向きのセットを合わせて2枚リムーブして、AP6000以下のキャラをもう1枚リムーブしますか？",true)){
+      await payFieldSets(p,()=>true,2);await rmChar(p,apLe(6000))}},
+  ai:p=>condOk("事件赤魔術",p)&&partnerIs(p,"白")&&oppHas(p,apLe(8000))};
+DEF["0760"]={ // 小泉紅子 B07031
+  enter:async(p,x)=>{setTop(p,x)},
+  abilities:[{label:"スリープ＋手札を1枚リムーブ: キャラを1枚リムーブ。セット2枚をリムーブしたらリムーブエリアのレベル3以下の【白】を登場",
+    can:(p,x)=>condOk("事件赤魔術",p)===true&&x.st==="a"&&p.hand.length>=1,aiCan:p=>p.hand.length>=2&&oppHas(p,y=>lvOf(y)>=5),
+    run:async(p,x)=>{sleepCost(x);await discard(p,1);await rmChar(p,y=>y!==x);
+      if(setCostCount(p,()=>true)>=2&&p.rm.some(y=>isChar(y)&&hasColor(y,"白")&&lvOf(y)<=3)&&await yes(p,"小泉紅子","裏向きのセットを合わせて2枚リムーブして、リムーブエリアのレベル3以下の【白】を登場させますか？",true)){
+        await payFieldSets(p,()=>true,2);await enterFromRm(p,y=>hasColor(y,"白")&&lvOf(y)<=3,"登場させる【白】のキャラ（レベル3以下）")}return true}}]};

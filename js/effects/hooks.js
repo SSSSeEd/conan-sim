@@ -41,7 +41,8 @@ const FX={
   async disguiseReplaced(p,mine,by){const d=def(mine);return !!(d&&d.disguiseReplaced&&await d.disguiseReplaced(p,mine,by))}, // 変装で入れ替わるキャラが、デッキの下の代わりにリムーブされるか
   async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await d.hirameki(o,e);return true}return false},
   async cutin(p,card,mine,own=true){const d=def(card);if(own&&d&&d.cutin)await fxIf(p,card,"カットイン",()=>d.cutin(p,card,mine));
-    if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await fxIf(p,mine,"コンタクト",()=>def(mine).onCutinInContact(p,mine,card))},
+    if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await fxIf(p,mine,"コンタクト",()=>def(mine).onCutinInContact(p,mine,card));
+    if(own&&mine)for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyCutin&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"カットイン",()=>e.onAllyCutin(p,y,mine,card))}}, // 自分がカットインを使用したとき（キャンティ＆コルン）
   // 工藤新一 B07003: 現場にいると、手札の【青】のカードは「【カットイン】AP＋1000」を持つ
   grantedCutin:(p,x)=>p&&p.hand.includes(x)&&hasColor(x,"青")&&p.field.some(y=>idOf(y)==="0735")?1000:null,
   // 妃英理 B05007: このターン、［毛利探偵事務所］のアクション中は相手はカットインできない
