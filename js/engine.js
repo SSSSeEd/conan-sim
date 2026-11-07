@@ -403,7 +403,8 @@ async function contact(p,a,d){ // p=ターンプレイヤー(攻撃側)
   for(const x of [ct.a,ct.d])x.apC=0;
   G.contact=null;
   if(won){await cutin(ct.d,"リムーブ！",`${C(ct.a).nm} AP${A} ≧ ${C(ct.d).nm} AP${D}`,{who:p,ms:1100});
-    removeCard(ct.d,"コンタクト",{by:p});render();await FX.contactWin(p,ct.a,ct.d)}
+    if(ct.safe===ct.d)log(`　${C(ct.d).nm} はこのコンタクトによってリムーブされない`,"n");
+    else{removeCard(ct.d,"コンタクト",{by:p});render();await FX.contactWin(p,ct.a,ct.d)}}
   else{await cutin(ct.d,"防いだ！",`${C(ct.a).nm} AP${A} ＜ ${C(ct.d).nm} AP${D}`,{who:o,ms:1100});log("　アクションした側のAPが低いので何も起きない","n")}
   render();await runQueue();
 }

@@ -465,3 +465,115 @@ DEF["1263"]={...solvedDiscard, // 警視庁公安部の潜入捜査官 B11100
     can:p=>p.solved&&p.file.some(y=>y!==p.partner)&&p.hand.some(galeYK(p.file.length-1)),
     aiCan:p=>p.hand.some(y=>galeYK(p.file.length-1)(y)&&lvOf(y)>=5),
     run:async p=>{if(!fileTopRm(p))return false;await toPaWithReturn(p,p.hand.filter(galeYK(p.file.length)),"パートナーエリアに移すキャラ");return true}}]};
+
+// --- レベル2・1 / 事件・イベント（残り）---
+const noEff=()=>log("　条件を満たさないので効果なし","n");
+const bigJewel=y=>C(y).t==="イベント"&&hasTrait(y,"ビッグジュエル");
+// 選択肢から1つ（人は ask、CPUは aiIdx）
+async function pickMode(p,title,labels,aiIdx=0){
+  if(p.cpu)return aiIdx;
+  return await ask(`${p.name}: ${title}`,"1つ選んで行います",labels.map((l,i)=>({label:l,value:i,primary:i===0})))}
+const drawDiscard=async p=>{drawN(p,1);await discard(p,1)};
+// 相手の証拠を上から1つリムーブして、自分は証拠を1つ得る
+async function stealEv(p){const o=opp(p);if(!o.ev.length)return;const e=o.ev.pop();log(`　${o.name} の証拠を1つリムーブ`,"n");await hirameki(o,e);gainEvidence(p,1);log(`　${p.name} は証拠を1つ得た（証拠${p.ev.length}）`,"n")}
+
+DEF["1183"]={ // 毛利蘭 B11015
+  enter:async p=>{if(!condOk("絆工藤新一",p))return;await drawDiscard(p)}};
+DEF["1184"]={ // 事件青＆白のイベント B11016
+  event:async p=>{if(!condOk("事件青＆白",p)||!partnerIs(p,"青"))return noEff();
+    drawN(p,2);await discard(p,1);await playFromHand(p,y=>lvOf(y)<=p.file.length&&colorAny(y,"青","白"),"登場させる【青】か【白】のキャラ")},
+  ai:p=>condOk("事件青＆白",p)&&partnerIs(p,"青")};
+DEF["1185"]={ // 五人囃子 B11017
+  event:async p=>{const got=[];
+    for(let i=0;i<3;i++){const cs=p.rm.filter(y=>isKomae(y)&&!got.includes(y)&&!got.some(g=>sameName(g,y)));if(!cs.length)break;
+      const [y]=await pickCards(p,`リムーブエリアのレベル4の［少年探偵団］（${i+1}枚目・カード名が異なるもの）`,"",cs,{ai:c=>c.slice().sort((a,b)=>apOf(b)-apOf(a)).slice(0,1)});if(!y)break;got.push(y)}
+    if(!got.length)return;
+    const [a]=await pickCards(p,"登場させるキャラ","",got,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>apOf(b)-apOf(a))});
+    let rest=got.filter(y=>y!==a);
+    const [b]=rest.length?await pickCards(p,"スリープ状態で登場させるキャラ","",rest,{min:1,max:1,ai:c=>c.slice(0,1)}):[];
+    rest=rest.filter(y=>y!==b);
+    if(a)await enterByEffect(p,a,"a");if(b)await enterByEffect(p,b,"s");
+    for(const y of rest){if(!p.rm.includes(y))continue;rmToHand(p,y)}},
+  ai:p=>p.rm.filter(isKomae).length>=2};
+DEF["1194"]={ // 「平次…」「カッコエ――ッ♡」 B11027
+  event:async p=>{if(!p.solved)return noEff();
+    if(p.field.some(exactName("遠山和葉")))await rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）");
+    if(p.field.some(exactName("大岡紅葉")))await rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）");
+    if(p.field.some(exactName("服部平次")))drawN(p,1)},
+  ai:p=>p.solved&&p.field.some(anyExact("遠山和葉","大岡紅葉","服部平次"))};
+DEF["1195"]={ // 私のとてもとても大好きなお酒 B11028
+  event:async p=>{if(!condOk("事件緑＆赤",p))return noEff();
+    const cs=await pickCards(p,"AP＋4000するキャラ（好きな数）","相手の現場のアクティブ状態のキャラを指定してアクションできるようになります。",p.field,{max:5,ai:c=>c.slice()});
+    for(const y of cs){apTurn(y,4000);giveKw(y,"アクティブ指定")}},
+  ai:p=>condOk("事件緑＆赤",p)&&p.field.length>0};
+DEF["1202"]={ // 怪盗キッド B11036
+  enter:async p=>{if(!myTurn(p))return;await kidJewel(p)},
+  disguise:async p=>{if(!myTurn(p))return;await kidJewel(p)}};
+async function kidJewel(p){const y=await toPaWithReturnNo(p,p.rm.filter(bigJewel),"パートナーエリアに移す［ビッグジュエル］のイベント");if(y)drawN(p,1)}
+async function toPaWithReturnNo(p,cands,title){
+  if(!cands.length)return null;const [y]=await pickCards(p,title,"",cands,{ai:c=>c.slice(0,1)});
+  if(!y)return null;toPartnerArea(p,y);return y}
+DEF["1215"]={ // 「探偵はその跡を見て…」 B11049
+  event:async p=>{if(!condOk("事件探偵VS怪盗",p)||!partnerIs(p,"白"))return noEff();
+    drawN(p,2);await discard(p,2);await enterFromRm(p,y=>lvOf(y)<=7&&colorAny(y,"青","白"),"登場させる【青】か【白】のキャラ（レベル7以下）")},
+  ai:p=>condOk("事件探偵VS怪盗",p)&&partnerIs(p,"白")};
+DEF["1216"]={ // 漆黒の星 B11050（セット中の効果は FX.onContact → setContact）
+  event:async(p,x)=>{
+    const ups=p.ev.filter(e=>e.up);
+    if(ups.length){const [e]=await pickCards(p,"裏向きにする表向きの証拠","",ups,{ai:c=>c.slice(0,1)});if(e){e.up=false;log(`　${p.name} は表向きの証拠を裏向きにした`,"n")}}
+    const h=await setEventOn(p,x,y=>hasTrait(y,"鈴木財閥")||hasTrait(y,"怪盗"));if(h)apTurn(h,2000)},
+  setContact:async(q,y,sc,ct)=>{
+    if(!await yes(q,"漆黒の星","このイベントをパートナーエリアに移して、このコンタクトでリムーブされないようにしますか？",()=>true))return false;
+    const i=y.set.findIndex(s=>s.c===sc);if(i>=0)y.set.splice(i,1);toPartnerArea(q,sc);return true},
+  ai:p=>p.field.some(y=>hasTrait(y,"鈴木財閥")||hasTrait(y,"怪盗"))};
+DEF["1223"]={ // 新出智明 B11058
+  abilities:[{label:"スリープ: キャラをAP－2000",can:(p,x)=>x.st==="a"&&condOk("事件緑＆赤",p)&&partnerIs(p,"赤"),aiCan:p=>oppHas(p,y=>true),
+    run:async(p,x)=>{const t=await chooseChar(p,"AP－2000するキャラ",y=>true);if(!t)return false;sleepCost(x);apTurn(t,-2000);return true}}]};
+DEF["1226"]={ // ジェイムズ・ブラック B11061
+  enter:async p=>{if(!condOk("事件緑＆赤",p)||!p.solved)return;await drawDiscard(p)}};
+DEF["1230"]={ // 消毒と絆創膏 B11065
+  event:async p=>{if(!partnerIs(p,"赤"))return noEff();
+    const all=["宮野厚司","宮野エレーナ","宮野明美","宮野志保"].every(n=>p.field.some(exactName(n)));
+    const steps=[()=>rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）"),
+      ()=>bottomChar(p,apLe(8000),"デッキの下に移すキャラ（AP8000以下）"),
+      async()=>{if(p.field.some(y=>y.st==="x"))await stealEv(p)}];
+    const idx=all?[0,1,2]:[await pickMode(p,"消毒と絆創膏",["AP8000以下をリムーブ","AP8000以下をデッキの下へ","相手の証拠を1つリムーブして証拠を得る"],oppHas(p,apLe(8000))?0:2)];
+    for(const i of idx){await steps[i]();await runQueue()}},
+  ai:p=>partnerIs(p,"赤")&&oppHas(p,apLe(8000))};
+DEF["1232"]={ // 佐藤美和子 B11068
+  enter:async(p,x)=>{if(!condOk("絆高木渉",p)||!p.solved||x.st!=="a")return;
+    if(!p.field.some(exactName("高木渉")))return;
+    if(!await yes(p,"佐藤美和子","このキャラをスリープさせて、［高木渉］に相手のアクティブ状態のキャラを指定してアクションできるようにしますか？",true))return;
+    sleepC(x);const [t]=await pickCards(p,"アクティブ指定を与える［高木渉］","",p.field.filter(exactName("高木渉")),{min:1,max:1,ai:c=>c.slice(0,1)});if(t)giveKw(t,"アクティブ指定")}};
+DEF["1238"]={ // 上原由衣 B11074
+  gale:async p=>{await drawDiscard(p)}};
+DEF["1243"]={ // 「うるさい!!これは警察の仕事だ!!」 B11079
+  event:async p=>{if(!p.solved)return noEff();
+    const n=new Set(p.field.flatMap(y=>colorsOf(C(y).c))).size;if(!n)return log("　現場にキャラがいないので効果なし","n");
+    const labels=["キャラを1枚リムーブ","キャラを1枚スリープ","相手の裏向きの証拠を表向きに","自分の表向きの証拠を裏向きに","カードを1枚引く","相手は手札を1枚リムーブ"];
+    const chosen=[];
+    for(let k=0;k<n;k++){const rest=labels.map((l,i)=>i).filter(i=>!chosen.includes(i));if(!rest.length)break;
+      if(p.cpu){const pref=[0,1,4,5,2,3].filter(i=>rest.includes(i));chosen.push(pref[0]);continue}
+      const v=await ask(`${p.name}: 選択肢（あと${n-k}つまで）`,"選んだものは上から順に行います。",[...rest.map(i=>({label:labels[i],value:i,primary:i===rest[0]})),{label:"やめる",value:-1}]);
+      if(v<0)break;chosen.push(v)}
+    chosen.sort((a,b)=>a-b);
+    for(const i of chosen){
+      if(i===0)await rmChar(p,()=>true);
+      else if(i===1){const t=await chooseChar(p,"スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t)}
+      else if(i===2){const o=opp(p),fd=o.ev.filter(e=>!e.up);if(fd.length){fd[fd.length-1].up=true;log(`　${o.name} の裏向きの証拠を表向きにした`,"n")}}
+      else if(i===3){const u=p.ev.filter(e=>e.up);if(u.length){u[u.length-1].up=false;log(`　${p.name} の表向きの証拠を裏向きにした`,"n")}}
+      else if(i===4)drawN(p,1);
+      else if(i===5)await discard(opp(p),1);
+      await runQueue()}},
+  ai:p=>p.solved&&p.field.length>0};
+DEF["1256"]={ // 「黒と黒が混ざっても…黒にしかならねぇよ…」 B11093
+  event:async p=>{
+    const both=p.field.some(exactName("ジン＆ベルモット"))||p.pa.some(exactName("ジン＆ベルモット"));
+    const a=async()=>{const t=await chooseChar(p,"スリープさせるキャラ",y=>y.st==="a");if(t)sleepC(t);drawN(p,1)};
+    const b=async()=>{const bl=p.field.filter(y=>hasColor(y,"黒"));if(!bl.length)return;
+      if(!await yes(p,"黒と黒が混ざっても","現場の【黒】のキャラを1枚リムーブして、キャラ1枚とスリープ状態のキャラ1枚をリムーブしますか？",()=>oppHas(p,y=>y.st==="s")))return;
+      const [c]=await pickCards(p,"リムーブする自分の【黒】のキャラ","",bl,{min:1,max:1,ai:cs=>cs.slice().sort((x,y)=>lvOf(x)-lvOf(y))});if(!c)return;
+      removeCard(c,"効果",{by:p,effect:true});await runQueue();
+      await rmChar(p,()=>true);await runQueue();await rmChar(p,y=>y.st==="s","リムーブするスリープ状態のキャラ");await runQueue()};
+    if(both){await a();await b()}else{const i=await pickMode(p,"黒と黒が混ざっても",["キャラをスリープして1枚引く","【黒】を1枚リムーブして相手を2枚リムーブ"],0);await(i===0?a():b())}},
+  ai:p=>oppHas(p,y=>y.st==="a")};
