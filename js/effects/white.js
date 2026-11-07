@@ -90,7 +90,7 @@ DEF["0872"]={ // 工藤有希子 B08033
 DEF["0875"]={ // クリス・ヴィンヤード B08036
   abilities:[{label:"【スリープ】［工藤有希子］をセット: レベル7以下をデッキの下へ",can:(p,x)=>x.st==="a"&&p.rm.some(named("工藤有希子")),aiCan:p=>oppHas(p,y=>lvOf(y)>=4&&lvOf(y)<=7),
     run:async(p,x)=>{sleepCost(x);const [y]=await pickCards(p,"裏向きでセットする［工藤有希子］","",p.rm.filter(named("工藤有希子")),{max:1,ai:c=>c.slice(0,1)});if(!y)return true;
-      detach(y);x.set.push({c:y,up:false});log(`　${C(x).nm} に ${C(y).nm} を裏向きでセット`,"n");await runQueue();await bottomChar(p,z=>z!==x&&lvLe(7)(z));return true}}]};
+      detach(y);x.set.push({c:y,up:false});log(`　${C(x).nm} に ${C(y).nm} を裏向きでセット`,"n");noteSetOn(p,x);await runQueue();await bottomChar(p,z=>z!==x&&lvLe(7)(z));return true}}]};
 DEF["0554"]={ // 工藤優作 B05052
   apSelf:p=>myTurn(p)&&condOk("絆工藤有希子",p)?3000:0,
   kwSelf:p=>myTurn(p)&&condOk("絆工藤有希子",p)?["突撃"]:[],

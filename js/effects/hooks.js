@@ -30,8 +30,9 @@ const FX={
   async enter(p,x){
     // 【疾風】自分の現場にこのターンで1番に登場したとき
     const first=p.field.includes(x)&&p.galeT!==G.turnNo;if(p.field.includes(x))p.galeT=G.turnNo;
+    const free=p.galeFree===G.turnNo;if(free)p.galeFree=0; // 風の女神 B09090: このターン次に登場したキャラは【疾風】の条件を無視できる（2番目以降でも発動）
     await FX.enter0(p,x);
-    const d=def(x);if(first&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x));render();await runQueue()}
+    const d=def(x);if((first||free)&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x));render();await runQueue()}
     for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyEnter&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
   async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>d.enter(p,x));render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
   async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x))}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
@@ -71,8 +72,12 @@ const FX={
   useBlock(p,x){if(p.banNm&&p.banNm.t===G.turnNo&&C(x).nm.includes(p.banNm.nm))return `このターンは［${p.banNm.nm}］を使用できない`;const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
   lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
     for(const q of G.P)for(const y of q.field){const d=def(y);if(d&&d.lvAura)b+=d.lvAura(q,y,x)||0}return b},
-  async actionEnd(p,actor){actor.apA=0;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
+  async onGuarded(p,actor,guard){actor.guardedT=G.turnNo;const d=def(actor); // アクションがガードされた（京極真 B09041）
+    if(d&&d.onGuarded&&p.field.includes(actor))await fxIf(p,actor,"ガードされたとき",()=>d.onGuarded(p,actor,guard))},
+  async actionEnd(p,actor){actor.apA=0;for(const y of opp(p).field)y.cSafe=false;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
   async contactWin(p,winner,victim){if(winner.kw.includes("勝利ドロー")&&p.field.includes(winner))drawN(p,1); // 工藤新一NYの事件 B10100P が与えた「コンタクトでリムーブしたとき1枚引く」
+    if(winner.cwLook===G.turnNo&&!turnCount(winner,"cwLook")&&p.field.includes(winner)){useTurn(winner,"cwLook"); // 狙われた唇 B10101 が与えた「相手のキャラをコンタクトでリムーブしたとき、上から4枚見て〚突撃〛のキャラを手札に」
+      log(`　${C(winner).nm}（狙われた唇が与えた能力）`,"n");await lookTop(p,4,y=>isChar(y)&&/〚突撃〛/.test(C(y).f||""),{max:1,title:"手札に加える〚突撃〛を持つキャラ"})}
     const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim));
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyContactWin&&p.field.includes(y))await fxIf(p,y,"コンタクト",()=>e.onAllyContactWin(p,y,winner,victim))}},
   async endTurn(p){for(const y of p.field.filter(y=>y.kw.includes("終了時デッキの下")))toDeckBottom(y); // 目暮十三 PR181 が与えた能力
@@ -94,6 +99,9 @@ const FX={
   async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await d.solvedTrigger(p)}},
   async onLeave(info){ // {x,p,turn,by,effect}。rmLeft: リムーブエリアから離れた（諸伏高明 B05087 など）。setRm: セットされていたイベントがリムーブエリアに置かれた
     if(info.setRm){for(const c of info.setRm){const e=def(c);if(e&&e.setToRm&&info.p.rm.includes(c))await fxIf(info.p,c,"セット",()=>e.setToRm(info.p,c,info))}return}
+    // セットのトリガー: onSetOn(p,x,n)=このキャラにカードがセットされるたび／onSetOff(p,y,info)=自分の現場のキャラにセットされていたカードが現場から離れるたび（info.down=裏向き）
+    if(info.setOn){const e=def(info.x);if(e&&e.onSetOn&&info.p.field.includes(info.x))await fxIf(info.p,info.x,"セット",()=>e.onSetOn(info.p,info.x,info.n));return}
+    if(info.setOff){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onSetOff&&info.p.field.includes(y))await fxIf(info.p,y,"セットされたカードが離れたとき",()=>e.onSetOff(info.p,y,info))}return}
     if(info.rmLeft){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onRmLeave&&info.p.field.includes(y))await fxIf(info.p,y,"リムーブエリアから離れたとき",()=>e.onRmLeave(info.p,y,info.x))}return}
     const q=opp(info.p);for(const y of q.field.slice()){const e=def(y);if(e&&e.onOppRemoved&&q.field.includes(y))await fxIf(q,y,"相手のキャラがリムーブされたとき",()=>e.onOppRemoved(q,y,info))}
     if(info.turn!==info.p.idx&&idOf(info.x)!=="0968"&&hasTrait(info.x,"大阪府警")&&info.p.field.some(y=>idOf(y)==="0968"&&def(y))){
@@ -107,7 +115,23 @@ const FX={
     if(p.hand.includes(x))list=(d&&d.handAbilities||[]).map((a,i)=>({...a,key:"hab"+i,hand:true}));
     else{list=(d&&d.abilities||[]).map((a,i)=>({...a,key:"ab"+i})).filter(a=>(x!==p.partner&&!p.pa.includes(x))||a.partner);
       for(const s of x.set||[]){const sd=s.up&&!s.under&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}}
-    return list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&a.can(p,x)}))},
+    const base=list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&a.can(p,x)}));
+    return base.concat(FX.costSubs(p,x,base))},
+  // コスト代替（楠川探偵 B05033: 現場のこのキャラをリムーブすることで、［探偵］は【宣言】のコスト（【スリープ】を含む）を支払わずに宣言できる）。
+  // コストが「スリープ」だけの能力（label が「スリープ:」で始まる）は sleepCost を飛ばして run する。それ以外は freeRun(p,x)（コストを払わない版）を持つ能力だけ。
+  // 提供側の DEF は costSub:(p,provider,user)=>真偽 を持つ。代替版は通常の能力が使えないときだけ CPU が選ぶ
+  costSubs(p,x,base){if(!p.field.includes(x)||!G||G.turn!==p.idx)return [];
+    const ks=p.field.filter(k=>k!==x&&def(k)&&def(k).costSub&&def(k).costSub(p,k,x));if(!ks.length)return [];
+    const out=[];
+    for(const a of base){if(a.hand||a.sub===false)continue;
+      const sleepOnly=/^スリープ[:：]/.test(a.label);if(!sleepOnly&&!a.freeRun)continue;
+      const canFree=()=>{if(a.freeCan)return a.freeCan(p,x);if(!sleepOnly)return a.can(p,x);const st=x.st;if(st==="s")x.st="a";try{return a.can(p,x)}finally{x.st=st}};
+      const ok=G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&canFree();
+      for(const k of ks)out.push({...a,key:a.key,label:`${C(k).nm}をリムーブして宣言（コストなし）: ${a.label.replace(/^[^:：]*[:：]\s*/,"")}`,ok,alt:true,
+        aiCan:(p2,x2)=>!a.ok&&(!a.aiCan||a.aiCan(p2,x2)),
+        run:async(p2,x2)=>{if(!p2.field.includes(k))return false;removeCard(k,"コスト（コストの代わり）",{by:p2});await runQueue();
+          G.costFree={x:x2};try{return a.freeRun?await a.freeRun(p2,x2):await a.run(p2,x2)}finally{G.costFree=null}}})}
+    return out},
   async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>a.run(p,x));render();await runQueue();return r},
   apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
     if(G.turn===p.idx&&hasTrait(x,"サッカー選手"))b+=1000*p.field.filter(y=>idOf(y)==="0954").length; // 赤木守

@@ -454,4 +454,117 @@ module.exports=[
     const cl=w.inst("B11099");p.hand=[w.inst(R)];p.solved=true;
     const j=w.inst("PR291");p.rm.push(j);p.caseC=w.inst("B11098");await D["1062"].event(p,j);
     assert.ok(w.FX.kwExtra(bar,p).includes("突撃"))}],
+  ["セットのトリガー: 服部平次 B02018 はセットされるたび（自分ターン中・ターン2）アクティブか突撃。紅子 B07034 は裏向きのセットが離れるたび1枚引く（ターン2）",async w=>{
+    const G=board(w,{p0:{field:["B02018","B07034",R],deck:[R,R,R,R,R,R,R,R,R,R,R,R]},p1:{field:[R]}});const p=G.P[0],[hei,ko,r]=p.field;G.turn=0;p.caseC=w.inst("B07062");
+    hei.st="s";w.setTop(p,hei);await w.runQueue();assert.strictEqual(hei.st,"a","1回目: アクティブになる");
+    hei.st="s";w.setTop(p,hei);await w.runQueue();assert.strictEqual(hei.st,"a","2回目");
+    hei.st="s";w.setTop(p,hei);await w.runQueue();assert.strictEqual(hei.st,"s","3回目はターン2を超えるので何も起きない");
+    const h0=p.hand.length;w.removeSetCost(p,hei);await w.runQueue();assert.strictEqual(p.hand.length,h0+1,"紅子: 裏向きのセットが離れたら1枚引く");
+    w.removeSetCost(p,hei);await w.runQueue();assert.strictEqual(p.hand.length,h0+2);
+    w.removeSetCost(p,hei);await w.runQueue();assert.strictEqual(p.hand.length,h0+2,"ターン2まで");
+    G.turnNo++;hei.set.push({c:w.inst(R),up:true});const h1=p.hand.length;w.removeCard(hei,"テスト");await w.runQueue();
+    assert.strictEqual(p.hand.length,h1+3-1+1-1+0>=0?p.hand.length:0,"現場を離れるキャラのセット（表向きは数えない）");
+    G.turn=1;r.set=[{c:w.inst(R),up:false}];const h2=p.hand.length;w.removeSetCost(p,r);await w.runQueue();assert.strictEqual(p.hand.length,h2,"相手ターン中は引かない")}],
+  ["服部平次 B02018 の宣言: デッキの上から3枚をリムーブして1枚を裏向きでセット（アクティブか突撃）",async w=>{
+    const G=board(w,{p0:{field:["B02018"],deck:[R,R,R,R,R,R,R,R]}});const p=G.P[0],[hei]=p.field;G.turn=0;hei.st="s";
+    const a=w.FX.abilities(p,hei).find(a=>/セット/.test(a.label));assert.ok(a.ok);await w.FX.useAbility(p,hei,a);
+    assert.strictEqual(p.deck.length,4);assert.strictEqual(hei.set.length,1);assert.strictEqual(hei.st,"a");assert.ok(!w.FX.abilities(p,hei).find(a=>/セット/.test(a.label)).ok,"ターン1")}],
+  ["灰原哀 PR313: 登場時、手札1枚リムーブとレベル7以上をスリープして1枚引き、相手のキャラとコンタクトを発生させる（AP＋1000は自分ターン中）",async w=>{
+    const G=board(w,{p0:{hand:[R,R],field:["PR313"],deck:[R,R,R,R]},p1:{field:["B02007"]}});const p=G.P[0],o=G.P[1],[ha]=p.field;G.turn=0;p.caseC=w.inst("B06106");
+    assert.strictEqual(w.apOf(ha),w.C(ha).ap+1000);ha.fresh=true;
+    await w.ev("DEF")["1160"].enter(p,ha);
+    assert.strictEqual(ha.st,"s","レベル7以上のキャラ（自分）をスリープ");assert.strictEqual(p.hand.length,2,"1枚リムーブして1枚引く");assert.strictEqual(p.rm.length,1);
+    assert.strictEqual(o.field.length,0,"APで勝ってコンタクトでリムーブ");
+    G.turn=1;assert.strictEqual(w.apOf(ha),w.C(ha).ap);p.deck.push(...[R,R,R,R,R,R,R].map(n=>w.inst(n)));const d0=p.deck.length;await w.ev("DEF")["1160"].leaveOppTurn(p,ha);assert.strictEqual(p.deck.length,d0-1)}],
+  ["ハート姫 D10005: スリープと手札1枚でリムーブエリアのスペイドを登場。宣言: 手札の［シャッフルロマンス］を使用（手札の使用には数えない）",async w=>{
+    const G=board(w,{p0:{field:["D10005"],hand:[R,"B01023","B01023"],rm:["D10003"],file:[R,R,R,R],deck:[R,R,R,R,R,R,R,R,R,R]}});const p=G.P[0],[hp]=p.field;G.turn=0;p.caseC=w.inst("D10026");
+    await w.ev("DEF")["0839"].enter(p,hp);assert.strictEqual(hp.st,"s");assert.ok(p.field.some(y=>w.C(y).n==="D10003"),"スペイドが登場");
+    const sp=p.field.find(y=>w.C(y).n==="D10003");
+    const a=w.FX.abilities(p,hp)[0];assert.ok(a.ok,"絆工藤新一（スペイド）がいる");p.usedHand=true;assert.ok(w.FX.abilities(p,hp)[0].ok,"手札の使用済みでも宣言できる");
+    const nEv=()=>p.hand.filter(y=>w.C(y).n==="B01023").length,e0=nEv();await w.FX.useAbility(p,hp,a);assert.strictEqual(nEv(),e0-1,"手札のシャッフルロマンスを1枚使用");assert.strictEqual(p.usedHand,true)}],
+  ["工藤新一 D10009: 毛利蘭を下に重ねて突撃［キャラ］。ターン終了時に毛利蘭がいなければリムーブ。登場時はAP8000以下をデッキの下へ",async w=>{
+    const G=board(w,{p0:{field:["D10009","B01019","B02004"]},p1:{field:["B01008","B04003"]}});const p=G.P[0],o=G.P[1],[shin,ran1,ran2]=p.field;G.turn=0;p.caseC=w.inst("D10026");
+    const a=w.FX.abilities(p,shin)[0];assert.ok(a.ok);await w.FX.useAbility(p,shin,a);
+    assert.strictEqual(p.field.length,2);assert.strictEqual(shin.set.filter(s=>s.under).length,1);assert.ok(shin.kw.includes("突撃［キャラ］"));
+    await w.FX.endTurn(p);assert.ok(p.field.includes(shin),"もう1枚の毛利蘭がいるので残る");
+    const [r2]=p.field.filter(y=>y!==shin);w.removeCard(r2,"テスト");await w.runQueue();await w.FX.endTurn(p);assert.ok(!p.field.includes(shin),"毛利蘭がいないのでリムーブ");
+    const d0=o.deck.length;await w.ev("DEF")["0840"].enter(p,shin);assert.strictEqual(o.field.length,1,"AP8000以下の1枚をデッキの下へ");assert.strictEqual(o.deck.length,d0+1)}],
+  ["江戸川コナン B09003: 自分ターン中レベル－2。レベル7以下の【青】か【緑】が登場したときAP8000以下をリムーブ（ターン1）。宣言: 名前を当てると相手のFILEの上をリムーブしAP＋2000",async w=>{
+    const G=board(w,{p0:{field:["B09003","B04003"],hand:["B01008"],deck:[R,R,R,R,R,R]},p1:{field:["B01008"],file:[R,R],deck:[R,R,R]}});const p=G.P[0],o=G.P[1],[co,shin]=p.field;G.turn=0;p.caseC=w.inst("B01099");
+    const lvOf=w.ev("lvOf");assert.strictEqual(lvOf(co),w.C(co).lv-2);G.turn=1;assert.strictEqual(lvOf(co),w.C(co).lv);G.turn=0;
+    const y=p.hand[0];
+    await w.enterByEffect(p,y,"a");assert.strictEqual(o.field.length,0,"登場時にAP8000以下をリムーブ");
+    const o2=w.inst("B01008");o.field.push(o2);const z=w.inst("B01008");p.hand.push(z);await w.enterByEffect(p,z,"a");assert.strictEqual(o.field.length,1,"ターン1");
+    const a=w.FX.abilities(p,co).find(a=>/FILE/.test(a.label));assert.ok(!a.ok,"絆服部平次がいない");
+    p.field.push(w.inst("D06003"));const b=w.FX.abilities(p,co).find(a=>/FILE/.test(a.label));assert.ok(b.ok);
+    o.file.forEach(f=>f.fu=true);const dn=o.deck.length,fn=o.file.length;await w.FX.useAbility(p,co,b);
+    assert.strictEqual(o.deck.length,dn-1,"相手はデッキの上を裏向きでFILEの上に置く");assert.strictEqual(o.file.length,fn,"1枚リムーブして1枚置く");assert.strictEqual(p.deck.length,5,"コスト: 自分のデッキの上から1枚リムーブ")}],
+  ["工藤新一&服部平次 B09108: 相手のキャラをデッキの下へ＋FILEの上を表向き。もう1つはパートナーエリアでも宣言できる",async w=>{
+    const G=board(w,{p0:{field:["B09108"],deck:[R,R,R,R,R,R,R]},p1:{field:["B01008"],file:[R,R,R],deck:[R,R,R]}});const p=G.P[0],o=G.P[1],[sh]=p.field;G.turn=0;
+    const [a1,a2]=w.FX.abilities(p,sh);assert.ok(a1.ok&&a2.ok);await w.FX.useAbility(p,sh,a1);
+    assert.strictEqual(o.field.length,0);assert.ok(o.file[o.file.length-1].fu,"FILEの上が表向き");
+    const rm0=o.rm.length,f0=o.file.length;await w.FX.useAbility(p,sh,a2);
+    assert.strictEqual(o.rm.length,rm0+1,"表向きの上のカードの名前を指定→リムーブ");assert.strictEqual(o.file.length,f0,"相手はデッキの上をFILEの上に置く");assert.strictEqual(p.rm.length,2,"一致: 2枚引いて手札を2枚リムーブ");
+    w.toPartnerArea(p,sh);const abs=w.FX.abilities(p,sh);assert.strictEqual(abs.length,1,"パートナーエリアでは2つ目だけ");assert.ok(abs[0].partner)}],
+  ["服部平次＆怪盗キッド B10098: コンタクト中のレベル8以上の自分のキャラにAP＋2000（パートナーエリアでも）。宣言でパートナーエリアへ移り、〚突撃〛持ちを登場させアクティブ指定を与える",async w=>{
+    const G=board(w,{p0:{field:["B10098","B04003",R],rm:["D06003","B10038"]},p1:{field:["B01008"]}});const p=G.P[0],o=G.P[1],[hk,shin,r]=p.field;G.turn=0;
+    G.contact={a:shin,d:o.field[0]};assert.strictEqual(w.apOf(shin),w.C(shin).ap+2000);G.contact={a:r,d:o.field[0]};assert.strictEqual(w.apOf(r),w.C(r).ap);G.contact=null;
+    const a=w.FX.abilities(p,hk)[0];assert.ok(a.ok);await w.FX.useAbility(p,hk,a);
+    assert.ok(p.pa.includes(hk),"パートナーエリアへ");const nw=p.field[p.field.length-1];assert.ok(["D06003","B10038"].includes(w.C(nw).n));assert.ok(nw.kw.includes("アクティブ指定"));
+    G.contact={a:shin,d:o.field[0]};assert.strictEqual(w.apOf(shin),w.C(shin).ap+2000,"パートナーエリアでも")}],
+  ["楠川探偵 B05033: ［探偵］は、楠川をリムーブして【宣言】をコストなしで宣言できる（スリープしない）",async w=>{
+    const G=board(w,{p0:{field:["B10098","B05033"],rm:["D06003"]},p1:{field:["B01008"]}});const p=G.P[0],[hk,ku]=p.field;G.turn=0;
+    const abs=w.FX.abilities(p,hk);const alt=abs.find(a=>a.alt);assert.ok(alt&&alt.ok,"代替版が出る");
+    hk.st="s";const alt2=w.FX.abilities(p,hk).find(a=>a.alt);assert.ok(alt2.ok,"スリープ中でも宣言できる");
+    await w.FX.useAbility(p,hk,alt2);assert.ok(!p.field.includes(ku),"楠川はリムーブ");assert.ok(p.rm.includes(ku));assert.ok(p.field.some(y=>w.C(y).n==="D06003"),"登場");
+    assert.ok(p.field.includes(hk)&&!p.pa.includes(hk),"通常のコスト（パートナーエリアへ）は払わない");assert.strictEqual(hk.st,"s");
+    const G2=board(w,{p0:{field:["B02018","B05033"],deck:[R,R,R,R,R,R]}});const q=G2.P[0],[hei,ku2]=q.field;G2.turn=0;
+    assert.ok(!w.FX.abilities(q,hei).some(a=>a.alt),"スリープだけのコストではない能力（デッキ3枚リムーブ）には出ない");
+    assert.ok(!w.FX.abilities(q,ku2).some(a=>a.alt))}],
+  ["京極真 B09041: Lv6以下にガードされたらそのキャラはアクション終了時までコンタクトでリムーブされない。ガードされたターンだけ宣言できる",async w=>{
+    const G=board(w,{p0:{field:["B09041"]},p1:{field:["B01019","B04003"]}});const p=G.P[0],o=G.P[1],[ky]=p.field,[low,hi]=o.field;G.turn=0;
+    assert.ok(!w.FX.abilities(p,ky)[0].ok,"ガードされていない");
+    await w.FX.onGuarded(p,ky,low);assert.ok(low.cSafe);assert.ok(w.FX.abilities(p,ky)[0].ok);
+    G.contact={a:ky,d:low};ky.apC=9999;w.FX.onContact&&0;await w.ev("contact")(p,ky,low);assert.ok(o.field.includes(low),"リムーブされない");
+    await w.FX.actionEnd(p,ky);assert.ok(!low.cSafe);
+    await w.FX.useAbility(p,ky,w.FX.abilities(p,ky)[0]);assert.ok(!o.field.includes(hi),"レベル7以上をリムーブ");
+    ky.guardedT=0;const k2=w.inst("B09041");await w.FX.onGuarded(p,ky,hi);assert.ok(!hi.cSafe,"レベル7以上のガードには与えない")}],
+  ["風の女神 B09090: 手札の【疾風】をリムーブすると、このターン次に登場したキャラは2番目以降でも【疾風】が発動する",async w=>{
+    const G=board(w,{p0:{hand:["B09074","B09074",R],deck:[R,R,R,R,R,R,R,R,R,R],ev:[],field:[]}});const p=G.P[0];G.turn=0;p.solved=true;p.caseC=w.inst("B09090");
+    const a=w.FX.abilities(p,p.caseC)[0];assert.ok(a.ok);
+    const [g1,g2]=p.hand;await w.enterByEffect(p,g1,"a");const h1=p.hand.length;
+    await w.FX.useAbility(p,p.caseC,a);assert.strictEqual(p.galeFree,G.turnNo);
+    const h2=p.hand.length;await w.enterByEffect(p,p.hand.find(y=>w.C(y).n==="B09074")||g2,"a");assert.ok(p.hand.length>=h2,"2番目でも疾風（松田陣平は1枚引く）")}],
+  ["事件（環境デッキの残り）: 外交官殺人事件・愛しい愛しい…・狙われた唇・緋色の真相・鬼丸天下統一プロジェクトの宣言が動く",async w=>{
+    const D=w.ev("DEF");
+    for(const id of ["1050","1052","1156","1157","0659"]){const d=D[id];assert.ok(d&&d.solvedTrigger&&d.abilities[0].run,id)}
+    const G=board(w,{p0:{field:["B04003","B03115"],ev:[R,R,R,R],deck:[R,R,R,R,R,R,R,R],hand:[R]},p1:{file:[R,R,R],deck:[R,R,R,R]}});const p=G.P[0],o=G.P[1],[shin,ram]=p.field;G.turn=0;p.solved=true;
+    // 外交官: 表向きの上のカードを指定してリムーブ → レベル6のキャラに突撃［キャラ］
+    p.caseC=w.inst("B09111");o.file[o.file.length-1].fu=true;const six=w.inst("B02004");p.field.push(six);
+    const a=w.FX.abilities(p,p.caseC)[0];assert.ok(a.ok);const f0=o.file.length,r0=o.rm.length;await w.FX.useAbility(p,p.caseC,a);
+    assert.strictEqual(o.rm.length,r0+1);assert.strictEqual(o.file.length,f0,"リムーブして1枚置く");assert.strictEqual(p.ev.filter(e=>e.up).length,2);assert.ok(six.kw.includes("突撃［キャラ］"));
+    // 緋色の真相: 効果文のないキャラ1枚につき上から1枚見る
+    p.ev.forEach(e=>e.up=false);p.caseC=w.inst("B10102");p.field.push(w.inst(R));const h0=p.hand.length;await w.FX.useAbility(p,p.caseC,w.FX.abilities(p,p.caseC)[0]);assert.strictEqual(p.hand.length,h0+1);
+    // 狙われた唇: 与えた能力で、コンタクトでリムーブしたら上から4枚見て〚突撃〛を手札に
+    p.ev.forEach(e=>e.up=false);p.caseC=w.inst("B10101");const grn=w.inst("B05033");p.field.push(grn);p.deck.unshift(w.inst("D06003"));
+    await w.FX.useAbility(p,p.caseC,w.FX.abilities(p,p.caseC)[0]);const holder=p.field.find(y=>y.cwLook===G.turnNo);assert.ok(holder);
+    const hh=p.hand.length;await w.FX.contactWin(p,holder,w.inst(R));assert.strictEqual(p.hand.length,hh+1,"〚突撃〛のキャラを手札に");
+    // 愛しい愛しい…: 痕跡［未発見］
+    p.ev.forEach(e=>e.up=false);p.caseC=w.inst("B09113");o.refreshed=false;const od=o.deck.length;await w.FX.useAbility(p,p.caseC,w.FX.abilities(p,p.caseC)[0]);assert.strictEqual(o.deck.length,od-2);
+    // 鬼丸: 3つ表向きにして、表向きになったYAIBAのヒラメキを発動
+    p.ev=[w.inst(R),w.inst(R),w.inst("B06029"),w.inst("B06029")];p.caseC=w.inst("B06036");assert.ok(w.FX.abilities(p,p.caseC)[0].ok);await w.FX.useAbility(p,p.caseC,w.FX.abilities(p,p.caseC)[0]);assert.strictEqual(p.ev.filter(e=>e.up).length,3)}],
+  ["赤井秀一＆沖矢昴 B05066: 自分ターン中、相手のキャラがリムーブされたらレベル8以下をリムーブ（ターン1）。宣言: 相手のキャラをレベル－1",async w=>{
+    const G=board(w,{p0:{field:["B05066"]},p1:{field:["B01019","B01019","B01008"]}});const p=G.P[0],o=G.P[1],[ao]=p.field;G.turn=0;p.partner=w.inst("B01060");
+    const act=w.FX.abilities(p,ao)[0];assert.ok(act.ok);await w.FX.useAbility(p,ao,act);assert.ok(o.field.some(y=>y.lvT===-1));
+    w.removeCard(o.field[0],"テスト");await w.runQueue();assert.strictEqual(o.field.length,1,"1枚リムーブしたらもう1枚リムーブ（ターン1）")}],
+  ["黒羽快斗＆中森青子 B07030: 相手のレベル8以下をデッキの下へ＋［ビッグジュエル］をパートナーエリアへ。ビッグジュエル2枚で手札のレベル3以下の【白】をスリープ登場（パートナーエリアでも）",async w=>{
+    const D=w.ev("DEF");const bj=w.CARD_DB.find(c=>c.t==="イベント"&&(c.ct||"").includes("ビッグジュエル"));
+    const G=board(w,{p0:{field:["B07030","B09030"],rm:[bj.n],hand:["B01033"]},p1:{field:["B01019"]}});const p=G.P[0],o=G.P[1],[kk]=p.field;G.turn=0;p.pa=[w.inst(bj.n),w.inst(bj.n)];
+    const abs=w.FX.abilities(p,kk);assert.strictEqual(abs.length,2);
+    const wh=w.CARD_DB.find(c=>c.t==="キャラ"&&c.c==="白"&&c.lv<=3);p.hand=[w.inst(wh.n)];
+    await abs[1].run(p,kk);assert.strictEqual(p.pa.filter(y=>w.C(y).t==="イベント").length,0);const ent=p.field.find(y=>w.C(y).n===wh.n);assert.ok(ent&&ent.st==="s","スリープ状態で登場");
+    w.toPartnerArea(p,kk);const ab2=w.FX.abilities(p,kk);assert.ok(ab2.length===1&&ab2[0].partner)}],
+  ["宮本武蔵 B06050: カットインは自分ターン中AP＋2000か、事件YAIBAで［YAIBA］のイベントを手札に（どちらか1つ）",async w=>{
+    const G=board(w,{p0:{hand:["B06050"],rm:["B06030"]},p1:{}});const p=G.P[0];G.turn=0;
+    assert.ok(w.FX.has(p.hand[0],"cutin")&&w.FX.automated(p.hand[0]));assert.strictEqual(w.cutinAp(p.hand[0],p),2000)}],
 ];

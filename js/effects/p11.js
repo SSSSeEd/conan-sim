@@ -255,7 +255,7 @@ DEF["1200"]={ // 中森青子 B11034（【事件青＆白】【パートナー�
 DEF["1210"]={ // 鈴木朋子 B11044
   kwSelf:(p,x)=>(x.set||[]).length?["突撃"]:[],
   enter:async(p,x)=>{const [y]=await pickCards(p,"このキャラにセットする［漆黒の星］","",p.rm.filter(exactName("漆黒の星")),{ai:c=>c.slice(0,1)});
-    if(!y)return;detach(y);x.set=x.set||[];x.set.push({c:y,up:true});log(`　${C(y).nm} を ${C(x).nm} にセット`,"n")}};
+    if(!y)return;detach(y);x.set=x.set||[];x.set.push({c:y,up:true});log(`　${C(y).nm} を ${C(x).nm} にセット`,"n");noteSetOn(p,x)}};
 DEF["1212"]={ // 土井塔克樹 B11046（ミスリード1は本体。変装で入れ替わるときは engine の disguiseReplaced）
   disguiseReplaced:async(p,x,by)=>{if(myTurn(p)||!anyExact("怪盗キッド")(by))return false;
     if(!await yes(p,"土井塔克樹","デッキの下に移す代わりにリムーブして、表向きの証拠を2つまで裏向きにしますか？",true))return false;
@@ -524,7 +524,7 @@ DEF["1216"]={ // 漆黒の星 B11050（セット中の効果は FX.onContact →
     const h=await setEventOn(p,x,y=>hasTrait(y,"鈴木財閥")||hasTrait(y,"怪盗"));if(h)apTurn(h,2000)},
   setContact:async(q,y,sc,ct)=>{
     if(!await yes(q,"漆黒の星","このイベントをパートナーエリアに移して、このコンタクトでリムーブされないようにしますか？",()=>true))return false;
-    const i=y.set.findIndex(s=>s.c===sc);if(i>=0)y.set.splice(i,1);toPartnerArea(q,sc);return true},
+    const i=y.set.findIndex(s=>s.c===sc);if(i>=0){y.set.splice(i,1);noteSetOff(q,y,sc,false)}toPartnerArea(q,sc);return true},
   ai:p=>p.field.some(y=>hasTrait(y,"鈴木財閥")||hasTrait(y,"怪盗"))};
 DEF["1223"]={ // 新出智明 B11058
   abilities:[{label:"スリープ: キャラをAP－2000",can:(p,x)=>x.st==="a"&&condOk("事件緑＆赤",p)&&partnerIs(p,"赤"),aiCan:p=>oppHas(p,y=>true),

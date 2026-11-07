@@ -9,7 +9,7 @@
 async function setEventOn(p,x,f=()=>true,title){
   const cs=p.field.filter(f);if(!cs.length){log(`　${C(x).nm} をセットできるキャラがいない`,"n");return null}
   const [h]=await pickCards(p,title||`${C(x).nm} をセットするキャラ`,"",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>apOf(b)-apOf(a))});
-  if(!h)return null;detach(x);h.set=h.set||[];h.set.push({c:x,up:true});log(`　${C(x).nm} を ${C(h).nm} にセット`,"n");await FX.onSet(p,h,x);return h}
+  if(!h)return null;detach(x);h.set=h.set||[];h.set.push({c:x,up:true});log(`　${C(x).nm} を ${C(h).nm} にセット`,"n");noteSetOn(p,h);await FX.onSet(p,h,x);return h}
 const oppTurnOf=(p,info)=>info.turn!==p.idx;
 const yaiba8=y=>lvOf(y)>=8&&hasTrait(y,"YAIBA");
 // リムーブエリアにあるレベル5以下の［YAIBA］のキャラを1枚まで、スリープ状態で登場させる
