@@ -135,7 +135,9 @@ const DEF={};
 // 共通の小さな処理
 const nameOf=x=>x.nmT||C(x).nm;
 const ALIAS={"0782":"怪盗キッド"}; // ロボット黒羽快斗: 現場にいるこのキャラは［怪盗キッド］としても扱う
-const namesOf=x=>{const n=[nameOf(x)];const p=ownerOf(x);if(ALIAS[idOf(x)]&&p&&p.field.includes(x))n.push(ALIAS[idOf(x)]);return n};
+const ALIAS_OFF={"1180":"工藤新一"}; // 日原誠人 B11012: 現場以外のエリアにあるこのキャラは［工藤新一］としても扱う
+const namesOf=x=>{const n=[nameOf(x)];const p=ownerOf(x);if(ALIAS[idOf(x)]&&p&&p.field.includes(x))n.push(ALIAS[idOf(x)]);
+  if(ALIAS_OFF[idOf(x)]&&!(p&&p.field.includes(x)))n.push(ALIAS_OFF[idOf(x)]);return n};
 const sameName=(a,b)=>namesOf(a).some(n=>namesOf(b).includes(n));
 const named=(...ns)=>y=>namesOf(y).some(n=>ns.some(m=>n.includes(m)));
 const isChar=y=>C(y).t==="キャラ";

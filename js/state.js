@@ -109,6 +109,7 @@ function ownCutinAp(x,p){
 }
 function disguiseOk(x,p){
   const t=C(x).dg;if(!t)return false;
+  if(p.noDisg===G.turnNo)return false; // 茶木神太郎 B11045 のヒラメキ: このターン中は【変装】を使用できない
   const tags=[...t.matchAll(/【([^】]+)】/g)].map(m=>m[1]).filter(s=>s!=="変装");
   return tags.every(tg=>condOk(tg,p)!==false);
 }
