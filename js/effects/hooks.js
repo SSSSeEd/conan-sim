@@ -52,7 +52,10 @@ const FX={
     if(!target&&p.field.includes(actor))for(const sc of setEvents(actor)){const e=def(sc);if(e&&e.setOnCase)await fxIf(p,actor,"アクション",()=>e.setOnCase(p,actor,sc))} // セットされたイベントが与える「アクション［事件］したとき」（BANG）
     const o=opp(p);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppAction&&o.field.includes(y))await fxIf(o,y,"アクション",()=>d.onOppAction(o,y,actor,target))}},
   async onCaseGain(p,actor){for(const y of p.field.slice()){const d=def(y);if(d&&d.onCaseGain&&p.field.includes(y))await fxIf(p,y,"証拠を得たとき",()=>d.onCaseGain(p,y,actor))}}, // アクション［事件］で証拠を得たとき（メアリー）
-  async onContact(p,ct){for(const q of G.P)for(const y of q.field.slice()){const d=def(y);if(d&&d.onContact&&q.field.includes(y))await fxIf(q,y,"コンタクト",()=>d.onContact(q,y,ct))}
+  async onContact(p,ct){ // セットされたイベントの「コンタクトしたとき」（相手ターン中・漆黒の星 B11050）
+    for(const q of G.P)if(q!==p)for(const y of q.field.slice())if((y===ct.a||y===ct.d)&&q.field.includes(y))for(const sc of setEvents(y)){const e=def(sc);
+      if(e&&e.setContact&&await e.setContact(q,y,sc,ct))ct.safe=y}
+    for(const q of G.P)for(const y of q.field.slice()){const d=def(y);if(d&&d.onContact&&q.field.includes(y))await fxIf(q,y,"コンタクト",()=>d.onContact(q,y,ct))}
     // ［FBI］に与えた「レベル7以下のキャラとコンタクトしたとき、コンタクト中のすべてのキャラをリムーブする」（赤井秀一 B04046）
     const [a,b]=[ct.a,ct.d];if([[a,b],[b,a]].some(([u,v])=>u.kw.includes("相打ち7")&&lvOf(v)<=7&&allChars().includes(u)&&allChars().includes(v))){
       log("　コンタクト中のすべてのキャラをリムーブ","n");for(const y of [a,b])removeCard(y,"効果",{by:ownerOf(a),effect:true});await runQueue()}},

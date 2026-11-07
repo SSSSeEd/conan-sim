@@ -342,4 +342,14 @@ module.exports=[
     assert.strictEqual(p.field.includes(sa),false);assert.ok(p.rm.includes(sa));assert.strictEqual(p.hand.length,h0,"1枚加えて1枚リムーブ");
     p.deck=[w.inst("B09074"),w.inst(R)];await D["1242"].leaveOppTurn(p,ya);assert.ok(p.hand.some(y=>w.C(y).nm.includes("松田")),"疾風のキャラを手札に");
     G.turn=0;const n=p.hand.length;p.deck=[w.inst(R),w.inst(R)];await D["1254"].selfRemovedOwnTurn(p,ya2);assert.strictEqual(p.hand.length,n+1)}],
+  ["レベル2・1と残りのイベント(P11): 五人囃子・漆黒の星（相手ターンのコンタクトでパートナーエリアへ移りリムーブされない）・怪盗キッド・消毒と絆創膏・佐藤美和子・毛利蘭",async w=>{
+    const G=board(w,{p0:{field:["B11036","B11015","B11068","B01006"],rm:["B11007","B11008","B11009","B11050"],hand:["B11017"],deck:[R,R,R,R,R,R,R]},p1:{field:[R,R]}});
+    const p=G.P[0],[ki,ra,mi]=p.field,D=w.ev("DEF");G.turn=0;
+    const n0=p.hand.length;await D["1183"].enter(p,ra);assert.strictEqual(p.hand.length,n0,"絆なしなら効果なし");
+    await D["1185"].event(p);assert.strictEqual(p.field.filter(y=>w.C(y).nm.match(/吉田|小嶋|円谷/)).length,2,"2枚登場");assert.ok(p.field.some(y=>y.st==="s"),"1枚はスリープ");assert.ok(p.hand.some(y=>/吉田|小嶋|円谷/.test(w.C(y).nm)),"残りは手札");
+    await D["1202"].enter(p,ki);assert.strictEqual(p.pa.length,1,"ビッグジュエルがパートナーエリアへ");
+    const jw=w.inst("B11050");p.rm.push(jw);G.turn=1;await D["1202"].enter(p,ki);assert.strictEqual(p.pa.length,1,"相手ターンは効かない");G.turn=0;
+    const h=ki;h.set=[{c:jw,up:true}];p.rm.splice(p.rm.indexOf(jw),1);G.turn=1;
+    const ct={a:G.P[1].field[0],d:h};await w.FX.onContact(G.P[1],ct);assert.strictEqual(ct.safe,h,"コンタクトしたキャラはリムーブされない");assert.ok(p.pa.includes(jw)&&!h.set.length);G.turn=0;
+    }],
 ];

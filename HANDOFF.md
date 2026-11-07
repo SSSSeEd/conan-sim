@@ -18,6 +18,8 @@
 - 追加した仕組み（レベル6）: `onOppDisguise`（相手が変装したとき・茶木神太郎）、`p.noDisg`（そのターン変装不可・disguiseOk）、`ALIAS_OFF`（現場以外で別名扱い・日原誠人）。
 - 追加した仕組み（レベル3）: `disguise` フックの第3引数 `mine`（入れ替わったキャラ）、カットイン「AP＋N、〚カード名［X］〛に【カットイン】する場合、代わりにAP＋M」（ownCutinAp と CI_CORE。毛利蘭 B11015 も同型）。
 - 追加した仕組み（レベル4）: `oppEndTurn`（相手のターン終了時・ルパン。FX.endTurn の最後）、`FX.ignoreCaseColor`（シャロン: 【事件黒】で手札から使うとき事件の色を無視。canPlayColor が見る）、`ALIAS_ALL`（すべてのエリアで別名扱い・和田進一）、p11.js の `lookTopRm`（上からn枚見て1枚手札、残りリムーブ）と `komaeN`（Lv4の名前違い［少年探偵団］の数）。
+- 追加した仕組み（最後）: セットされたイベントの `setContact(q,y,sc,ct)`（相手ターンのコンタクト時、true で `ct.safe=y`＝そのコンタクトでリムーブされない。漆黒の星）。p11.js に `pickMode`（1つ選ぶ）・`stealEv`・`drawDiscard`。
+- **次**: 新弾が揃ったので、デッキ補完(DECKFILL.md)で新弾デッキの試作を確認する。
 - 追加した仕組み: パートナーエリアの onAllyEnter（partnerToo のとき）、`leaveDrawT`（ジン＆ベルモットが与える「現場リムーブ時に1枚引く」）。
 - 新弾が揃ったら、デッキ補完(DECKFILL.md)に新弾の主要カードを渡して模擬環境デッキを作る（SeEdの案）。
 - 一覧: `node tools/coverage.js --set CT-P11`（未自動化カードを出す）。少年探偵団・FILE条件・裏向きセットなど、複数枚に共通する型から着手する。
