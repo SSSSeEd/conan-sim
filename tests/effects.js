@@ -352,4 +352,19 @@ module.exports=[
     const h=ki;h.set=[{c:jw,up:true}];p.rm.splice(p.rm.indexOf(jw),1);G.turn=1;
     const ct={a:G.P[1].field[0],d:h};await w.FX.onContact(G.P[1],ct);assert.strictEqual(ct.safe,h,"コンタクトしたキャラはリムーブされない");assert.ok(p.pa.includes(jw)&&!h.set.length);G.turn=0;
     }],
+  ["全弾の自動化(1): ジン・脇田兼則・キール・キャンティ・ジョディ・怪盗キッド・沖田総司・遠山和葉・服部平次・大滝悟郎",async w=>{
+    const D=w.ev("DEF");
+    const G=board(w,{p0:{field:["B08078","B09092","B09062","B10022","B10024"],hand:["B08016"],rm:["B08016","B08016"],deck:[R,R,R,R,R,R,R,R]},p1:{field:[R,"B08078"]}});
+    const p=G.P[0],[gin,kiru,jody,kazu,otaki]=p.field;G.turn=0;
+    const a=D["0914"].abilities[0];assert.ok(!a.can(p,gin),"事件の色が違う、または現場リムーブ時持ちが足りない");
+    const h0=p.hand.length;G.turn=1;p.hand.push(w.inst("B08016"));await D["0914"].leaveOppTurn(p,gin);
+    assert.ok(p.rm.length>=3,"手札の脇田兼則（Lv4・青）をリムーブして1枚引く");
+    G.turn=0;const o=G.P[1];o.refreshed=false;const d0=o.deck.length;await D["1031"].endTurn(p);assert.ok(o.deck.length<=d0,"未発見なら相手のデッキをリムーブ");
+    p.deck=[w.inst(R),w.inst(R),w.inst(R),w.inst(R)];const hj=p.hand.length;
+    await D["1004"].abilities[0].run(p,jody);assert.ok(jody.kw.includes("突撃"));assert.strictEqual(p.hand.length,hj-1);
+    kazu.set=[{c:w.inst(R),up:false}];otaki.set=[{c:w.inst(R),up:false}];
+    const hh=w.inst("B10023");p.field.push(hh);assert.ok(D["1084"].abilities[0].can(p,hh));
+    const h1=p.hand.length;await D["1084"].abilities[0].run(p,hh);assert.strictEqual(p.hand.length,h1+1);assert.strictEqual(w.ev("faceDownSet")(kazu).length+w.ev("faceDownSet")(otaki).length,0);
+    assert.strictEqual(w.ev("lvOf")(p.field[0]),w.C(p.field[0]).lv);
+    const os=w.inst("PR290");p.field.push(os);const l0=w.C(os).lv;assert.strictEqual(w.ev("lvOf")(os),l0+1,"自分ターン中はレベル＋1");G.turn=1;assert.strictEqual(w.ev("lvOf")(os),l0)}],
 ];
