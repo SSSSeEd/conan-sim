@@ -37,5 +37,6 @@ process.on("unhandledRejection",e=>{console.log("FAIL 対戦中のエラー\n   
   for(const [name,f] of require("../tests/rules.js"))await ok("ルール: "+name,()=>f(H.load({seed:1})));
   for(const [name,f] of require("../tests/effects.js"))await ok("効果: "+name,()=>f(H.load({seed:1})));
   for(const [name,f] of require("../tests/mechanics.js"))await ok("仕組み: "+name,()=>f(H.load({seed:1})));
+  for(const [name,f] of require("../tests/feedback.js"))await ok("フィードバック: "+name.replace(/^フィードバック: /,""),()=>f(H.load({seed:1})));
   if(fail){console.log(`${fail}件失敗`);process.exit(1)}
 })();
