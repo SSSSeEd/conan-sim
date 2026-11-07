@@ -90,6 +90,10 @@ function ownCutinAp(x,p){
     // 世良真純 B10058: 自分の手札が2枚以下の場合、代わりにAP＋3000（このカードは手札に数えない）
     const h=s.match(/^AP[＋+]\d+、自分の手札が(\d)枚以下の場合、代わりにAP[＋+](\d+)/);
     if(h&&p.hand.filter(y=>y!==x).length<=+h[1])best=Math.max(best||0,+h[2]);
+    // 島袋弥琴 B11024・毛利蘭 B11015: AP＋1000、〚カード名［X］〛に【カットイン】する場合、代わりにAP＋3000
+    const r=s.match(/^AP[＋+]\d+、((?:〚(?:カード名)?［[^］]+］〛か?)+)に【カットイン】する場合、代わりにAP[＋+](\d+)/);
+    const mn=G&&G.contact&&(p.field.includes(G.contact.a)?G.contact.a:G.contact.d);
+    if(r&&mn&&[...r[1].matchAll(/［([^］]+)］/g)].some(q=>C(mn).nm.includes(q[1])))best=Math.max(best||0,+r[2]);
     // 犯人 PR158: リムーブエリアにある［犯人］1枚につきAP＋2000（このカードも含める）
     const b=s.match(/^自分のリムーブエリアにある〚カード名［([^］]+)］〛1枚につき、AP[＋+](\d+)（このカードも含める）/);
     if(b)best=Math.max(best||0,+b[2]*(p.rm.filter(y=>y!==x&&C(y).nm===b[1]).length+1));
