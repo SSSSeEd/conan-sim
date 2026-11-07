@@ -82,7 +82,7 @@ async function enterByEffect(p,x,state="a"){
     const [t]=await pickCards(p,"スイッチ","現場が5体です。リムーブするキャラを選んでください。",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>lvOf(a)-lvOf(b))});
     if(!t)return false;removeCard(t,"スイッチ");
   }
-  detach(x);resetMods(x);x.st=FX.entersSleeping(x)?"s":state;x.fresh=true;x.viaAb=!G.evtBy;p.field.push(x);
+  detach(x);resetMods(x);x.st=FX.entersSleeping(x)?"s":state;x.fresh=true;x.viaAb=!G.evtBy;p.field.push(x);mrReplace(p,x);
   log(`　${p.name} は ${C(x).nm} を${state==="s"?"スリープ状態で":""}登場させた`);
   render();
   await FX.enter(p,x);

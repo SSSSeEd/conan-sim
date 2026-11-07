@@ -87,7 +87,7 @@ function buildActs(box,x,p,z){
     mv("突撃を付与",()=>x.kw.push("突撃"));mv("迅速を付与",()=>x.kw.push("迅速"));mv("ブレットを付与",()=>x.kw.push("ブレット"));
   }
   if(z!=="partner"&&z!=="case"&&x!==p.partner){
-    if(C(x).t==="キャラ"&&z!=="field"){mv("現場に登場(アクティブ)",()=>{detach(x);x.st="a";x.fresh=true;p.field.push(x)});mv("現場に登場(スリープ)",()=>{detach(x);x.st="s";x.fresh=true;p.field.push(x)})}
+    if(C(x).t==="キャラ"&&z!=="field"){mv("現場に登場(アクティブ)",()=>{detach(x);x.st="a";x.fresh=true;p.field.push(x);mrReplace(p,x)});mv("現場に登場(スリープ)",()=>{detach(x);x.st="s";x.fresh=true;p.field.push(x);mrReplace(p,x)})}
     if(z!=="hand")mv("手札に加える",()=>{detach(x);resetMods(x);p.hand.push(x)});
     if(z!=="rm")mv("リムーブ",()=>removeCard(x,"手動"));
     mv("デッキの上へ",()=>{detach(x);resetMods(x);p.deck.unshift(x)});
