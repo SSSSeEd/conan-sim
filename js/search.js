@@ -30,7 +30,7 @@ function turnPlans(p){
     p.file.pop()}
   if(!(ai2(p,"assist2")&&G.turnNo<=2&&base.length>1))base.push({play:"none"});
   // 事件・キャラの宣言能力が使えるなら、手札を使う前に能力を使う組み合わせも試す（事件の能力でリムーブエリアから手札に加えたカードを同じ手番で使うため）
-  const abNow=[...p.field,p.caseC,...p.hand,...(p.pLoc==="area"?[p.partner]:[])].some(x=>FX.abilities(p,x).some(ab=>ab.ok&&!ab.noAi&&(!ab.aiCan||ab.aiCan(p,x))));
+  const abNow=[...p.field,p.caseC,...p.hand,...areaCards(p)].some(x=>FX.abilities(p,x).some(ab=>ab.ok&&!ab.noAi&&(!ab.aiCan||ab.aiCan(p,x))));
   const all=abNow?base.flatMap(pl=>[pl,{...pl,abFirst:true}]):base;
   return all.flatMap(pl=>[pl,{...pl,hint:false}]);
 }
