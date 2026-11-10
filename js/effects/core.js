@@ -70,7 +70,8 @@ function setTop(p,x){const c=popDeck(p);if(!c)return;x.set=x.set||[];x.set.push(
 
 // 現場のキャラを選ぶ（両者の現場から）
 async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
-  const cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title));
+  let cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title));
+  if(G.evtBy===p){const f=cs.filter(y=>isOpp(p,y)&&def(y)&&def(y).forceByEvt);if(f.length)cs=f} // 吞口重彦 B08087: 相手はイベントの効果で選べるなら必ず選ぶ
   if(!cs.length){log(`　（対象なし）`,"n");return null}
   const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1)});
   if(x&&(FX.negateBySet(p,x)||await negateChosen(p,x)))return null;
@@ -95,7 +96,7 @@ async function enterByEffect(p,x,state="a"){
     const [t]=await pickCards(p,"スイッチ","現場が5体です。リムーブするキャラを選んでください。",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>lvOf(a)-lvOf(b))});
     if(!t)return false;removeCard(t,"スイッチ");
   }
-  detach(x);resetMods(x);x.st=FX.entersSleeping(x)?"s":state;x.fresh=true;x.viaAb=!G.evtBy;x.byFxT=G.turnNo;p.field.push(x);mrReplace(p,x); // byFxT: 能力や効果によって登場した（阿笠博士 B01012）
+  detach(x);resetMods(x);x.st=FX.entersSleeping(x)?"s":state;x.fresh=true;x.viaAb=!G.evtBy;x.byFxT=G.turnNo;x.entSrc=G.fxSrc?{lv:C(G.fxSrc).lv||0,t:C(G.fxSrc).t}:null;p.field.push(x);mrReplace(p,x); // byFxT: 能力や効果によって登場した（阿笠博士 B01012）
   log(`　${p.name} は ${C(x).nm} を${state==="s"?"スリープ状態で":""}登場させた`);
   render();
   await FX.enter(p,x);
@@ -147,7 +148,7 @@ const DEF={};
 // ================= 環境デッキのカード（2026-10-30 追加） =================
 // 共通の小さな処理
 const nameOf=x=>x.nmT||C(x).nm;
-const ALIAS={"0782":"怪盗キッド"}; // ロボット黒羽快斗: 現場にいるこのキャラは［怪盗キッド］としても扱う
+const ALIAS={"0782":"怪盗キッド","0450":"本堂瑛海"}; // ロボット黒羽快斗: 現場にいるこのキャラは［怪盗キッド］としても扱う
 const ALIAS_ALL={"1193":"伊織無我"}; // 和田進一 B11026: すべてのエリアで［伊織無我］としても扱う
 const ALIAS_OFF={"1180":"工藤新一"}; // 日原誠人 B11012: 現場以外のエリアにあるこのキャラは［工藤新一］としても扱う
 const namesOf=x=>{const n=[nameOf(x)];const p=ownerOf(x);if(ALIAS[idOf(x)]&&p&&p.field.includes(x))n.push(ALIAS[idOf(x)]);

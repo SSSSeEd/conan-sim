@@ -870,4 +870,9 @@ module.exports=[
     const co=w.CARD_DB.find(c=>c.nm==="江戸川コナン"&&c.lv===8).n,ha=w.CARD_DB.find(c=>c.nm==="灰原哀"&&c.lv===8),mi=w.CARD_DB.find(c=>c.nm==="円谷光彦"&&c.lv===8);
     const G=board(w,{p0:{field:["B08003"],rm:[co,co,...[ha,mi].filter(Boolean).map(c=>c.n)]}});const p=G.P[0],[x]=p.field;
     await w.ev("DEF")["0844"].enter(p,x);const n=(x.set||[]).filter(s=>s.under).length;assert.ok(n>=1&&n<=3)}],
+  ["ハチ B07024: 相手のターンに相手のレベル8が登場したら引いて捨てられる（フック）",async w=>{
+    const G=board(w,{p0:{field:["B07024"],deck:[R,R,R]},p1:{field:[]}});const p=G.P[0];const lv8=w.CARD_DB.find(c=>c.t==="キャラ"&&c.lv===8).n;
+    const d=w.ev("DEF")["0756"];assert.ok(d&&typeof d.onOppEnter==="function"&&!d.partial)}],
+  ["Lv4: lv4.js の全カードが自動化済み扱い（犯人 B10094 を除く）",async w=>{
+    const D=w.ev("DEF");for(const id of ["0010","0029","0576","0642","0756","0864"])assert.ok(D[id]&&!D[id].partial,id)}],
 ];

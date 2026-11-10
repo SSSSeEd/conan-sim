@@ -36,9 +36,11 @@ const FX={
     const free=p.galeFree===G.turnNo;if(free)p.galeFree=0; // 風の女神 B09090: このターン次に登場したキャラは【疾風】の条件を無視できる（2番目以降でも発動）
     await FX.enter0(p,x);
     const d=def(x);if((first||free)&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x),p);render();await runQueue()}
-    for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyEnter&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
+    for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyEnter&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}
+    {const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onOppEnter&&o.field.includes(y)&&p.field.includes(x))await fxIf(o,y,"登場",()=>e.onOppEnter(o,y,x))}} // 相手のキャラが登場したとき（ハチ）
+    await runQueue()},
   async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>withSrc(x,()=>d.enter(p,x)),p);render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
-  async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x),p)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
+  async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>withSrc(x,()=>d.event(p,x)),p)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
   async disguise(p,x,mine){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await resolving(()=>d.disguise(p,x,mine),p)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
     const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onOppDisguise&&o.field.includes(y))await fxIf(o,y,"変装",()=>e.onOppDisguise(o,y,x))} // 相手が【変装】を使用したとき（茶木神太郎）
@@ -72,7 +74,12 @@ const FX={
     // ［FBI］に与えた「レベル7以下のキャラとコンタクトしたとき、コンタクト中のすべてのキャラをリムーブする」（赤井秀一 B04046）
     const [a,b]=[ct.a,ct.d];if([[a,b],[b,a]].some(([u,v])=>u.kw.includes("相打ち7")&&lvOf(v)<=7&&allChars().includes(u)&&allChars().includes(v))){
       log("　コンタクト中のすべてのキャラをリムーブ","n");for(const y of [a,b])removeCard(y,"効果",{by:ownerOf(a),effect:true});await runQueue()}},
-  async onReason(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReason&&p.field.includes(y))await fxIf(p,y,"推理",()=>d.onReason(p,y,x))}await runQueue()},
+  async onReason(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReason&&p.field.includes(y))await fxIf(p,y,"推理",()=>d.onReason(p,y,x))}
+    const o=opp(p);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppReason&&o.field.includes(y))await fxIf(o,y,"相手の推理",()=>d.onOppReason(o,y,x))} // 羽田秀𠮷 B05080
+    await runQueue()},
+  // 相手がカットインか変装を使用したとき（白鳥任三郎 B04075）
+  async onOppCutDis(q,ct){const o=opp(q);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppCutDis&&o.field.includes(y))await fxIf(o,y,"カットイン/変装",()=>d.onOppCutDis(o,y,ct,q))}},
+  async onMisread(o,y){const d=def(y);if(d&&d.onMisread&&o.field.includes(y))await fxIf(o,y,"ミスリード",()=>d.onMisread(o,y))}, // 円谷光彦 B09016
   async onReveal(p,x){if(G.fxD){(G.revealQ=G.revealQ||[]).push({p,x});return}await resolving(()=>FX.runReveal(p,x))},
   async runReveal(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReveal&&p.field.includes(y))await fxIf(p,y,"公開",()=>d.onReveal(p,y,x))}},
   lpBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;const d=def(x);return d&&d.lpSelf?d.lpSelf(p,x)||0:0},
@@ -139,7 +146,10 @@ const FX={
       log(`　【現場リムーブ時】${C(info.x).nm}（服部平蔵が与えた能力）`,"n");drawN(info.p,1);await discard(info.p,1)}
     if(info.x.leaveDrawT&&info.x.leaveDrawT>=G.turnNo){info.x.leaveDrawT=0;log(`　【現場リムーブ時】${C(info.x).nm}（ジン＆ベルモットが与えた能力）`,"n");drawN(info.p,1)}
     const d=def(info.x);if(!d)return;
-    if(d.leaveOppTurn&&info.turn!==info.p.idx){await fxPre(info.p,info.x,"現場リムーブ時");log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await resolving(()=>d.leaveOppTurn(info.p,info.x),info.p)}
+    // 白馬探 B10039:【解決編】【自分ターン中】相手のキャラがコンタクトによってリムーブされた場合、そのキャラの【現場リムーブ時】は発動しない
+    const supp=info.why==="コンタクト"&&q.solved&&G.turn===q.idx&&q.field.some(y=>def(y)&&def(y).noLeaveOnContact);
+    if(d.leaveAny&&!supp)await fxIf(info.p,info.x,"現場リムーブ時",()=>d.leaveAny(info.p,info.x,info));
+    if(d.leaveOppTurn&&info.turn!==info.p.idx&&!supp){await fxPre(info.p,info.x,"現場リムーブ時");log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await resolving(()=>d.leaveOppTurn(info.p,info.x),info.p)}
     if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await fxIf(info.p,info.x,"現場リムーブ時",()=>d.selfRemovedOwnTurn(info.p,info.x))},
   abilities(p,x){const d=def(x);
     let list=[];

@@ -347,7 +347,7 @@ async function reason(p,x){
     if(o.cpu)use=mis.slice(0,Math.max(0,lp));
     else use=await chooseCards(`${o.name}: ミスリード`,`${C(x).nm} の推理（LP${lp}）に対し、ミスリードするキャラを選べます（スリープします）。`,mis,{min:0,max:mis.length,okLabel:"ミスリード"});
     for(const y of use){y.st="s";const v=staticKw(y,o).misread;lp-=v;log(`${o.name} の ${C(y).nm} がミスリード${v}（LP${lp}）`);
-      render();await cutin(y,"ミスリード！",`${o.name} の ${C(y).nm}：${C(x).nm} の推理 LP−${v}（残りLP${Math.max(0,lp)}）`,{kind:"mis"})}
+      render();await cutin(y,"ミスリード！",`${o.name} の ${C(y).nm}：${C(x).nm} の推理 LP−${v}（残りLP${Math.max(0,lp)}）`,{kind:"mis"});await FX.onMisread(o,y)}
   }
   const n=noEv?0:Math.max(0,lp);gainEvidence(p,n);log(`${p.name} は証拠を${n}つ得た（証拠${p.ev.length}）`);
   await FX.onReason(p,x);
@@ -441,7 +441,7 @@ async function contactRight(q,ct,tp){
   if(G.over)return false;
   const mine=q===tp?ct.a:ct.d,theirs=q===tp?ct.d:ct.a;
   if(!q.field.includes(mine)||!opp(q).field.includes(theirs))return false;
-  const lockCD=q.noCiDis===G.turnNo;const lockCi=opp(q).field.some(y=>FX.has(y,"noOppCutin")); // 羽田秀𠮷 B02063: 相手はカットインを使用できない // 「このターン中、相手はカットインと変装を使用できない」（「君は思ったより手強いって事がね！」など）
+  const lockCD=q.noCiDis===G.turnNo;const lockCi=opp(q).field.some(y=>{const d=def(y);return d&&d.noOppCutin&&(d.noOppCutin===true||d.noOppCutin(opp(q),y))}); // 羽田秀𠮷 B02063: 相手はカットインを使用できない // 「このターン中、相手はカットインと変装を使用できない」（「君は思ったより手強いって事がね！」など）
   const cuts=lockCD||lockCi||FX.noCutin(mine)||q!==tp&&FX.cutinLocked(tp,ct.a)?[]:q.hand.filter(x=>cutinUsable(x,q)); // 条件（自分ターン中など）を満たすものだけ
   const dis=lockCD?[]:q.hand.filter(x=>C(x).t==="キャラ"&&C(x).dg&&disguiseOk(x,q));
   if(!cuts.length&&!dis.length)return false;
@@ -455,7 +455,7 @@ async function contactRight(q,ct,tp){
       else choice={x,how:cuts.includes(x)?"cut":"dis"}}
   }
   if(!choice){log(`${q.name} はパス`,"n");return false}
-  const x=choice.x;
+  const x=choice.x;await FX.onOppCutDis(q,ct);
   {render();await cutin(x,`${q.name}: ${choice.how==="cut"?"カットイン":"変装"}`,choice.how==="cut"?((C(x).ci||"").split("\n")[0]||`AP＋${FX.grantedCutin(q,x)}`):`${C(mine).nm} → ${C(x).nm}`,{who:q})}
   if(choice.how==="cut"){
     // 与えられたカットイン（AP＋1000）と自分のカットインの両方があれば、どちらか1つを使う
