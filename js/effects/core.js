@@ -11,6 +11,7 @@ const lvOf=x=>Math.max(0,(C(x).lv||0)+(x.lvT||0)+(window.FX&&G?FX.lvBonus(x):0))
 function hasTrait(x,t){
   if((C(x).ct||"").split(",").includes(t))return true;
   const p=ownerOf(x);
+  if(t==="喫茶ポアロ"&&p&&p.poaroT===G.turnNo)return true; // 榎本梓誘拐事件 B06095: このターン、自分のすべてのキャラは［喫茶ポアロ］を持つ
   if(t==="サッカー選手"&&p&&p.field.includes(x)&&["1065","1066"].includes(idOf(x)))return true; // 現場にいるこのキャラは［サッカー選手］を持つ
   if(t==="鈴木財閥"&&p&&p.field.includes(x)&&idOf(x)==="1213")return true; // 富沢雄三 B11047
   if(t==="長野県警"&&p&&p.field.includes(x)&&["0900"].includes(idOf(x)))return true; // 現場にいるこのキャラは［長野県警を持つ］を持つ
@@ -71,6 +72,7 @@ async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
 // 毛利蘭 B10011【絆工藤新一】: 相手のイベントの効果では選べない（リムーブされない）
 function immune(p,y){const q=ownerOf(y);if(!q||q===p||!q.field.includes(y))return false;
   if(["0002","0514"].includes(idOf(y))&&condOk("絆江戸川コナン",q))return true; // 灰原哀【絆江戸川コナン】相手の能力や効果によって選ばれない
+  if(q.field.some(h=>setEvents(h).some(s=>def(s)&&def(s).setShield&&def(s).setShield(q,h,y))))return true; // セットされたイベントが与える「相手のイベントでは選ばれない」
   return !!(G.evtBy===p&&idOf(y)==="1073"&&condOk("絆工藤新一",q))}
 // 工藤新一 B04003【絆毛利蘭】【相手ターン中】【ターン1】: 自分の［毛利蘭］が相手の能力や効果で選ばれたら、相手は手札を1枚リムーブしないと無効
 async function negateChosen(p,y){const q=ownerOf(y);if(!q||q===p||G.turn!==p.idx||!C(y).nm.includes("毛利蘭"))return false;

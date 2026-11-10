@@ -261,7 +261,7 @@ async function useFromHand(p,x,viaHint=false,byEffect=false){
     detach(x);p.rm.push(x);
     if(!viaHint&&!byEffect)p.usedHand=true;
     log(`${p.name} はイベント ${c.nm} を使用した${viaHint?"（ネクストヒント）":""}`);
-    render();await FX.event(p,x);
+    render();G.evtEff=!!byEffect;await FX.event(p,x);G.evtEff=false;
   }
   if(viaHint)await FX.onHintUse(p,x);
   render();return true;
@@ -296,6 +296,7 @@ async function assist(p){
 function solve(p){
   if(p.pLoc!=="area"||p.partner.st!=="a"){toast("パートナーがアクティブではない");return}
   if(!p.solved){toast("事件がまだ事件編");return}
+  if(FX.noSolve(p)){toast("この事件のあいだは事件解決できない");return}
   recAct(p,"solve",p.partner);
   p.partner.st="s";
   if(FX.eraseEvidence(p)){
@@ -416,8 +417,9 @@ async function contactRight(q,ct,tp){
   if(G.over)return false;
   const mine=q===tp?ct.a:ct.d,theirs=q===tp?ct.d:ct.a;
   if(!q.field.includes(mine)||!opp(q).field.includes(theirs))return false;
-  const cuts=FX.noCutin(mine)||q!==tp&&FX.cutinLocked(tp,ct.a)?[]:q.hand.filter(x=>cutinUsable(x,q)); // 条件（自分ターン中など）を満たすものだけ
-  const dis=q.hand.filter(x=>C(x).t==="キャラ"&&C(x).dg&&disguiseOk(x,q));
+  const lockCD=q.noCiDis===G.turnNo; // 「このターン中、相手はカットインと変装を使用できない」（「君は思ったより手強いって事がね！」など）
+  const cuts=lockCD||FX.noCutin(mine)||q!==tp&&FX.cutinLocked(tp,ct.a)?[]:q.hand.filter(x=>cutinUsable(x,q)); // 条件（自分ターン中など）を満たすものだけ
+  const dis=lockCD?[]:q.hand.filter(x=>C(x).t==="キャラ"&&C(x).dg&&disguiseOk(x,q));
   if(!cuts.length&&!dis.length)return false;
   let choice=null;
   if(q.cpu)choice=cpuContact(q,mine,theirs,cuts,tp);
