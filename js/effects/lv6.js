@@ -204,7 +204,7 @@ function l6_hasBlackY(y){return hasColor(y,"黒")}
 DEF["0136"]={onAction:async(p,self,actor,target)=>{if(!target&&p.field.includes(actor))giveKw(self,"突撃")},hirameki:l6_hiDraw}; // 世良真純 D04005
 DEF["0487"]={ // 宮野厚司 PR100
   cutin:async p=>{if(!p.solved||p.file.length<4)return;const y=fileTopCard(p);if(!y||!await yes(p,"宮野厚司","FILEエリアの上から1枚を手札に加えて、［シェリー］［宮野志保］［宮野明美］を登場させますか？",true))return;
-    p.file.splice(p.file.indexOf(y),1);p.hand.push(y);log(`　FILEの ${C(y).nm} を手札に`,"n");await enterFromRm(p,z=>["シェリー","宮野志保","宮野明美"].some(n=>exactName(n)(z))&&lvOf(z)<=5,"登場させるレベル5以下のキャラ")},hirameki:l6_hiDraw};
+    p.file.splice(p.file.indexOf(y),1);p.hand.push(y);noteFileHand(p);log(`　FILEの ${C(y).nm} を手札に`,"n");await enterFromRm(p,z=>["シェリー","宮野志保","宮野明美"].some(n=>exactName(n)(z))&&lvOf(z)<=5,"登場させるレベル5以下のキャラ")},hirameki:l6_hiDraw};
 
 // ================= 黄 =================
 DEF["0072"]={ // 降谷零 B01084

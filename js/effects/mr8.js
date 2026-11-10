@@ -155,7 +155,7 @@ DEF["0359"]={ // ジン B03110
   endTurn:async(p,self)=>{if(!partnerIs(p,"黒")||p.file.filter(y=>y!==p.partner).length<2)return;
     const others=allChars().filter(y=>y!==self);const val=q=>others.filter(y=>ownerOf(y)===q).reduce((n,y)=>n+lvOf(y)+2,0);
     if(!await yes(p,"ジン","FILEの上から2枚を手札に加え、手札を2枚リムーブして、このキャラ以外のすべてのキャラをリムーブしますか？",()=>val(opp(p))>=val(p)+6))return;
-    for(let i=0;i<2;i++){const y=takeFileTop(p);if(y){y.fu=false;p.hand.push(y);log(`　FILEの上の ${C(y).nm} を手札に`,"n")}}
+    for(let i=0;i<2;i++){const y=takeFileTop(p);if(y){y.fu=false;p.hand.push(y);noteFileHand(p);log(`　FILEの上の ${C(y).nm} を手札に`,"n")}}
     await discard(p,2);for(const y of allChars())if(y!==self)removeCard(y,"効果",{by:p,effect:true});await runQueue()}};
 DEF["0418"]={ // 服部平次 B04017
   onAllyEnter:async(p,self,y)=>{if(!partnerIs(p,"緑")||!myTurn(p)||!exactName("遠山和葉")(y)||turnCount(self,"hk4"))return;useTurn(self,"hk4");await rmChar(p,apLe(8000))}};

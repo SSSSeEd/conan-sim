@@ -54,6 +54,7 @@ function activatePartner(q){
   q.partner.st="a"}
 // 現場を離れるキャラにセットされていたカードをリムーブエリアへ。表向きのイベントは「リムーブエリアに置かれたとき」（刃新陰流風車 など）を予約
 // セットのトリガー予約（runQueue → FX.onLeave）。setOn=キャラにカードがセットされた、setOff=セットされていたカードが現場から離れた（効果: onSetOn / onSetOff）
+function noteFileHand(p){if(G&&G.queue)G.queue.push({fileHand:true,p,turn:G.turn})} // FILEエリアのカードを手札に加えたとき（大上祝善 B05050）
 function noteSlept(x){if(G&&G.queue&&x.st==="a"){const p=ownerOf(x);if(p&&p.field.includes(x))G.queue.push({slept:true,x,p,turn:G.turn})}} // アクティブからスリープ状態になったとき（阿笠博士 B03008）
 function noteSetOn(p,h,n=1){if(G&&G.queue&&n>0)G.queue.push({setOn:true,x:h,p,n,turn:G.turn})}
 function noteSetOff(p,h,card,down){if(G&&G.queue)G.queue.push({setOff:true,x:h,p,card,down:!!down,turn:G.turn})}
@@ -291,7 +292,7 @@ async function nextHint(p){
   const top=[...p.file].reverse().find(x=>x!==p.partner);
   if(!top){toast("FILEにカードがない");return}
   recAct(p,"hint",null);
-  p.file.splice(p.file.indexOf(top),1);p.hand.push(top);p.hinted=true;p.hintN=(p.hintN||0)+1;
+  p.file.splice(p.file.indexOf(top),1);p.hand.push(top);noteFileHand(p);p.hinted=true;p.hintN=(p.hintN||0)+1;
   log(`${p.name} はネクストヒント${p.hintN>1?`（このターン${p.hintN}回目）`:""}（FILE ${p.file.length}枚）。${p.cpu?"":C(top).nm+" を手札に"}`);
   render();
   if(p.cpu)return top;

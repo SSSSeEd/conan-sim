@@ -290,7 +290,7 @@ async function onigiriFlip(p){const fd=p.ev.filter(e=>!e.up);if(!fd.length)retur
 DEF["0702"]={ // 「説得するよりこの方が早い…」 B06082
   event:async p=>{if(!p.solved)return noEff();await rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）");await runQueue();
     const y=fileTopCard(p);if(!y||!await yes(p,"「説得するよりこの方が早い…」","FILEの上から1枚を手札に加えて、AP8000以下のキャラをもう1枚リムーブしますか？",()=>p.file.length>=4&&oppHas(p,apLe(8000))))return;
-    takeFileTop(p);p.hand.push(y);log(`　FILEの上から1枚を手札に`,"n");await rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）")},
+    takeFileTop(p);p.hand.push(y);noteFileHand(p);log(`　FILEの上から1枚を手札に`,"n");await rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）")},
   ai:p=>p.solved&&oppHas(p,y=>apOf(y)<=8000&&lvOf(y)>=4)};
 DEF["0713"]={ // 高木君のおごり B06094
   event:async p=>{const all=p.field.filter(y=>hasTrait(y,"喫茶ポアロ")).length>=3;

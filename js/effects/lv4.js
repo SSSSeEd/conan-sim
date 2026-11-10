@@ -235,7 +235,8 @@ DEF["0474"]={ // キャンティ B04092
   onContact:async(p,self,ct)=>{const y=[ct.a,ct.d].find(z=>p.field.includes(z)&&z!==self);if(!y||self.st!=="a"||!p.field.includes(self))return;
     if(!await yes(p,"キャンティ",`このキャラをスリープさせて、${C(y).nm} のコンタクト中AP＋2000しますか？`,()=>apOf(ct.a===y?ct.d:ct.a)>=apOf(y)&&apOf(ct.a===y?ct.d:ct.a)<apOf(y)+2000))return;
     sleepC(self);y.apC+=2000;log(`　${C(y).nm} をコンタクト中AP＋2000`,"n")}};
-DEF["1149"]={ // 犯人 B10094（証拠エリア・FILEエリアにあるときの宣言は未対応）
-  partial:true,
-  abilities:[{label:"このカードをリムーブエリアへ: 相手のパートナーエリアのキャラかイベントを1枚リムーブ",can:p=>opp(p).pa.length>0,aiCan:p=>opp(p).pa.length>0,
-    run:async(p,x)=>{removeCard(x,"コスト",{by:p});await runQueue();const o=opp(p);const [y]=await pickCards(p,"リムーブする相手のパートナーエリアのカード","",o.pa,{min:1,max:1,ai:c=>c.slice(0,1)});if(y){detach(y);resetMods(y);o.rm.push(y);log(`　${o.name} のパートナーエリアの ${C(y).nm} をリムーブ`,"n")}return true}}]};
+DEF["1149"]=(()=>{ // 犯人 B10094（表向きで証拠エリアやFILEエリアにあるときも宣言できる: zoneAbilities。画面の証拠・FILEの一覧からカードを選ぶ）
+  const ab={label:"このカードをリムーブエリアへ: 相手のパートナーエリアのキャラかイベントを1枚リムーブ",can:p=>opp(p).pa.length>0,aiCan:p=>opp(p).pa.length>0,
+    run:async(p,x)=>{if(p.field.includes(x))removeCard(x,"コスト",{by:p});else{for(const z of ["ev","file"]){const i=p[z].indexOf(x);if(i>=0)p[z].splice(i,1)}x.up=false;x.fu=false;p.rm.push(x);log(`　コスト: ${C(x).nm} をリムーブエリアに移した`,"n")}
+      await runQueue();const o=opp(p);const [y]=await pickCards(p,"リムーブする相手のパートナーエリアのカード","",o.pa,{min:1,max:1,ai:c=>c.slice(0,1)});if(y){detach(y);resetMods(y);o.rm.push(y);log(`　${o.name} のパートナーエリアの ${C(y).nm} をリムーブ`,"n")}return true}};
+  return {abilities:[ab],zoneAbilities:[ab]}})();

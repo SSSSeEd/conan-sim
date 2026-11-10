@@ -143,6 +143,7 @@ const FX={
     if(info.setOn){const e=def(info.x);if(e&&e.onSetOn&&info.p.field.includes(info.x))await fxIf(info.p,info.x,"セット",()=>e.onSetOn(info.p,info.x,info.n));return}
     if(info.setOff){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onSetOff&&info.p.field.includes(y))await fxIf(info.p,y,"セットされたカードが離れたとき",()=>e.onSetOff(info.p,y,info))}
       {const q=opp(info.p);for(const y of q.field.slice()){const e=def(y);if(e&&e.onOppSetOff&&q.field.includes(y))await fxIf(q,y,"相手のセットが離れたとき",()=>e.onOppSetOff(q,y,info))}}return} // onOppSetOff: 相手の現場のキャラにセットされていたカードが離れたとき（大岡紅葉 B02020）
+    if(info.fileHand){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onFileHand&&info.p.field.includes(y))await fxIf(info.p,y,"FILEから手札に加えたとき",()=>e.onFileHand(info.p,y))}return}
     if(info.slept){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onAllySleep&&info.p.field.includes(y))await fxIf(info.p,y,"スリープ状態になったとき",()=>e.onAllySleep(info.p,y,info.x))}return} // 自分のキャラがアクティブからスリープ状態になったとき（阿笠博士 B03008）
     if(info.rmLeft){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onRmLeave&&info.p.field.includes(y))await fxIf(info.p,y,"リムーブエリアから離れたとき",()=>e.onRmLeave(info.p,y,info.x))}return}
     // 自分の現場のキャラがリムーブされたとき（白馬探 B05059。リムーブされたキャラ自身の onAllyRemoved も呼ぶ）。info.st=リムーブ直前の状態
@@ -159,7 +160,8 @@ const FX={
     if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await fxIf(info.p,info.x,"現場リムーブ時",()=>d.selfRemovedOwnTurn(info.p,info.x))},
   abilities(p,x){const d=def(x);
     let list=[];
-    if(p.hand.includes(x))list=(d&&d.handAbilities||[]).map((a,i)=>({...a,key:"hab"+i,hand:true}));
+    if(G&&(p.ev.includes(x)||(p.file.includes(x)&&x!==p.partner)))list=((p.ev.includes(x)?x.up:x.fu)&&d&&d.zoneAbilities||[]).map((a,i)=>({...a,key:"zab"+i,zone:true})); // 表向きで証拠エリアやFILEエリアにあるときも宣言できる（犯人 B10094）
+    else if(p.hand.includes(x))list=(d&&d.handAbilities||[]).map((a,i)=>({...a,key:"hab"+i,hand:true}));
     else{list=(d&&d.abilities||[]).map((a,i)=>({...a,key:"ab"+i})).filter(a=>(x!==p.partner&&!p.pa.includes(x))||a.partner);
       for(const s of x.set||[]){const sd=s.up&&!s.under&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}
       if(p.field.includes(x))for(const t of x.tmpAb||[])if(t.t===G.turnNo&&DEF[t.id]&&DEF[t.id].tmpGrants)list.push(...DEF[t.id].tmpGrants.map((a,i)=>({...a,key:"t"+t.id+i})))}
@@ -192,7 +194,7 @@ const FX={
     for(const q of G.P)for(const y of [...q.field,...areaCards(q)]){const e=def(y);if(e&&e.apAura&&(!inArea(q,y)||e.partnerToo))b+=e.apAura(q,y,x)||0}
     return b},
   keepStun(p){return opp(p).field.some(y=>idOf(y)==="0301"&&partnerIs(opp(p),"白"))}, // 怪盗キッド B03046
-  canGuardSleeping:x=>!!(def(x)&&def(x).guardWhileSleeping)||(x.guardT||0)>=G.turnNo,
+  canGuardSleeping:x=>!!(def(x)&&def(x).guardWhileSleeping&&(def(x).guardWhileSleeping===true||def(x).guardWhileSleeping(ownerOf(x),x)))||(x.guardT||0)>=G.turnNo,
   // handLevel: 手札のこのカード自身のレベル。handLvAura: 現場のキャラが手札のカードのレベルを増減（鉄刃 B06047）
   handLevel(p,x){const d=def(x);const own=d&&d.handLevel?d.handLevel(p,x):null;let a=0;
     for(const y of p.field){const e=def(y);if(e&&e.handLvAura)a+=e.handLvAura(p,y,x)||0}
