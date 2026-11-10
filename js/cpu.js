@@ -69,13 +69,23 @@ function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
     if(/引く|ドロー/.test(f))v+=3;
     if(p.field.length>=fieldMax(p)){const lo=Math.min(...p.field.map(y=>C(y).lv||0));if(!((c.lv||0)>=6||(c.lv||0)>=lo+3))return -999}}
   return v}
+// コンボ表（js/combo_table.js）: 手番のはじめに、parts がそろっていて行動が使えるコンボを1つ返す（表の先頭に近いものほど優先）
+function comboNow(p){
+  for(const e of COMBO2){
+    if(!e.parts.every(pt=>(pt.where==="手札"?p.hand:p.field).some(x=>x.n===pt.n)))continue;
+    if(e.act.kind==="hand"){const x=p.hand.find(x=>x.n===e.act.n);if(x&&!playableReason(p,x,false))return {e,x}}
+    else{const x=p.field.find(x=>x.n===e.act.n);const ab=x&&FX.abilities(p,x).find(a=>a.label===e.act.label);if(ab&&ab.ok)return {e,x,ab}}}
+  return null}
 async function cpuTurn(p){
   const g0=G; // 途中で新しい対戦が始まったら、古いCPUの手番はそこで止める
   const step=async ms=>{if(G!==g0)await new Promise(()=>{});if(G.sim)return;if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8*pace())};
   await step(600);
   // 探索（search.js）: 試しの手番で選ばれた組み合わせ。本番の手番のはじめに組み合わせを試して選ぶ
-  const plan=(G.sim?(G.sim.planFor===p.idx?G.sim.plan:null):(searchOn(p)?await chooseTurnPlan(p):null))||{};
+  const cb=ai2(p,"combo2")?comboNow(p):null; // コンボ表にあるコンボが組めているなら、探索せずにその行動をする
+  const plan=(cb?{play:cb.e.act.kind==="hand"?cb.x.n:undefined}:G.sim?(G.sim.planFor===p.idx?G.sim.plan:null):(searchOn(p)?await chooseTurnPlan(p):null))||{};
   if(G!==g0)return;
+  if(cb){if(!G.sim){G.comboFired=(G.comboFired||0)+1;if(G.rec)(G.rec.combo=G.rec.combo||[]).push({t:G.turnNo,who:p.idx,how:cb.e.how||cb.e.act.n})}
+    if(cb.ab){G.ui.act={a:cb.x,t:null};await FX.useAbility(p,cb.x,cb.ab);await step();if(G.over)return}}
   if(!G.sim&&window.FIND_COMBOS&&(G.cfg.findFor==null||G.cfg.findFor===p.idx)){await findCombos(p);if(G!==g0)return}
   const o=opp(p);
   // 宣言能力（事件の能力を含む）。plan.abFirst なら手札を使う前にも行う（事件の能力で手札に加えたカードを同じ手番で使えるように）

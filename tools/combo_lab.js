@@ -11,9 +11,10 @@
 const H=require("./headless");const fs=require("fs");
 const args=process.argv.slice(2);const flag=k=>{const i=args.indexOf(k);if(i<0)return null;const v=args[i+1];args.splice(i,2);return v};
 const bool=k=>{const i=args.indexOf(k);if(i<0)return false;args.splice(i,1);return true};
+const JSONOUT=flag("--json");
 const EXTRA=(flag("--cards")||"").split(",").filter(Boolean),TOP=+(flag("--top")||20),SHOWLOG=bool("--log"),SOLVED=!bool("--notsolved");
 const deckArg=args[0];
-if(!deckArg){console.log("usage: node tools/combo_lab.js デッキ.txt|環境デッキ番号|名前の一部|- [--cards 番号,...] [--top 20] [--log] [--notsolved]");process.exit(1)}
+if(!deckArg){console.log("usage: node tools/combo_lab.js デッキ.txt|環境デッキ番号|名前の一部|- [--cards 番号,...] [--top 20] [--log] [--notsolved] [--json 出力.json]");process.exit(1)}
 
 (async()=>{
   const w=H.load({seed:1});const E=w.ENV_DECKS.decks;const C=w.C,FX=w.ev("FX"),DB=w.ev("DB");
@@ -77,12 +78,13 @@ if(!deckArg){console.log("usage: node tools/combo_lab.js デッキ.txt|環境デ
       if(best===-Infinity)continue;
       const gain=full.v-best;if(gain<=0.5)continue;
       const how=act.kind==="hand"?`手札の ${C({n:X}).nm} を使う`:`${C({n:F[act.fi]}).nm} の【宣言】「${act.label.slice(0,40)}」`;
-      results.push({gain,v:full.v,size:parts.length,cards:parts.map(p=>`${C({n:p.n}).nm}(${p.n}・${p.where})`),names:parts.map(p=>C({n:p.n}).nm+"・"+p.where),ns:parts.map(p=>p.n),how,d:full.d,log:full.log})}}
+      results.push({act:act.kind==='hand'?{kind:'hand',n:X}:{kind:'ab',n:F[act.fi],label:act.label},parts:parts.map(p=>({n:p.n,where:p.where})),gain,v:full.v,size:parts.length,cards:parts.map(p=>`${C({n:p.n}).nm}(${p.n}・${p.where})`),names:parts.map(p=>C({n:p.n}).nm+"・"+p.where),ns:parts.map(p=>p.n),how,d:full.d,log:full.log})}}
   // 同じ顔ぶれの重複（行動違い）は得点の高い方だけ
   // 同じカード名の顔ぶれ（再録・番号違いを含む）は1行にまとめ、番号を並べる
   const seen=new Map();for(const r of results){const k=r.names.slice().sort().join("|");const o=seen.get(k);
     if(!o||o.v<r.v||o.v===r.v&&o.gain<r.gain)seen.set(k,{...r,alt:o?o.alt:new Set()});seen.get(k).alt.add(r.ns.join("+"))}
   const rows=[...seen.values()].sort((a,b)=>b.v-a.v||b.gain-a.gain);
+  if(JSONOUT)fs.writeFileSync(JSONOUT,JSON.stringify(rows.map(r=>({act:r.act,parts:r.parts,v:r.v,gain:r.gain,how:r.how,d:r.d})),null,1));
   console.log(`${label}: 候補${pool.length}枚（キャラ${chars.length}）、${tried}通りの盤面と行動を試した（${SOLVED?"解決編":"事件編"}）`);
   console.log("そろったときだけ得するもの（得点＝その行動の得、上乗せ＝どれか1枚を抜いたときとの差。得点の高い順）:");
   const f=v=>(v>=0?"+":"")+(+v.toFixed(1));
