@@ -135,3 +135,14 @@
 - SeEdの例(B07015＋B07016 が現場、B07015 の【宣言】で B11027 → 3体リムーブ・手札±0・手札の使用は残る)が `node tools/combo_lab.js - --cards B11027,B07016,B07015` で最上位に出る。
 - このツールで見つけた不具合: 複数名カード《A＆B》が〚カード名［A］〛として数えられていなかった(exactName)。ルールどおり namesOf が「＆」で分けた名前も返すようにした(core.js)。
 - 未: 2手以上続く連携(登場時で探す→次の行動で使う、など)・パートナーエリアからの発動・相手の妨害は見ていない。試合中の統計から探す版も未。
+
+## レベル7の自動化(2026-11-10)
+- 新ファイル js/effects/lv7.js(index.html と sw.js に登録済み)。未自動化だったレベル7の70種をすべて自動化。テストは tests/effects.js の末尾(「レベル7の自動化」)。各カードを環境デッキに入れたCPU同士280戦でエラーなし。全体は1333種のうち1064種(80%)、残りは Lv6 119・Lv4 79・Lv3 49・Lv2 22。
+- 追加した仕組み(lv7.js 先頭のコメントにも一覧): DEF の `unselectable`(自分自身が相手の効果で選ばれない。core.js immune)・`protectAlly`(自分の他のキャラを選ばれなくする)・`untargetable`(相手はこのキャラを指定してアクションできない。mech.js noTarget)・`noOppCutin`(相手はカットインを使えない。engine.js contactRight)・`taunt1`(【ターン1】必ず指定される。declareAction)・`x.lockBy`(このキャラが現場にいるかぎり選んだキャラはオートフェイズに起きない。FX.noAutoWake)・`x.byFxT`(能力や効果で登場したターン。enterByEffect)・`G.actor`(アクション中のキャラ)・キーワード `勝利ドロー1`・`突撃［キャラ］喪失`・佐々木小次郎の「手札の【緑】の［YAIBA］にカットインAP＋2000」は FX.grantedCutin。
+- 判断した読み: 鬼丸猛 B02022 は必ず指定するのを1ターン1回だけ(指定を強制した時点で数える)。阿笠博士 B08003 の「相手が1枚選ぶ」は相手(CPUは一番レベルの低いもの)が選ぶ。榎本梓 B01082 が選んだキャラは、梓が現場を離れると元に戻る(lockBy が現場にいるときだけ有効)。
+
+## レベル4（2026-11-10、js/effects/lv4.js）
+- 新ファイル js/effects/lv4.js(index.html と sw.js に登録済み)。Lv4 約75種。部品は lv5/lv7/mr8/main のものを流用。
+- 追加した仕組み: leaveAny(コンタクト以外でも現場リムーブ時)・noLeaveOnContact・onOppReason・onOppCutDis・onMisread・onOppEnter(相手キャラ登場時、ハチ)・forceByEvt・noOppCutin を関数でも可・x.entSrc(能力/イベントで登場した出所)。FX.event は withSrc で包む。
+- 見送り: 犯人 B10094(partial。「表向きで証拠/FILEにあるとき宣言可」が未対応)。
+- 確認: node tools/test.js 40、fuzz(CPU対戦316局、エラー0)。
