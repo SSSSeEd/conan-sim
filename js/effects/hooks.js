@@ -11,7 +11,9 @@ function effText(x,kind){const c=C(x);
   const re=FX_LINE[kind];const ls=(c.f||"").split("\n");return (re&&ls.find(l=>re.test(l)))||c.f||""}
 async function fxPre(p,x,kind,text){if(typeof showFx==="function")await showFx(p,x,kind,text??effText(x,kind))}
 // 条件つきの効果は、実際に何か起きたときだけ見せる（ログが増えたかで判断）
-async function fxIf(p,x,kind,fn){const n0=G.rec?G.rec.log.length:0;
+// G.fxSrc: 今解決している効果のカード（「自分のMRの能力によって選ばれた」の判定用）
+async function withSrc(x,fn){const s0=G.fxSrc;G.fxSrc=x;try{return await fn()}finally{G.fxSrc=s0}}
+async function fxIf(p,x,kind,fn0){const fn=()=>withSrc(x,fn0);const n0=G.rec?G.rec.log.length:0;
   if(typeof showFx!=="function"||!G.rec){await resolving(fn);return}
   await resolving(fn);
   if(G.rec.log.length>n0)await showFx(p,x,kind,effText(x,kind),{after:true})}
@@ -34,7 +36,7 @@ const FX={
     await FX.enter0(p,x);
     const d=def(x);if((first||free)&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x));render();await runQueue()}
     for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyEnter&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
-  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>d.enter(p,x));render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
+  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>withSrc(x,()=>d.enter(p,x)));render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
   async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x))}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
   async disguise(p,x,mine){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await d.disguise(p,x,mine)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
@@ -145,7 +147,7 @@ const FX={
         run:async(p2,x2)=>{if(!p2.field.includes(k))return false;removeCard(k,"コスト（コストの代わり）",{by:p2});await runQueue();
           G.costFree={x:x2};try{return a.freeRun?await a.freeRun(p2,x2):await a.run(p2,x2)}finally{G.costFree=null}}})}
     return out},
-  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1||a.turn2)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>a.run(p,x));render();await runQueue();return r},
+  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1||a.turn2)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>withSrc(x,()=>a.run(p,x)));render();await runQueue();return r},
   apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
     if(G.turn===p.idx&&hasTrait(x,"サッカー選手"))b+=1000*p.field.filter(y=>idOf(y)==="0954").length; // 赤木守
     if(G.turn===p.idx&&idOf(x)==="1061")b+=1000; // 沖田総司 PR290

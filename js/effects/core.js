@@ -67,6 +67,7 @@ async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
   if(!cs.length){log(`　（対象なし）`,"n");return null}
   const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1)});
   if(x&&await negateChosen(p,x))return null;
+  if(x&&G.fxSrc&&isMR(G.fxSrc)&&ownerOf(G.fxSrc)===ownerOf(x))x.mrPick=G.turnNo; // 自分のMRの能力によって選ばれた（毛利蘭 B08014）
   return x||null;
 }
 // 毛利蘭 B10011【絆工藤新一】: 相手のイベントの効果では選べない（リムーブされない）

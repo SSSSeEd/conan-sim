@@ -142,7 +142,7 @@ module.exports=[
   ["工藤新一NYの事件 B10100P: 新一・蘭にアクティブ指定Lv6とコンタクト勝利ドローを与える",async w=>{
     const G=board(w,{p0:{ev:[R],solved:true,field:["B01007"],hand:[R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;q.caseC=w.inst("B10100P");
     q.ev.forEach(e=>e.up=false);const a=w.FX.abilities(q,q.caseC)[0];assert.ok(a.ok);await a.run(q,q.caseC);
-    const x=q.field[0];assert.ok(x.kw.includes("アクティブ指定Lv6"));const h=q.hand.length;await w.FX.contactWin(q,x,G.P[1].field[0]);assert.strictEqual(q.hand.length,h+1)}],
+    const x=q.field[0];assert.ok(x.kw.includes("アクティブ指定Lv6"));const h=q.hand.length;await w.FX.contactWin(q,x,G.P[1].field[0]);assert.strictEqual(q.hand.length,h+2,"勝利ドロー＋毛利蘭 B01007 自身の1枚")}],
   ["大和敢助 B08065: FILE6・長野県警3枚以上の自分ターンAP＋2000／事件編の登場時に長野県警1枚リムーブで2枚引く",async w=>{
     const G=board(w,{p0:{field:["B08065","B08065","B08065"],hand:["B08065",R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];
     const base=w.ev("C")(x).ap;assert.strictEqual(w.ev("apOf")(x),base,"FILE6未満");
@@ -714,4 +714,23 @@ module.exports=[
     const G=board(w,{p0:{field:["B03110",R],file:[R,R]},p1:{field:["B01008","B01008","B01008"]}});const p=G.P[0],[x]=p.field;
     p.partner=w.inst("B03106");await w.FX.endTurn(p);assert.deepStrictEqual(p.field,[x]);assert.strictEqual(G.P[1].field.length,0);
     assert.strictEqual(p.file.length,0);assert.strictEqual(p.hand.length,0)}],
+  // ---- 主要キャラ第2弾（js/effects/main.js、2026-11-10） ----
+  ["ジン B01098: 自分のターンのコンタクト中のカットインで、コンタクト中のすべてのキャラをリムーブ",async w=>{
+    const G=board(w,{p0:{field:[R]},p1:{field:[R]}});const p=G.P[0];G.contact={a:p.field[0],d:G.P[1].field[0]};
+    await w.FX.cutin(p,w.inst("B01098"),p.field[0]);assert.strictEqual(p.field.length+G.P[1].field.length,0);G.contact=null}],
+  ["服部平次 B03032: カードがセットされている相手のアクティブ状態のキャラを指定できる",async w=>{
+    const G=board(w,{p0:{field:["B03032"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field,[t]=G.P[1].field;
+    assert.ok(!w.hitsActive(x,p,t));t.set=[{c:w.inst(R),up:false}];assert.ok(w.hitsActive(x,p,t))}],
+  ["毛利蘭 B08014: アクションしたターンの終了時、自分のMRの能力で選ばれていなければ手札に戻る",async w=>{
+    const G=board(w,{p0:{field:["B08014","B06003"]}});const p=G.P[0],[x,mr]=p.field;
+    await w.FX.onAction(p,x,null);await w.FX.endTurn(p);assert.ok(p.hand.includes(x),"選ばれていないので手札へ");
+    p.hand.length=0;p.field.unshift(x);x.st="a";G.turnNo++;await w.FX.onAction(p,x,null);
+    x.st="a";
+    await w.ev("withSrc")(mr,()=>w.ev("chooseChar")(p,"t",y=>y===x,{ai:cs=>cs}));await w.FX.endTurn(p);assert.ok(p.field.includes(x),"MRに選ばれたので残る")}],
+  ["ジン PR230: 【パートナー黒】登場時、すべてのキャラをスリープ",async w=>{
+    const G=board(w,{p0:{field:["PR230",R]},p1:{field:[R,R]}});const p=G.P[0];p.partner=w.inst("B03106");
+    await w.ev("DEF")["0931"].enter(p,p.field[0]);assert.ok(w.ev("allChars")().every(y=>y.st==="s"))}],
+  ["ジン B04094: 自分の効果で相手のキャラをリムーブしたら突撃",async w=>{
+    const G=board(w,{p0:{field:["B04094"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field;p.partner=w.inst("B03106");
+    w.removeCard(G.P[1].field[0],"効果",{by:p,effect:true});await w.runQueue();assert.ok(x.kw.includes("突撃"))}],
 ];

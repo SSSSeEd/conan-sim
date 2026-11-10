@@ -48,6 +48,7 @@ function condOk(tag,p){
 // 相手のアクティブ状態のキャラを指定してアクションできるか（与えられた能力・セットされたイベントも含める）
 // 「レベルN以上のアクティブ状態のキャラを指定してアクションできる」は kw「アクティブ指定LvN」（target を渡すとレベルも見る）
 function hitsActive(x,p,target){const ks=[...x.kw,...(window.FX&&FX.kwExtra?FX.kwExtra(x,p):[])];
+  if(ks.includes("アクティブ指定セット")&&(!target||(target.set||[]).some(s=>!s.under)))return true; // 服部平次 B03032: カードがセットされているアクティブ状態のキャラ
   return ks.includes("アクティブ指定")||ks.some(k=>{const m=k.match(/^アクティブ指定Lv(\d+)$/);return !!m&&(!target||lvOf(target)>=+m[1])})}
 // 常在キーワード（行頭の条件タグを満たした〚〛）
 function staticKw(x,p){

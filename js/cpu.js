@@ -51,6 +51,8 @@ function cpuContact0(q,mine,theirs,cuts,tp){
     const next=o.field.some(y=>y!==theirs&&y.st!=="a"&&apOf(y)<=apOf(mine))||o.ev.length>0;
     if(bb&&next)return {x:bb,how:"cut"}}
   if(need<=0)return comboCut(q,mine,tp,cuts);
+  // ジン B01098: 自分のターンに負けそうなら、自分よりレベルの高い相手のキャラと相打ちにする
+  if(q===tp){const gin=cuts.find(x=>idOf(x)==="0086");if(gin&&lvOf(theirs)>=Math.max(6,lvOf(mine)))return {x:gin,how:"cut"}}
   // 守る（倒す）価値があるときだけカットインを切る
   if(ai2(q,"cut2")){const key=q===tp?theirs:mine;const lv=C(key).lv||0; // SeEd: 序盤はほぼ切らない。Lv6〜9を倒す・守るときに使う
     if(!(lv>=6||key===q.partner||G.turnNo>4&&strongChar(key)))return null}
