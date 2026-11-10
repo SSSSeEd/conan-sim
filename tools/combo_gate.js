@@ -19,7 +19,7 @@ function signP(b,n){let s=0;const lg=[0];for(let i=1;i<=n;i++)lg[i]=lg[i-1]+Math
 (async()=>{
   const tmp=path.join(require("os").tmpdir(),`combo_gate_${process.pid}.json`);
   cp.execFileSync("node",[path.join(__dirname,"combo_lab.js"),deckArg,"--top","1000","--json",tmp],{stdio:"ignore"});
-  const found=JSON.parse(fs.readFileSync(tmp,"utf8")).slice(0,TOP);fs.unlinkSync(tmp);
+  const found=JSON.parse(fs.readFileSync(tmp,"utf8")).filter(f=>f.act).slice(0,TOP); // 2手以上・デッキから引く連携は、CPUの comboNow が扱えないので除くfs.unlinkSync(tmp);
   const w=H.load({seed:1,init:{AI_OFF:[]}});const E=w.ENV_DECKS.decks,AI_OFF0=w.ev("AI_OFF0");
   let d;if(fs.existsSync(deckArg))d={name:deckArg,text:fs.readFileSync(deckArg,"utf8")};
   else d=/^\d+$/.test(deckArg)?E[+deckArg]:E.find(x=>x.name.includes(deckArg));

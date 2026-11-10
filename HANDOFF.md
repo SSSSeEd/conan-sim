@@ -146,6 +146,9 @@
 - 追加した仕組み: leaveAny(コンタクト以外でも現場リムーブ時)・noLeaveOnContact・onOppReason・onOppCutDis・onMisread・onOppEnter(相手キャラ登場時、ハチ)・forceByEvt・noOppCutin を関数でも可・x.entSrc(能力/イベントで登場した出所)。FX.event は withSrc で包む。
 - 見送り: 犯人 B10094(partial。「表向きで証拠/FILEにあるとき宣言可」が未対応)。
 - 確認: node tools/test.js 40、fuzz(CPU対戦316局、エラー0)。
+- 2手以上の連携(2026-11-10追加): 同じターンの行動を `--steps`(既定3)回まで全部の並びで試す。盤面のカードは「現場0〜2枚・手札1枚・デッキの上から2枚目1枚」から2〜3枚。デッキの2枚目は「探す・2枚引く」効果で届く。1デッキ数秒。
+- 見ないもの(SeEdと決定): ターンをまたぐもの(相手ターン中・ターン終了時)は現実的でないので扱わない。パートナーエリアからの発動・相手の妨害も未。
+- 複数名カードの名前の見直し(2026-11-10): カード名の指定(env.js fileNameGuess・priority.js guessName・red.js・misc.js・p11.js)と「同じカード名」(blue.js 工藤新一B07003)を namesOf で見るようにした。指定の候補は《A＆B》ならAとBそれぞれ。部分一致の C(y).nm.includes(…) はもともと複数名カードにも当たる。
 
 ## コンボ探索のCPU組み込み(2026-11-10)
 - 仕組み: js/combo_table.js の `COMBO2`（採用済みコンボ表。最初は空）。cpu.js の `comboNow(p)` が手番のはじめに「partsがそろい、行動が使える」コンボを返し、あればその行動（手札の使用=plan.play、現場の宣言=先に使う）を探索なしで行う。`ai2(p,"combo2")`で席ごとにオフにできる。出たら `G.comboFired` と記録(rec.combo)に残る。
