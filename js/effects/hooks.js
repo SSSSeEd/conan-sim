@@ -11,7 +11,9 @@ function effText(x,kind){const c=C(x);
   const re=FX_LINE[kind];const ls=(c.f||"").split("\n");return (re&&ls.find(l=>re.test(l)))||c.f||""}
 async function fxPre(p,x,kind,text){if(typeof showFx==="function")await showFx(p,x,kind,text??effText(x,kind))}
 // 条件つきの効果は、実際に何か起きたときだけ見せる（ログが増えたかで判断）
-async function fxIf(p,x,kind,fn){const n0=G.rec?G.rec.log.length:0;
+// G.fxSrc: 今解決している効果のカード（「自分のMRの能力によって選ばれた」の判定用）
+async function withSrc(x,fn){const s0=G.fxSrc;G.fxSrc=x;try{return await fn()}finally{G.fxSrc=s0}}
+async function fxIf(p,x,kind,fn0){const fn=()=>withSrc(x,fn0);const n0=G.rec?G.rec.log.length:0;
   if(typeof showFx!=="function"||!G.rec){await resolving(fn,p);return}
   await resolving(fn,p);
   if(G.rec.log.length>n0)await showFx(p,x,kind,effText(x,kind),{after:true})}
@@ -35,7 +37,7 @@ const FX={
     await FX.enter0(p,x);
     const d=def(x);if((first||free)&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x),p);render();await runQueue()}
     for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyEnter&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
-  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>d.enter(p,x),p);render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
+  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>withSrc(x,()=>d.enter(p,x)),p);render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
   async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x),p)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
   async disguise(p,x,mine){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await resolving(()=>d.disguise(p,x,mine),p)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
@@ -91,6 +93,9 @@ const FX={
   async endTurn(p){for(const y of p.field.filter(y=>y.kw.includes("終了時デッキの下")))toDeckBottom(y); // 目暮十三 PR181 が与えた能力
     for(const y of p.field.filter(y=>y.kw.includes("終了時リムーブ")))removeCard(y,"効果",{by:p,effect:true}); // 黒田兵衛 B03089 が与えた能力
     for(const y of p.field.filter(y=>y.kw.includes("終了時手札")))toHandFromField(y); // 園子のアブない夏物語 が与えた能力
+    for(const y of p.field.filter(y=>y.kw.includes("終了時証拠")))charToEvidence(y); // 鬼丸猛 B06018 が与えた能力
+    // 宣言した能力が予約した「ターン終了時、…」（沖矢昴＆世良真純 B06074）。カードが現場を離れていても発動する
+    if(p.endQ){const due=p.endQ.filter(e=>e.t===G.turnNo);p.endQ=p.endQ.filter(e=>e.t>G.turnNo);for(const e of due){log(`　ターン終了時（${e.label}）`,"n");await e.fn()}}
     await runQueue();
     // 同時に発動するターン終了時の効果は、人なら順番を選べる（CPUは現場の左から、パートナーは最後）
     const here=y=>inArea(p,y)||p.field.includes(y);
@@ -102,7 +107,7 @@ const FX={
     // セットされたイベントの「ターン終了時」（setEndTurn(持ち主,セット先,イベント,自分のターンか)。トランプ銃・石川五右衛門人形）
     for(const r of [p,q])for(const y of r.field.slice())for(const sc of setEvents(y)){const e=def(sc);if(e&&e.setEndTurn&&r.field.includes(y)&&setEvents(y).includes(sc))await fxIf(r,y,"ターン終了時",()=>e.setEndTurn(r,y,sc,r===p))}
     await runQueue()}, // 相手のターン終了時（ルパン）
-  ignoreCaseColor:(c,p)=>c.i==="1206"&&condOk("事件黒",p)===true, // シャロン・ヴィンヤード B11040: 【事件黒】手札から使用するとき事件の色を無視
+  ignoreCaseColor:(c,p)=>c.i==="1206"&&condOk("事件黒",p)===true||c.i==="0693"&&condOk("事件YAIBA",p)===true, // シャロン・ヴィンヤード B11040【事件黒】・かぐや B06072【事件YAIBA】: 手札から使用するとき事件の色を無視
   // 相手のターンのメインフェイズ開始時: 効果でパートナーエリアに移したキャラ(paRet)を、登場させてもよい。しなければリムーブエリアへ（スコッチ B11084・公安部の潜入捜査官）
   async paReturn(q){for(const x of q.pa.slice()){if(!x.paRet||x.paRet!==G.turnNo||!q.pa.includes(x))continue;x.paRet=0;
       if(await yes(q,C(x).nm,`${C(x).nm} をパートナーエリアから登場させますか？（しないとリムーブエリアへ）`,()=>true)){await enterByEffect(q,x,"a")}
@@ -116,6 +121,8 @@ const FX={
     if(info.setOn){const e=def(info.x);if(e&&e.onSetOn&&info.p.field.includes(info.x))await fxIf(info.p,info.x,"セット",()=>e.onSetOn(info.p,info.x,info.n));return}
     if(info.setOff){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onSetOff&&info.p.field.includes(y))await fxIf(info.p,y,"セットされたカードが離れたとき",()=>e.onSetOff(info.p,y,info))}return}
     if(info.rmLeft){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onRmLeave&&info.p.field.includes(y))await fxIf(info.p,y,"リムーブエリアから離れたとき",()=>e.onRmLeave(info.p,y,info.x))}return}
+    // 自分の現場のキャラがリムーブされたとき（白馬探 B05059。リムーブされたキャラ自身の onAllyRemoved も呼ぶ）。info.st=リムーブ直前の状態
+    for(const y of [...info.p.field.slice(),info.x]){const e=def(y);if(e&&e.onAllyRemoved&&(y===info.x||info.p.field.includes(y)))await fxIf(info.p,y,"現場リムーブ時",()=>e.onAllyRemoved(info.p,y,info))}
     const q=opp(info.p);for(const y of q.field.slice()){const e=def(y);if(e&&e.onOppRemoved&&q.field.includes(y))await fxIf(q,y,"相手のキャラがリムーブされたとき",()=>e.onOppRemoved(q,y,info))}
     if(info.turn!==info.p.idx&&idOf(info.x)!=="0968"&&hasTrait(info.x,"大阪府警")&&info.p.field.some(y=>idOf(y)==="0968"&&def(y))){
       log(`　【現場リムーブ時】${C(info.x).nm}（服部平蔵が与えた能力）`,"n");drawN(info.p,1);await discard(info.p,1)}
@@ -129,7 +136,7 @@ const FX={
     else{list=(d&&d.abilities||[]).map((a,i)=>({...a,key:"ab"+i})).filter(a=>(x!==p.partner&&!p.pa.includes(x))||a.partner);
       for(const s of x.set||[]){const sd=s.up&&!s.under&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}
       if(p.field.includes(x))for(const t of x.tmpAb||[])if(t.t===G.turnNo&&DEF[t.id]&&DEF[t.id].tmpGrants)list.push(...DEF[t.id].tmpGrants.map((a,i)=>({...a,key:"t"+t.id+i})))}
-    const base=list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&a.can(p,x)}));
+    const base=list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&(!a.turn2||turnCount(x,a.key)<2)&&a.can(p,x)}));
     return base.concat(FX.costSubs(p,x,base))},
   // コスト代替（楠川探偵 B05033: 現場のこのキャラをリムーブすることで、［探偵］は【宣言】のコスト（【スリープ】を含む）を支払わずに宣言できる）。
   // コストが「スリープ」だけの能力（label が「スリープ:」で始まる）は sleepCost を飛ばして run する。それ以外は freeRun(p,x)（コストを払わない版）を持つ能力だけ。
@@ -140,13 +147,13 @@ const FX={
     for(const a of base){if(a.hand||a.sub===false)continue;
       const sleepOnly=/^スリープ[:：]/.test(a.label);if(!sleepOnly&&!a.freeRun)continue;
       const canFree=()=>{if(a.freeCan)return a.freeCan(p,x);if(!sleepOnly)return a.can(p,x);const st=x.st;if(st==="s")x.st="a";try{return a.can(p,x)}finally{x.st=st}};
-      const ok=G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&canFree();
+      const ok=G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&(!a.turn2||turnCount(x,a.key)<2)&&canFree();
       for(const k of ks)out.push({...a,key:a.key,label:`${C(k).nm}をリムーブして宣言（コストなし）: ${a.label.replace(/^[^:：]*[:：]\s*/,"")}`,ok,alt:true,
         aiCan:(p2,x2)=>!a.ok&&(!a.aiCan||a.aiCan(p2,x2)),
         run:async(p2,x2)=>{if(!p2.field.includes(k))return false;removeCard(k,"コスト（コストの代わり）",{by:p2});await runQueue();
           G.costFree={x:x2};try{return a.freeRun?await a.freeRun(p2,x2):await a.run(p2,x2)}finally{G.costFree=null}}})}
     return out},
-  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>a.run(p,x),p);render();await runQueue();
+  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1||a.turn2)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>withSrc(x,()=>a.run(p,x)),p);render();await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyDeclare&&p.field.includes(y))await fxIf(p,y,"能力",()=>e.onAllyDeclare(p,y,x,a))} // 自分のキャラが【宣言】能力を使用したとき（江戸川コナン B03002）
     await runQueue();return r},
   apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;

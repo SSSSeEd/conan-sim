@@ -142,7 +142,7 @@ module.exports=[
   ["工藤新一NYの事件 B10100P: 新一・蘭にアクティブ指定Lv6とコンタクト勝利ドローを与える",async w=>{
     const G=board(w,{p0:{ev:[R],solved:true,field:["B01007"],hand:[R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;q.caseC=w.inst("B10100P");
     q.ev.forEach(e=>e.up=false);const a=w.FX.abilities(q,q.caseC)[0];assert.ok(a.ok);await a.run(q,q.caseC);
-    const x=q.field[0];assert.ok(x.kw.includes("アクティブ指定Lv6"));const h=q.hand.length;await w.FX.contactWin(q,x,G.P[1].field[0]);assert.strictEqual(q.hand.length,h+1)}],
+    const x=q.field[0];assert.ok(x.kw.includes("アクティブ指定Lv6"));const h=q.hand.length;await w.FX.contactWin(q,x,G.P[1].field[0]);assert.strictEqual(q.hand.length,h+2,"勝利ドロー＋毛利蘭 B01007 自身の1枚")}],
   ["大和敢助 B08065: FILE6・長野県警3枚以上の自分ターンAP＋2000／事件編の登場時に長野県警1枚リムーブで2枚引く",async w=>{
     const G=board(w,{p0:{field:["B08065","B08065","B08065"],hand:["B08065",R]},p1:{field:[R]}});const q=G.P[0];q.cpu=true;G.turn=0;const x=q.field[0];
     const base=w.ev("C")(x).ap;assert.strictEqual(w.ev("apOf")(x),base,"FILE6未満");
@@ -646,6 +646,93 @@ module.exports=[
     const {immune}=w.ev("({immune})");const p=G.P[0],q=G.P[1];const ai=p.field[0];
     const ok=await (async()=>{G.P[0].caseC=w.inst(w.CARD_DB.find(c=>c.t==="事件"&&/青/.test(c.c)&&/黒/.test(c.c)).n);await w.FX.event(p,p.hand[0]);return true})();
     const co=p.field.find(y=>w.C(y).nm==="江戸川コナン");assert.ok(co,"コナンが登場");co.st="s";G.evtBy=q;assert.ok(immune(q,ai));co.st="a";assert.ok(!immune(q,ai));G.evtBy=null}],
+  // ---- MR・レベル8の自動化（js/effects/mr8.js、2026-11-10） ----
+  ["MR・レベル8: mr8.js のカードはすべて自動",async w=>{
+    const src=require("fs").readFileSync(require("path").join(__dirname,"../js/effects/mr8.js"),"utf8");const ids=[...src.matchAll(/^DEF\["(\d{4})"\]/gm)].map(m=>m[1]);
+    assert.ok(ids.length>=48);for(const i of ids){const c=w.CARD_DB.find(c=>c.i===i);assert.ok(w.FX.automated({n:c.n}),c.n)}}],
+  ["毛利蘭＆江戸川コナン B06003: LP－2をコストに、アクティブ状態のキャラをスリープ",async w=>{
+    const G=board(w,{p0:{field:["B06003"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field;
+    const a=w.FX.abilities(p,x)[0];assert.ok(a.ok);await a.run(p,x);assert.strictEqual(w.lpOf(x),0);assert.strictEqual(G.P[1].field[0].st,"s")}],
+  ["沖矢昴＆世良真純 B06074: FILEの上から2枚リムーブし、ターン終了時にFILEが5枚以下なら2枚置く",async w=>{
+    const G=board(w,{p0:{field:["B06074"],file:Array(6).fill(R)}});const p=G.P[0],[x]=p.field;
+    const a=w.FX.abilities(p,x)[0];assert.ok(a.ok);await a.run(p,x);assert.strictEqual(p.file.length,4);assert.strictEqual(p.rm.length,2);
+    await w.FX.endTurn(p);assert.strictEqual(p.file.length,6);await w.FX.endTurn(p);assert.strictEqual(p.file.length,6,"予約は1回だけ")}],
+  ["毛利蘭＆灰原哀 B07001: デッキの上3枚の［少年探偵団］・［毛利探偵事務所］1枚につきAP＋1000と突撃",async w=>{
+    const G=board(w,{p0:{field:["B07001"],deck:["B01008","B01008","B02081",R]}});const p=G.P[0],[x]=p.field;
+    const a=w.FX.abilities(p,x)[0];await a.run(p,x);assert.strictEqual(w.apOf(x),10000);assert.ok(x.kw.includes("突撃"))}],
+  ["佐藤美和子＆宮本由美 B07079: ［警視庁］をデッキの下に移してAP8000以下をリムーブ／［警視庁］をAP＋3000（ターン終了時にデッキの下へ）",async w=>{
+    const G=board(w,{p0:{field:["B07079","B02081"],hand:[R]},p1:{field:[R]}});const p=G.P[0],[x,k]=p.field;
+    const [a0,a1]=w.FX.abilities(p,x);await a1.run(p,x);assert.strictEqual(w.apOf(k),w.C(k).ap+3000);assert.ok(k.kw.includes("終了時デッキの下"));
+    await a0.run(p,x);assert.ok(!p.field.includes(k));assert.strictEqual(G.P[1].field.length,0);assert.strictEqual(x.st,"s")}],
+  ["江戸川コナン＆灰原哀 B08002: キャラをリムーブし、そのレベルの枚数デッキの上をリムーブ／［少年探偵団］を【青】の下に重ねる",async w=>{
+    const G=board(w,{p0:{field:["B08002"],deck:Array(12).fill(R),rm:["B01008"]},p1:{field:["B01008"]}});const p=G.P[0],[x]=p.field;
+    const [a0,a1]=w.FX.abilities(p,x);await a0.run(p,x);assert.strictEqual(G.P[1].field.length,0);assert.strictEqual(p.deck.length,7);
+    await a1.run(p,x);assert.strictEqual((x.set||[]).filter(s=>s.under).length,1)}],
+  ["工藤優作 B02039: 【絆黒羽盗一】セットされたカードを持ち主の表向きの証拠にし、キャラをリムーブ",async w=>{
+    const G=board(w,{p0:{field:["B02039","B02040"]},p1:{field:[R,R]}});const p=G.P[0],[x]=p.field,o=G.P[1];
+    o.field[0].set=[{c:w.inst(R),up:false}];const a=w.FX.abilities(p,x)[0];assert.ok(a.ok);await a.run(p,x);
+    assert.strictEqual(o.ev.length,1);assert.ok(o.ev[0].up);assert.strictEqual(o.field.length,1);assert.strictEqual(x.st,"s")}],
+  ["京極真 B03047: 【絆鈴木園子】AP＋1000、AP6000以下にガードされたらアクティブ",async w=>{
+    const G=board(w,{p0:{field:["B03047","B02048"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field;
+    assert.strictEqual(w.apOf(x),w.C(x).ap+1000);x.st="s";await w.FX.onGuarded(p,x,G.P[1].field[0]);assert.strictEqual(x.st,"a")}],
+  ["ライ B04090: コンタクト中にカットインを使うと、リムーブエリアのレベル3以下の【黒】を登場",async w=>{
+    const G=board(w,{p0:{field:["B04090"],rm:["B03119"]}});const p=G.P[0],[x]=p.field;
+    await w.FX.cutin(p,w.inst(R),x);assert.strictEqual(p.field.length,2)}],
+  ["服部平次 B07016: 自分のターンに【緑】のイベントを使うと、レベル8以下をリムーブ",async w=>{
+    const G=board(w,{p0:{field:["B07016"]},p1:{field:[R]}});const p=G.P[0];
+    await w.ev("DEF")["0748"].onEventUse(p,p.field[0],w.inst("B04027"));assert.strictEqual(G.P[1].field.length,0)}],
+  ["円谷光彦 B08007: 下に重なったカードがあると自分のターン中AP＋1000・突撃［キャラ］、3枚以上でFILE5なら手札1枚でアクティブ",async w=>{
+    const G=board(w,{p0:{field:["B08007"],hand:[R],file:Array(5).fill(R)}});const p=G.P[0],[x]=p.field;
+    assert.strictEqual(w.apOf(x),w.C(x).ap);x.set=[1,2,3].map(()=>({c:w.inst(R),up:true,under:true}));
+    assert.strictEqual(w.apOf(x),w.C(x).ap+1000);assert.ok(w.FX.kwExtra(x,p).includes("突撃［キャラ］"));
+    x.st="s";const a=w.FX.abilities(p,x)[0];assert.ok(a.ok);await a.run(p,x);assert.strictEqual(x.st,"a");G.turn=1;assert.strictEqual(w.apOf(x),w.C(x).ap)}],
+  ["【ターン2】: 綾小路文麿 B09025 は1ターンに2回まで宣言できる",async w=>{
+    const G=board(w,{p0:{field:["B09025"],hand:["B04025","B04025","B04025"]}});const p=G.P[0],[x]=p.field;
+    for(let i=0;i<2;i++){const a=w.FX.abilities(p,x)[0];assert.ok(a.ok,`${i+1}回目`);await w.FX.useAbility(p,x,a)}
+    assert.strictEqual(p.field.length,3);assert.ok(!w.FX.abilities(p,x)[0].ok,"3回目はできない")}],
+  ["横溝重悟 D11005: スリープして、相手のキャラは指定できるなら必ずこのキャラを指定してアクションする",async w=>{
+    const G=board(w,{p0:{field:["D11005"],ev:[R]},p1:{field:["B01008"]}});const p=G.P[0],[x]=p.field,[y]=G.P[1].field;
+    const a=w.FX.abilities(p,x)[0];await a.run(p,x);assert.strictEqual(x.st,"s");
+    G.turn=1;G.turnNo++;await w.declareAction(G.P[1],y,"case");assert.strictEqual(p.ev.length,1,"事件ではなくこのキャラを指定した");assert.ok(JSON.stringify(G.rec.log).includes("必ず指定"));assert.strictEqual(y.st,"s")}],
+  ["萩原千速 SP010: 相手のイベントの効果ではリムーブされない",async w=>{
+    const G=board(w,{p0:{field:["SP010"]}});const [x]=G.P[0].field;G.evtBy=G.P[1];
+    w.removeCard(x,"効果",{by:G.P[1],effect:true});assert.ok(G.P[0].field.includes(x));G.evtBy=null;
+    w.removeCard(x,"効果",{by:G.P[1],effect:true});assert.ok(!G.P[0].field.includes(x),"能力ではリムーブされる")}],
+  ["京極真 B05051: 事件を指定してアクションできない",async w=>{
+    const G=board(w,{p0:{field:["B05051"]}});const p=G.P[0],[x]=p.field;assert.ok(!w.canAct(x,p,"case"));assert.ok(w.canAct(x,p,"chara"))}],
+  ["白馬探 B05059: 相手のターンにスリープ状態の自分か［探偵］がリムーブされたら1枚引く",async w=>{
+    const G=board(w,{p0:{field:["B05059","B01008"]}});const p=G.P[0],[x,c]=p.field;G.turn=1;
+    c.st="a";w.removeCard(c,"効果",{by:G.P[1],effect:true});await w.runQueue();assert.strictEqual(p.hand.length,0,"アクティブ状態は対象外");
+    x.st="s";w.removeCard(x,"効果",{by:G.P[1],effect:true});await w.runQueue();assert.strictEqual(p.hand.length,1)}],
+  ["工藤有希子 PR328: ［工藤優作］の【絆】を満たしたことにする（工藤優作 B09037【絆黒羽盗一】AP＋1000）",async w=>{
+    const G=board(w,{p0:{field:["PR328","B09037"]}});const p=G.P[0],[x,y]=p.field;
+    const ap=w.apOf(y);const a=w.FX.abilities(p,x)[0];assert.ok(a.ok);await a.run(p,x);assert.strictEqual(w.apOf(y),ap+1000)}],
+  ["鬼丸猛 B06018 が与えた能力: ターン終了時、表向きのまま証拠として得る",async w=>{
+    const G=board(w,{p0:{field:[R]}});const p=G.P[0],[y]=p.field;y.kw.push("終了時証拠");await w.FX.endTurn(p);
+    assert.strictEqual(p.ev.length,1);assert.ok(p.ev[0].up);assert.strictEqual(p.field.length,0)}],
+  ["ジン B03110: ターン終了時、FILEの上2枚を手札に加え、手札を2枚リムーブし、このキャラ以外をすべてリムーブ",async w=>{
+    const G=board(w,{p0:{field:["B03110",R],file:[R,R]},p1:{field:["B01008","B01008","B01008"]}});const p=G.P[0],[x]=p.field;
+    p.partner=w.inst("B03106");await w.FX.endTurn(p);assert.deepStrictEqual(p.field,[x]);assert.strictEqual(G.P[1].field.length,0);
+    assert.strictEqual(p.file.length,0);assert.strictEqual(p.hand.length,0)}],
+  // ---- 主要キャラ第2弾（js/effects/main.js、2026-11-10） ----
+  ["ジン B01098: 自分のターンのコンタクト中のカットインで、コンタクト中のすべてのキャラをリムーブ",async w=>{
+    const G=board(w,{p0:{field:[R]},p1:{field:[R]}});const p=G.P[0];G.contact={a:p.field[0],d:G.P[1].field[0]};
+    await w.FX.cutin(p,w.inst("B01098"),p.field[0]);assert.strictEqual(p.field.length+G.P[1].field.length,0);G.contact=null}],
+  ["服部平次 B03032: カードがセットされている相手のアクティブ状態のキャラを指定できる",async w=>{
+    const G=board(w,{p0:{field:["B03032"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field,[t]=G.P[1].field;
+    assert.ok(!w.hitsActive(x,p,t));t.set=[{c:w.inst(R),up:false}];assert.ok(w.hitsActive(x,p,t))}],
+  ["毛利蘭 B08014: アクションしたターンの終了時、自分のMRの能力で選ばれていなければ手札に戻る",async w=>{
+    const G=board(w,{p0:{field:["B08014","B06003"]}});const p=G.P[0],[x,mr]=p.field;
+    await w.FX.onAction(p,x,null);await w.FX.endTurn(p);assert.ok(p.hand.includes(x),"選ばれていないので手札へ");
+    p.hand.length=0;p.field.unshift(x);x.st="a";G.turnNo++;await w.FX.onAction(p,x,null);
+    x.st="a";
+    await w.ev("withSrc")(mr,()=>w.ev("chooseChar")(p,"t",y=>y===x,{ai:cs=>cs}));await w.FX.endTurn(p);assert.ok(p.field.includes(x),"MRに選ばれたので残る")}],
+  ["ジン PR230: 【パートナー黒】登場時、すべてのキャラをスリープ",async w=>{
+    const G=board(w,{p0:{field:["PR230",R]},p1:{field:[R,R]}});const p=G.P[0];p.partner=w.inst("B03106");
+    await w.ev("DEF")["0931"].enter(p,p.field[0]);assert.ok(w.ev("allChars")().every(y=>y.st==="s"))}],
+  ["ジン B04094: 自分の効果で相手のキャラをリムーブしたら突撃",async w=>{
+    const G=board(w,{p0:{field:["B04094"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field;p.partner=w.inst("B03106");
+    w.removeCard(G.P[1].field[0],"効果",{by:p,effect:true});await w.runQueue();assert.ok(x.kw.includes("突撃"))}],
   // ===== 新しい仕組みが要ったカード（js/effects/mech.js、2026-11-10） =====
   ["「オレのそばから離れんなや…」B05041: 相手の効果でリムーブ・スリープ・スタンされない（コンタクトではリムーブされる）",async w=>{
     const G=board(w,{p0:{field:["B01028"],hand:["B05041"]},p1:{}});const p=G.P[0],q=G.P[1],[h]=p.field;await w.FX.event(p,p.hand[0]);

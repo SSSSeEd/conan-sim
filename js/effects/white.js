@@ -79,8 +79,8 @@ DEF["0981"]={ // 黒羽盗一 B09038
   enter:async(p,x)=>{const f=y=>isChar(y)&&YUSAKU(y)&&lvOf(y)<=6;if(!p.hand.some(f)||p.field.length>=5||!await yes(p,"登場時","このキャラをスリープさせて、手札からレベル6以下の［工藤優作］を登場させますか？",true))return;
     sleepC(x);const y=await playFromHand(p,f);if(y&&p.field.includes(y))setTop(p,y);drawN(p,1)}};
 DEF["0980"]={ // 工藤優作 B09037
-  apSelf:p=>myTurn(p)&&condOk("絆黒羽盗一",p)?1000:0,
-  enter:async(p,x)=>{if(condOk("絆工藤有希子",p))giveKw(x,"突撃［事件］")}};
+  apSelf:(p,x)=>myTurn(p)&&bondFor(p,x,"黒羽盗一")?1000:0,
+  enter:async(p,x)=>{if(bondFor(p,x,"工藤有希子"))giveKw(x,"突撃［事件］")}};
 DEF["0872"]={ // 工藤有希子 B08033
   enter:async(p,x)=>{for(let i=0;i<p.field.length;i++)setTop(p,x)},
   abilities:[{label:"セットされた裏向きのカードを2枚リムーブ: 【白】のキャラをAP＋2000＋突撃［キャラ］",turn2:true,
@@ -92,8 +92,8 @@ DEF["0875"]={ // クリス・ヴィンヤード B08036
     run:async(p,x)=>{sleepCost(x);const [y]=await pickCards(p,"裏向きでセットする［工藤有希子］","",p.rm.filter(named("工藤有希子")),{max:1,ai:c=>c.slice(0,1)});if(!y)return true;
       detach(y);x.set.push({c:y,up:false});log(`　${C(x).nm} に ${C(y).nm} を裏向きでセット`,"n");noteSetOn(p,x);await runQueue();await bottomChar(p,z=>z!==x&&lvLe(7)(z));return true}}]};
 DEF["0554"]={ // 工藤優作 B05052
-  apSelf:p=>myTurn(p)&&condOk("絆工藤有希子",p)?3000:0,
-  kwSelf:p=>myTurn(p)&&condOk("絆工藤有希子",p)?["突撃"]:[],
-  abilities:[{label:"手札かセットされたカードを1枚リムーブ: リムーブエリアのレベル3以下を登場",turn1:true,can:p=>condOk("絆工藤新一",p)&&p.field.length<5&&(p.hand.length>0||setTotal(allChars())>0)&&p.rm.some(y=>isChar(y)&&lvOf(y)<=3),
+  apSelf:(p,x)=>myTurn(p)&&bondFor(p,x,"工藤有希子")?3000:0,
+  kwSelf:(p,x)=>myTurn(p)&&bondFor(p,x,"工藤有希子")?["突撃"]:[],
+  abilities:[{label:"手札かセットされたカードを1枚リムーブ: リムーブエリアのレベル3以下を登場",turn1:true,can:(p,x)=>bondFor(p,x,"工藤新一")&&p.field.length<5&&(p.hand.length>0||setTotal(allChars())>0)&&p.rm.some(y=>isChar(y)&&lvOf(y)<=3),
     run:async p=>{if(setTotal(allChars())>0&&(p.cpu||await ask(`${p.name}: コスト`,"",[{label:"セットされたカードをリムーブ",value:true,primary:true},{label:"手札をリムーブ",value:false}]))){if(!await removeAnySet(p,"コスト: 裏向きのカードをリムーブするキャラ"))return false}
       else await discard(p,1);await enterFromRm(p,y=>lvOf(y)<=3,"登場させるキャラ（レベル3以下）");return true}}]};

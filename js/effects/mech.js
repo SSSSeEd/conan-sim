@@ -131,21 +131,7 @@ DEF["0407"]={ // 探偵の目（事件）: パートナーの色は6色、現場
   partnerColors:"青緑白赤黄黒",fieldMax:4};
 
 // ===== 主要キャラ（PR #69 で見送ったもの） =====
-const tantei=y=>isChar(y)&&hasTrait(y,"探偵");
-const noShared=(a,b)=>![...(C(a).c||"")].some(ch=>(C(b).c||"").includes(ch));
-DEF["0734"]={ // 江戸川コナン B07002
-  enter:async(p,x)=>{drawN(p,2);
-    // CPU: 色の違う［探偵］のキャラ2枚を捨てられて、相手にAP8000以下がいれば、その2枚を選ぶ
-    let plan=null;if(p.cpu&&oppHas(p,apLe(8000))){const ts=p.hand.filter(tantei);
-      for(const a of ts){for(const b of ts)if(a!==b&&noShared(a,b)){plan=[a,b];break}if(plan)break}}
-    const got=[];for(let i=0;i<2;i++){const r=plan?(await discard(p,1,"手札をリムーブ",p,y=>y===plan[i])):await discard(p,1);got.push(...r)}
-    if(got.length===2&&got.every(tantei)&&noShared(got[0],got[1])){log("　色の異なる［探偵］を2枚リムーブした","n");await rmChar(p,apLe(8000),"リムーブするキャラ（AP8000以下）")}},
-  abilities:[{label:"スリープ: このキャラか［探偵］1枚 → このターン、相手はカットインと変装を使えない",
-    can:(p,x)=>p.field.some(y=>(y===x||tantei(y))&&y.st==="a"),
-    aiCan:(p,x)=>myTurn(p)&&opp(p).noCiDis!==G.turnNo&&opp(p).hand.length>0&&p.field.some(y=>y!==x&&tantei(y)&&y.st==="a"&&(y.fresh||apOf(y)<apOf(x))),
-    run:async(p,x)=>{const cs=p.field.filter(y=>(y===x||tantei(y))&&y.st==="a");
-      const [c]=await pickCards(p,"コスト: スリープさせるキャラ","",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>(b.fresh-a.fresh)||apOf(a)-apOf(b))});if(!c)return false;
-      c.st="s";log(`　コスト: ${C(c).nm} をスリープ`,"n");opp(p).noCiDis=G.turnNo;log("　このターン、相手はカットインと変装を使用できない","n");return true}}]};
+// 江戸川コナン B07002（0734）は js/effects/mr8.js 側の定義を使う
 DEF["0260"]={ // 江戸川コナン B03002
   onHintUse:async(p,self)=>{if(turnCount(self,"hint"))return;useTurn(self,"hint");
     await lookTop(p,3,y=>isChar(y)&&hasTrait(y,"少年探偵団"),{title:"手札に加える［少年探偵団］のキャラ"})},
