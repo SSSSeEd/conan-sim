@@ -801,5 +801,7 @@ module.exports=[
     const G=board(w,{p0:{field:["B05101"]}});const p=G.P[0],q=G.P[1],[x]=p.field;G.turn=1;const ht=w.ev("hasTrait");
     w.removeCard(x,"コンタクト",{by:q});await w.runQueue();assert.ok(p.field.includes(x));assert.strictEqual(x.st,"s");assert.strictEqual(p.hand.length,1);
     assert.ok(ht(x,"探偵")&&!ht(x,"警察"));w.removeCard(x,"コンタクト",{by:q});assert.ok(ht(x,"警察"),"離れると元に戻る")}],
+  ["複数名カード: 《遠山和葉＆大岡紅葉》は［遠山和葉］と［大岡紅葉］の両方として数える（「平次…」「カッコエ――ッ♡」B11027 で2体リムーブ）",async w=>{
+    const G=board(w,{p0:{field:["B07015"],hand:["B11027"],solved:true},p1:{field:[R,R,R]}});const p=G.P[0];
+    await w.FX.event(p,p.hand[0]);assert.strictEqual(G.P[1].field.length,1)}],
 ];
-
