@@ -25,7 +25,10 @@ const MECH_FX={
   guardedFor(p,y,title){const t=String(title||"");
     const kinds=[/リムーブする/.test(t)&&"rm",/スリープさせる/.test(t)&&"sleep",/スタンさせる/.test(t)&&"stun"].filter(Boolean);
     return kinds.length>0&&kinds.every(k=>MECH_FX.guarded(y,k,p))},
-  saveLeave(p,x){const s=(x.set||[]).find(s=>s.up&&!s.under&&def(s.c)&&def(s.c).setSave);if(!s)return false;
+  saveLeave(p,x){
+    const g=G.turn!==p.idx&&p.field.find(y=>y!==x&&p.field.includes(x)&&def(y)&&def(y).rescue&&def(y).rescue(p,y,x)); // 松田陣平 B01092: 代わりに手札に移す
+    if(g){log(`　${C(g).nm} をリムーブし、${C(x).nm} は現場から離れる代わりに手札に移す`,"n");removeCard(g,"効果",{by:p});dropSets(p,x);detach(x);resetMods(x);p.hand.push(x);return true}
+const s=(x.set||[]).find(s=>s.up&&!s.under&&def(s.c)&&def(s.c).setSave);if(!s)return false;
     x.set.splice(x.set.indexOf(s),1);p.rm.push(s.c);log(`　${C(s.c).nm} をリムーブし、${C(x).nm} は代わりに現場に残る`,"n");
     noteSetOff(p,x,s.c,false);if(G.queue)G.queue.push({setRm:[s.c],p,turn:G.turn});return true},
   noteLeftSets(p,x,how){const cs=setEvents(x).filter(c=>DEF[idOf(c)]&&DEF[idOf(c)].setLeave);
@@ -36,6 +39,7 @@ const MECH_FX={
   noAct(x,p){const d=def(x);return !!(d&&d.noActUnless&&p.field.includes(x)&&!d.noActUnless(p,x))},
   noTarget(p,y){const q=ownerOf(y);if(!q||q===p||!q.field.includes(y))return false;
     {const d=def(y);if(d&&d.untargetable&&d.untargetable(q,y))return true} // 榎本梓 B01082:【パートナー黄】相手のキャラはこのキャラを指定してアクションできない
+    if(q.field.some(z=>{const e=def(z);return e&&e.untargetAlly&&e.untargetAlly(q,z,y)}))return true; // 白鳥任三郎 B04072
     if(lvOf(y)>4)return false;
     return q.field.some(z=>z.st==="s"&&def(z)&&def(z).protectLow)},
   // 相手の証拠がリムーブされたとき（トッ: このターン次に1回）

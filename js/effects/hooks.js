@@ -42,11 +42,13 @@ const FX={
   async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>withSrc(x,()=>d.enter(p,x)),p);render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
   async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>withSrc(x,()=>d.event(p,x)),p)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
-  async disguise(p,x,mine){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await resolving(()=>d.disguise(p,x,mine),p)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
+  disguiseOff(p){const o=opp(p);return o.field.some(y=>{const e=def(y);return e&&e.noOppDisguiseFx&&e.noOppDisguiseFx(o,y)})}, // 京極真 B04034: 相手のキャラの【変装時】は発動しない
+  async disguise(p,x,mine){const d=def(x);if(d&&d.disguise&&!FX.disguiseOff(p)){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await resolving(()=>d.disguise(p,x,mine),p)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
     const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onOppDisguise&&o.field.includes(y))await fxIf(o,y,"変装",()=>e.onOppDisguise(o,y,x))} // 相手が【変装】を使用したとき（茶木神太郎）
     for(const q of G.P)for(const y of q.field.slice()){const e=def(y);if(e&&e.onAnyDisguise&&y!==x&&q.field.includes(y))await fxIf(q,y,"変装",()=>e.onAnyDisguise(q,y,x))}}, // このキャラ以外のキャラが【変装】したとき（茶木神太郎 B03058）
   async disguiseReplaced(p,mine,by){const d=def(mine);return !!(d&&d.disguiseReplaced&&await d.disguiseReplaced(p,mine,by))}, // 変装で入れ替わるキャラが、デッキの下の代わりにリムーブされるか
-  async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await resolving(()=>d.hirameki(o,e),o);return true}return false},
+  noRefEv(p){return opp(p).field.some(y=>{const d=def(y);return d&&d.noRefEv})},
+  async hirameki(o,e){const d=def(e);if(d&&d.hirameki&&!opp(o).field.some(y=>{const z=def(y);return z&&z.noOppHirameki&&(z.noOppHirameki===true||z.noOppHirameki(opp(o),y))})){await fxPre(o,e,"ヒラメキ");await resolving(()=>d.hirameki(o,e),o);return true}return false},
   async cutin(p,card,mine,own=true){const d=def(card);if(own&&d&&d.cutin)await fxIf(p,card,"カットイン",()=>d.cutin(p,card,mine));
     if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await fxIf(p,mine,"コンタクト",()=>def(mine).onCutinInContact(p,mine,card));
     if(own&&mine)for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyCutin&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"カットイン",()=>e.onAllyCutin(p,y,mine,card))}}, // 自分がカットインを使用したとき（キャンティ＆コルン）
@@ -78,8 +80,10 @@ const FX={
     const o=opp(p);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppReason&&o.field.includes(y))await fxIf(o,y,"相手の推理",()=>d.onOppReason(o,y,x))} // 羽田秀𠮷 B05080
     await runQueue()},
   // 相手がカットインか変装を使用したとき（白鳥任三郎 B04075）
-  async onOppCutDis(q,ct){const o=opp(q);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppCutDis&&o.field.includes(y))await fxIf(o,y,"カットイン/変装",()=>d.onOppCutDis(o,y,ct,q))}},
-  async onMisread(o,y){const d=def(y);if(d&&d.onMisread&&o.field.includes(y))await fxIf(o,y,"ミスリード",()=>d.onMisread(o,y))}, // 円谷光彦 B09016
+  async onOppCutDis(q,ct,choice){const o=opp(q);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppCutDis&&o.field.includes(y))await fxIf(o,y,"カットイン/変装",()=>d.onOppCutDis(o,y,ct,q,choice))}},
+  async reasonLp(p,x,lp){const o=opp(p);for(const y of o.field.slice()){const d=def(y);if(d&&d.reasonLp&&o.field.includes(y))await fxIf(o,y,"推理",async()=>{lp=await d.reasonLp(o,y,x,lp)})}return lp},
+  async onMisread(o,y){const d=def(y);if(d&&d.onMisread&&o.field.includes(y))await fxIf(o,y,"ミスリード",()=>d.onMisread(o,y));
+    const q=opp(o);for(const z of q.field.slice()){const e=def(z);if(e&&e.onOppMisread&&q.field.includes(z))await fxIf(q,z,"相手のミスリード",()=>e.onOppMisread(q,z))}}, // 相手がミスリードしたとき（小嶋元次 B05015） // 円谷光彦 B09016
   async onReveal(p,x){if(G.fxD){(G.revealQ=G.revealQ||[]).push({p,x});return}await resolving(()=>FX.runReveal(p,x))},
   async runReveal(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReveal&&p.field.includes(y))await fxIf(p,y,"公開",()=>d.onReveal(p,y,x))}},
   lpBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;const d=def(x);return d&&d.lpSelf?d.lpSelf(p,x)||0:0},
@@ -137,7 +141,9 @@ const FX={
     if(info.setRm){for(const c of info.setRm){const e=def(c);if(e&&e.setToRm&&info.p.rm.includes(c))await fxIf(info.p,c,"セット",()=>e.setToRm(info.p,c,info))}return}
     // セットのトリガー: onSetOn(p,x,n)=このキャラにカードがセットされるたび／onSetOff(p,y,info)=自分の現場のキャラにセットされていたカードが現場から離れるたび（info.down=裏向き）
     if(info.setOn){const e=def(info.x);if(e&&e.onSetOn&&info.p.field.includes(info.x))await fxIf(info.p,info.x,"セット",()=>e.onSetOn(info.p,info.x,info.n));return}
-    if(info.setOff){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onSetOff&&info.p.field.includes(y))await fxIf(info.p,y,"セットされたカードが離れたとき",()=>e.onSetOff(info.p,y,info))}return}
+    if(info.setOff){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onSetOff&&info.p.field.includes(y))await fxIf(info.p,y,"セットされたカードが離れたとき",()=>e.onSetOff(info.p,y,info))}
+      {const q=opp(info.p);for(const y of q.field.slice()){const e=def(y);if(e&&e.onOppSetOff&&q.field.includes(y))await fxIf(q,y,"相手のセットが離れたとき",()=>e.onOppSetOff(q,y,info))}}return} // onOppSetOff: 相手の現場のキャラにセットされていたカードが離れたとき（大岡紅葉 B02020）
+    if(info.slept){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onAllySleep&&info.p.field.includes(y))await fxIf(info.p,y,"スリープ状態になったとき",()=>e.onAllySleep(info.p,y,info.x))}return} // 自分のキャラがアクティブからスリープ状態になったとき（阿笠博士 B03008）
     if(info.rmLeft){for(const y of info.p.field.slice()){const e=def(y);if(e&&e.onRmLeave&&info.p.field.includes(y))await fxIf(info.p,y,"リムーブエリアから離れたとき",()=>e.onRmLeave(info.p,y,info.x))}return}
     // 自分の現場のキャラがリムーブされたとき（白馬探 B05059。リムーブされたキャラ自身の onAllyRemoved も呼ぶ）。info.st=リムーブ直前の状態
     for(const y of [...info.p.field.slice(),info.x]){const e=def(y);if(e&&e.onAllyRemoved&&(y===info.x||info.p.field.includes(y)))await fxIf(info.p,y,"現場リムーブ時",()=>e.onAllyRemoved(info.p,y,info))}

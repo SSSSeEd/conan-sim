@@ -875,4 +875,22 @@ module.exports=[
     const d=w.ev("DEF")["0756"];assert.ok(d&&typeof d.onOppEnter==="function"&&!d.partial)}],
   ["Lv4: lv4.js の全カードが自動化済み扱い（犯人 B10094 を除く）",async w=>{
     const D=w.ev("DEF");for(const id of ["0010","0029","0576","0642","0756","0864"])assert.ok(D[id]&&!D[id].partial,id)}],
+  ["レベル6: 松田陣平 B01092 は相手ターン中、他のキャラが相手の効果で離れる代わりにリムーブされて手札に移す",async w=>{
+    const hi=w.CARD_DB.find(c=>c.t==="キャラ"&&c.lv===8).n;const G=board(w,{p0:{field:[R]},p1:{field:["B01092",hi]}});G.turn=0;const p=G.P[1],y=p.field[1];
+    w.removeCard(y,"効果",{by:G.P[0],effect:true});assert.ok(p.hand.includes(y),"手札に移る");assert.ok(!p.field.some(z=>w.ev("idOf")(z)==="0080"),"松田陣平はリムーブされる")}],
+  ["レベル6: 中森青子 B01045 は相手の推理するキャラの元のLPを0にする（デッキ5枚リムーブ）",async w=>{
+    const G=board(w,{p0:{field:["B01008"]},p1:{field:["B01045"],deck:Array(15).fill(R)}});const x=G.P[0].field[0],d=G.P[1].deck.length;
+    const lp=await w.FX.reasonLp(G.P[0],x,3);assert.strictEqual(lp,3-(w.CARD_DB.find(c=>c.n==="B01008").lp||0));assert.strictEqual(G.P[1].deck.length,d-5)}],
+  ["レベル6: 白鳥任三郎 B04072 がスリープなら、相手は自分のレベル5以下の【青】【黄】を指定してアクションできない",async w=>{
+    const G=board(w,{p0:{field:[R]},p1:{field:["B04072",R,"B01008"]}});const [sh,a,b]=G.P[1].field;sh.st="s";
+    const bl=w.CARD_DB.find(c=>c.t==="キャラ"&&c.c==="青"&&c.lv<=5).n;G.P[1].field[1]=w.inst(bl);
+    assert.ok(w.FX.noTarget(G.P[0],G.P[1].field[1]));sh.st="a";assert.ok(!w.FX.noTarget(G.P[0],G.P[1].field[1]))}],
+  ["レベル6: 世良真純 B05079 がいると相手のヒラメキは発動しない",async w=>{
+    const G=board(w,{p0:{field:[R]},p1:{field:["B05079"]}});const e=w.inst("B01032");assert.strictEqual(await w.FX.hirameki(G.P[0],e),false)}],
+  ["レベル6: 阿笠博士 B03008 は自分のターン、［少年探偵団］がスリープになると1枚引いて1枚リムーブ",async w=>{
+    const G=board(w,{p0:{field:["B03008","B01008"],deck:[R,R,R],hand:[R]}});const p=G.P[0];G.turn=0;const y=p.field[1];y.st="a";
+    await w.FX.onLeave({slept:true,x:y,p,turn:0});assert.strictEqual(p.hand.length,1,"引いて捨てる")}],
+  ["レベル6: 服部平蔵 B02030 は相手のカットインを、セット2枚のリムーブで無効にする",async w=>{
+    const G=board(w,{p0:{field:["B02030"],deck:[R,R,R,R]},p1:{field:[R]}});const p=G.P[0],x=p.field[0];x.set=[{c:w.inst(R),up:false},{c:w.inst(R),up:false}];
+    await w.ev("DEF")["0200"].onOppCutDis(p,x,{},G.P[1],{how:"cut"});assert.strictEqual(G.cutNeg,true);assert.strictEqual(x.set.length,0)}],
 ];

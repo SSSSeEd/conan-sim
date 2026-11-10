@@ -5,7 +5,8 @@ function checkDeck(p){ // デッキ0枚で即リフレッシュ
   if(p.rm.length===0){lose(p,"リフレッシュできない（リムーブエリア0枚）");return}
   p.deck=shuffle(p.rm.splice(0));p.refreshed=true;
   log(`${p.name} がリフレッシュ（デッキ${p.deck.length}枚）。${opp(p).name} は証拠を1つ得る`,"w");
-  gainEvidence(opp(p),1);
+  if(window.FX&&FX.noRefEv(p))log(`　${opp(p).name} はリフレッシュによって証拠を得られない`,"n"); // 鮫崎島治 B05097
+  else gainEvidence(opp(p),1);
 }
 function popDeck(p){if(G.over)return null;const x=p.deck.shift();checkDeck(p);return x}
 function draw(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.hand.push(x)}}}
@@ -53,6 +54,7 @@ function activatePartner(q){
   q.partner.st="a"}
 // 現場を離れるキャラにセットされていたカードをリムーブエリアへ。表向きのイベントは「リムーブエリアに置かれたとき」（刃新陰流風車 など）を予約
 // セットのトリガー予約（runQueue → FX.onLeave）。setOn=キャラにカードがセットされた、setOff=セットされていたカードが現場から離れた（効果: onSetOn / onSetOff）
+function noteSlept(x){if(G&&G.queue&&x.st==="a"){const p=ownerOf(x);if(p&&p.field.includes(x))G.queue.push({slept:true,x,p,turn:G.turn})}} // アクティブからスリープ状態になったとき（阿笠博士 B03008）
 function noteSetOn(p,h,n=1){if(G&&G.queue&&n>0)G.queue.push({setOn:true,x:h,p,n,turn:G.turn})}
 function noteSetOff(p,h,card,down){if(G&&G.queue)G.queue.push({setOff:true,x:h,p,card,down:!!down,turn:G.turn})}
 function dropSets(p,x){const ss=x.set||[];x.set=[];
@@ -335,11 +337,12 @@ function canAct(x,p,kind,target){ // kind: reason|chara|case。target: アクシ
 async function reason(p,x){
   if(!canAct(x,p,"reason")){toast("推理できない（スリープ中か名乗り状態）");return}
   recAct(p,"reason",x);
-  x.st="s";
+  noteSlept(x);x.st="s";
   let lp=x===p.partner?(C(x).lp||1)+x.lpT+x.lpM:lpOf(x);
   log(`${p.name} の ${C(x).nm} が推理（LP${lp}）`);
   await showCpu(p,x,"推理",`${C(x).nm}（LP${lp}）`);
   const o=opp(p);
+  lp=await FX.reasonLp(p,x,lp); // 中森青子 B01045: 相手の推理するキャラの元のLPを0にする
   const noEv=await FX.reasonNoEv(p,x,lp); // 時津潤哉 B03038: 1枚引く代わりに、この推理では証拠を得ない
   const mis=o.field.filter(y=>y.st==="a"&&staticKw(y,o).misread>0);
   if(mis.length){
@@ -368,7 +371,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
   G.actor=x; // アクション中のキャラ（諸伏景光 B03085 のヒラメキ）
   recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);
-  x.st="s";
+  noteSlept(x);x.st="s";
   log(`${p.name} の ${C(x).nm}（AP${apOf(x)}）がアクション → ${kind==="case"?"事件":C(target).nm}`);
   render();await FX.onAction(p,x,kind==="case"?null:target);
   // ガードまでにアクションしたキャラや対象が現場を離れたら、アクションはそこで終わる
@@ -455,16 +458,19 @@ async function contactRight(q,ct,tp){
       else choice={x,how:cuts.includes(x)?"cut":"dis"}}
   }
   if(!choice){log(`${q.name} はパス`,"n");return false}
-  const x=choice.x;await FX.onOppCutDis(q,ct);
+  const x=choice.x;G.cutNeg=false;await FX.onOppCutDis(q,ct,choice); // 服部平蔵 B02030: カットインの効果を無効にする（G.cutNeg）
   {render();await cutin(x,`${q.name}: ${choice.how==="cut"?"カットイン":"変装"}`,choice.how==="cut"?((C(x).ci||"").split("\n")[0]||`AP＋${FX.grantedCutin(q,x)}`):`${C(mine).nm} → ${C(x).nm}`,{who:q})}
   if(choice.how==="cut"){
     // 与えられたカットイン（AP＋1000）と自分のカットインの両方があれば、どちらか1つを使う
     const gv=FX.grantedCutin(q,x),own=ownCutinOk(x,q);let useOwn=own;
     if(own&&gv!=null)useOwn=q.cpu?(ownCutinAp(x,q)??-1)>=gv:await ask("どちらのカットインを使う？","",[{label:(C(x).ci||"").split("\n")[0].slice(0,40),value:true,primary:true},{label:`AP＋${gv}（与えられたカットイン）`,value:false}]);
     const v=useOwn?ownCutinAp(x,q):gv;detach(x);q.rm.push(x);
+    if(G.cutNeg){G.cutNeg=false;log(`${q.name} のカットイン ${C(x).nm} の効果は無効になった`,"n")}
+    else{
     if(v!=null){mine.apC+=v;log(`${q.name} はカットイン ${C(x).nm}: ${C(mine).nm} AP＋${v}（AP${apOf(mine)}）`)}
     else{log(`${q.name} はカットイン ${C(x).nm}: ${C(x).ci.replace(/\n/g," ")}`);if(!FX.has(x,"cutin"))toast("カットイン効果を手動で処理")}
     await FX.cutin(q,x,mine,useOwn);
+    }
   }else{
     detach(x);const fi=q.field.indexOf(mine);
     Object.assign(x,{st:mine.st,apM:mine.apM,apT:mine.apT,apC:mine.apC,lpM:mine.lpM,lpT:mine.lpT,kw:mine.kw.slice(),fresh:mine.fresh});
