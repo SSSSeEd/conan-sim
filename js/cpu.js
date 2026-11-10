@@ -141,7 +141,7 @@ async function cpuTurn(p){
     else if(plan.act&&!resist)for(const x of rs){
       for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
         if(G.over||!p.field.includes(x)||x.st!=="a")break;
-        if(way==="chara"){const t=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara")&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
+        if(way==="chara"){const t=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
           if(t){await declareAction(p,x,t);await step();break}}
         else if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");await step();break}}}}
   if(G.over)return;
@@ -151,12 +151,12 @@ async function cpuTurn(p){
     // 「必ずガードする」相手のキャラがいれば、APで勝てるキャラでアクションしてガードさせる
     const fg=o.field.find(y=>staticKw(y,o).mustGuard&&canGuardNow(o,y));
     if(fg){const a=p.field.filter(x=>x.st==="a"&&!hold.has(x)&&!staticKw(x,p).bullet&&apOf(x)>=apOf(fg)).sort((a,b)=>apOf(a)-apOf(b))
-        .find(x=>canAct(x,p,"chara")&&o.field.some(y=>y.st!=="a"&&!FX.noTarget(p,y))||canAct(x,p,"case")&&o.ev.length>0);
-      if(a){await declareAction(p,a,canAct(a,p,"chara")&&o.field.find(y=>y.st!=="a"&&!FX.noTarget(p,y))||"case");await step();if(G.over)break;continue}}
+        .find(x=>o.field.some(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y))||canAct(x,p,"case")&&o.ev.length>0);
+      if(a){await declareAction(p,a,o.field.find(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(a,p,"chara",y))||"case");await step();if(G.over)break;continue}}
     let tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)).sort((a,b)=>(C(b).lv||0)-(C(a).lv||0));
     if(ai2(p,"act2"))tg=tg.filter(y=>lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6).sort((a,b)=>lpOf(b)-lpOf(a)||(strongChar(b)-strongChar(a))||(C(b).lv||0)-(C(a).lv||0)); // SeEd: LP高い→効果→レベル。倒す価値のないキャラは狙わない
     let done=false;
-    for(const t of tg){const a=atks.find(x=>apOf(x)>=apOf(t));if(a){await declareAction(p,a,t);await step();done=true;break}}
+    for(const t of tg){const a=atks.find(x=>apOf(x)>=apOf(t)&&canAct(x,p,"chara",t));if(a){await declareAction(p,a,t);await step();done=true;break}}
     if(!done||G.over)break;
   }
   if(G.over)return;

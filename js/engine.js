@@ -21,16 +21,17 @@ function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からな
   if(wasField&&window.FX&&by&&by!==p&&opt.effect&&FX.guarded(x,"rm",by)){log(`　${C(x).nm} は相手の効果でリムーブされない`,"n");return}
   if(wasField&&window.FX&&by&&by!==p&&(opt.effect||why==="コンタクト")&&FX.saveLeave(p,x))return;
   if(wasField&&window.FX)FX.noteLeftSets(p,x,"rm");
+  if(wasField&&by&&by!==p)x._setsHand=true; // 広田正巳 B08054: 相手の能力・効果・コンタクトで離れるとき、裏向きのセットを手札へ（dropSets）
   detach(x);resetMods(x);x.paPend=0;
   if(wasField)dropSets(p,x);
   // MRが相手のターン中に現場を離れたときは、リムーブエリアではなくパートナーエリアへ移る（自分のターン中は移らない）
   if(wasField&&isMR(x)&&G&&G.turn!==p.idx){x.paRet=0;p.pa.push(x);if(why)log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ（${why}）`);
     // リムーブしてからリムーブエリアの代わりにパートナーエリアへ置く扱いなので、現場リムーブ時の効果は発動する
-    G.queue.push({x,p,st,turn:G.turn,by:opt.by||null,effect:!!opt.effect});return}
+    G.queue.push({x,p,st,why,turn:G.turn,by:opt.by||null,effect:!!opt.effect});return}
   p.rm.push(x);
   const c=C(x);
   if(why)log(`${p.name} の ${c.nm} をリムーブ（${why}）`);
-  if(wasField&&G){G.queue.push({x,p,st,turn:G.turn,by:opt.by||null,effect:!!opt.effect});
+  if(wasField&&G){G.queue.push({x,p,st,why,turn:G.turn,by:opt.by||null,effect:!!opt.effect});
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
 // MRが現場かパートナーエリアに来たら、自分の現場・パートナーエリアにいる他のMRをリムーブ（マニュアル §9: MRは同時に1枚だけ）
@@ -54,7 +55,10 @@ function activatePartner(q){
 // セットのトリガー予約（runQueue → FX.onLeave）。setOn=キャラにカードがセットされた、setOff=セットされていたカードが現場から離れた（効果: onSetOn / onSetOff）
 function noteSetOn(p,h,n=1){if(G&&G.queue&&n>0)G.queue.push({setOn:true,x:h,p,n,turn:G.turn})}
 function noteSetOff(p,h,card,down){if(G&&G.queue)G.queue.push({setOff:true,x:h,p,card,down:!!down,turn:G.turn})}
-function dropSets(p,x){const ss=x.set||[];x.set=[];for(const s of ss){p.rm.push(s.c);if(!s.under)noteSetOff(p,x,s.c,!s.up)}
+function dropSets(p,x){const ss=x.set||[];x.set=[];
+  const toHand=window.FX&&FX.has(x,"setsToHand")&&(x._setsHand||G&&G.fxBy&&G.fxBy!==p);x._setsHand=false;
+  if(toHand&&ss.some(s=>!s.up&&!s.under))log(`　${C(x).nm}: 裏向きのセットをリムーブする代わりに手札へ`,"n");
+  for(const s of ss){if(toHand&&!s.up&&!s.under){p.hand.push(s.c);noteSetOff(p,x,s.c,true);continue}p.rm.push(s.c);if(!s.under)noteSetOff(p,x,s.c,!s.up)}
   const ev=ss.filter(s=>s.up&&!s.under).map(s=>s.c);if(ev.length&&G)G.queue.push({setRm:ev,p,turn:G.turn})}
 // MRが相手ターン中に現場を離れた場合は、行き先（手札・デッキなど）に一度置かれてから、すぐパートナーエリアへ移る（離れ方は問わない）
 function mrSweep(){if(!G)return;for(const p of G.P)for(const z of ["hand","deck","rm","file","ev"])for(const x of p[z].slice())
@@ -223,7 +227,7 @@ function beginTurn(){
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
   G.phase="main";recTurnStart(p);render();saveGame();
-  const go=()=>{if(p.cpu)return cpuTurn(p)};
+  const go=()=>FX.mainStart(p).then(()=>{if(p.cpu)return cpuTurn(p)}); // 自分のメインフェイズ開始時の効果（沖矢昴 B05072・勝又力 B05075）
   // メインフェイズ開始時: 相手が効果でパートナーエリアに移したキャラを、持ち主が登場させるか決める
   const q=opp(p);
   const t=q.pa.some(x=>x.paRet===G.turnNo)?FX.paReturn(q).then(()=>{saveGame();return go()}):go();
@@ -248,7 +252,7 @@ function playableReason(p,x,viaHint,byEffect=false){
   if(!viaHint&&!byEffect&&p.hinted)return "このターンはネクストヒントをした";
   const lv=(window.FX&&FX.handLevel(p,x))??(c.lv||0);
   if(lv>p.file.length)return `レベル${lv} > FILE${p.file.length}枚`;
-  if(!canPlayColor(c,p))return `事件の色（${C(p.caseC).c}）と合わない`;
+  if(!canPlayColor(c,p,viaHint))return `事件の色（${C(p.caseC).c}）と合わない`;
   return (window.FX&&FX.useBlock(p,x))||null;
 }
 // byEffect: 効果で手札から使用する（「手札の使用」の1ターン1回に数えない）
@@ -315,16 +319,16 @@ function solve(p){
   if(p.ev.length>=p.level)win(p,`事件解決（証拠${p.ev.length}/${p.level}）`);
   else{log(`${p.name} は事件解決を宣言したが証拠不足（${p.ev.length}/${p.level}）`,"w");render()}
 }
-function canAct(x,p,kind){ // kind: reason|chara|case
+function canAct(x,p,kind,target){ // kind: reason|chara|case。target: アクション［キャラ］の対象（突撃［レベル4以下のキャラ］の判定用、省略可）
   if(x.st!=="a")return false;
-  if(kind==="reason"&&x.kw.includes("推理不可"))return false;
+  if(kind==="reason"&&(x.kw.includes("推理不可")||window.FX&&FX.has(x,"noReason")))return false; // 爆弾犯 B10079: 推理できない
   if(x===p.partner)return kind==="reason"&&p.pLoc==="area";
   if(kind!=="reason"&&window.FX&&FX.noAct(x,p))return false; // 毛利小五郎 B07005: 妃英理がいないとアクションできない
   if(kind==="case"&&window.FX&&FX.has(x,"noCase"))return false; // 京極真 B05051: 事件を指定してアクションできない
   if(!x.fresh)return true;
   const k=staticKw(x,p);
   if(k.swift)return true;
-  if(kind==="chara")return k.rush||k.rushC;
+  if(kind==="chara")return k.rush||k.rushC||k.rushC4&&(!target||lvOf(target)<=4); // ウォッカ B07096: 突撃［レベル4以下のキャラ］
   if(kind==="case")return k.rush||k.rushE;
   return false;
 }
@@ -336,6 +340,7 @@ async function reason(p,x){
   log(`${p.name} の ${C(x).nm} が推理（LP${lp}）`);
   await showCpu(p,x,"推理",`${C(x).nm}（LP${lp}）`);
   const o=opp(p);
+  const noEv=await FX.reasonNoEv(p,x,lp); // 時津潤哉 B03038: 1枚引く代わりに、この推理では証拠を得ない
   const mis=o.field.filter(y=>y.st==="a"&&staticKw(y,o).misread>0);
   if(mis.length){
     let use;
@@ -344,13 +349,13 @@ async function reason(p,x){
     for(const y of use){y.st="s";const v=staticKw(y,o).misread;lp-=v;log(`${o.name} の ${C(y).nm} がミスリード${v}（LP${lp}）`);
       render();await cutin(y,"ミスリード！",`${o.name} の ${C(y).nm}：${C(x).nm} の推理 LP−${v}（残りLP${Math.max(0,lp)}）`,{kind:"mis"})}
   }
-  const n=Math.max(0,lp);gainEvidence(p,n);log(`${p.name} は証拠を${n}つ得た（証拠${p.ev.length}）`);
+  const n=noEv?0:Math.max(0,lp);gainEvidence(p,n);log(`${p.name} は証拠を${n}つ得た（証拠${p.ev.length}）`);
   await FX.onReason(p,x);
   clearAct();render();
 }
 async function declareAction(p,x,target){ // target: inst or "case"
   let kind=target==="case"?"case":"chara";
-  if(!canAct(x,p,kind)){toast("アクションできない");return}
+  if(!canAct(x,p,kind,kind==="chara"?target:undefined)){toast("アクションできない");return}
   const o=opp(p);
   if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||hitsActive(x,p,target)))){toast("対象はスリープかスタン状態のキャラ");return}
   if(kind==="chara"&&FX.noTarget(p,target)){toast("このキャラは指定してアクションできない");return}
@@ -377,14 +382,15 @@ async function declareAction(p,x,target){ // target: inst or "case"
     else if(o.cpu)guard=cpuGuard(o,x,target,guards);
     else{const g=await chooseCards(`${o.name}: ガード`,`${C(x).nm}（AP${apOf(x)}）が${kind==="case"?"事件":C(target).nm+"（AP"+apOf(target)+"）"}にアクション。アクティブなキャラをスリープしてガードできます。`,guards,{min:0,max:1,okLabel:"ガード"});guard=g[0]||null}
   }
-  if(guard){if(guard.st==="a")guard.st="s";log(`${o.name} の ${C(guard).nm}（AP${apOf(guard)}）がガード`);await FX.onGuarded(p,x,guard);
+  if(guard){if(guard.st==="a")guard.st="s";log(`${o.name} の ${C(guard).nm}（AP${apOf(guard)}）がガード`);await FX.onGuarded(p,x,guard,kind==="case"?null:target);
     {render();await cutin(guard,`${o.name}: ガード`,`${C(guard).nm}（AP${apOf(guard)}）`,{who:o})}await contact(p,x,guard)}
   else if(kind==="chara")await contact(p,x,target);
   else{
-    const e=o.ev.pop();log(`${o.name} の証拠を1つリムーブ`);
+    const e=o.ev.pop();log(`${o.name} の証拠を1つリムーブ`);G.noEvGain=false;
     await hirameki(o,e);await FX.onEvRemoved(o);
-    gainEvidence(p,1);log(`${p.name} は証拠を1つ得た（証拠${p.ev.length}）`);
-    await FX.onCaseGain(p,x);
+    if(G.noEvGain){G.noEvGain=false;log(`　${p.name} はこのアクションによって証拠を得られない`,"n")} // 犯人 B03126 のヒラメキ
+    else{gainEvidence(p,1);log(`${p.name} は証拠を1つ得た（証拠${p.ev.length}）`);
+    await FX.onCaseGain(p,x)}
   }
   render();await runQueue();
   if(!G.over)await FX.actionEnd(p,x);

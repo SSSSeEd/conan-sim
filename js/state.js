@@ -60,7 +60,7 @@ function staticKw(x,p){
     while((m=s.match(/^【([^】]+)】/))){const r=condOk(m[1],p);if(r===false){ok=false}else if(r===null){ok=false}s=s.slice(m[0].length)}
     if(!ok)continue;
     if((m=s.match(/^〚([^〛]+)〛/))){const k=m[1];
-      if(k==="突撃")out.rush=true;else if(k==="突撃［キャラ］")out.rushC=true;else if(k==="突撃［事件］")out.rushE=true;
+      if(k==="突撃")out.rush=true;else if(k==="突撃［キャラ］")out.rushC=true;else if(k==="突撃［事件］")out.rushE=true;else if(k==="突撃［レベル4以下のキャラ］")out.rushC4=true;
       else if(k==="迅速")out.swift=true;else if(k==="ブレット")out.bullet=true;
       else if((m=k.match(/^ミスリード(\d+)/)))out.misread+=+m[1];}
     if(/^このキャラは[^「」（]*ガードできない/.test(s))out.noGuard=true;
@@ -110,7 +110,10 @@ function ownCutinAp(x,p){
     const u=s.match(/^((?:〚(?:カード名)?［[^］]+］〛か?)+)に【カットイン】する場合、AP[＋+](\d+)/);
     if(u&&mine&&[...u[1].matchAll(/［([^］]+)］/g)].some(m=>C(mine).nm.includes(m[1])))best=Math.max(best||0,+u[2]);
     const v=s.match(/^〚特徴［([^］]+)］〛のキャラに【カットイン】する場合、AP[＋+](\d+)/);
-    const w=s.match(/【(青|赤|黄|緑|白|黒)】のキャラに【カットイン】する場合、AP[＋+](\d+)/); // バーボン PR087（効果の後ろに続く）
+    const w=line.match(/【(青|赤|黄|緑|白|黒)】のキャラに【カットイン】する場合、AP[＋+](\d+)/); // バーボン PR087（効果の後ろに続く）・テキーラ B08086（行頭。条件タグと同じ形なので line で見る）
+    // 仮面ヤイバー B02006: AP＋1000、レベル5以下の〚特徴［少年探偵団］〛のキャラに【カットイン】する場合、代わりにAP＋3000
+    const lt=s.match(/^AP[＋+]\d+、レベル(\d+)以下の〚特徴［([^］]+)］〛のキャラに【カットイン】する場合、代わりにAP[＋+](\d+)/);
+    if(lt&&mine&&lvOf(mine)<=+lt[1]&&(C(mine).ct||"").split(",").includes(lt[2]))best=Math.max(best||0,+lt[3]);
     if(w&&mine&&(C(mine).c||"").includes(w[1]))best=Math.max(best||0,+w[2]);
     if(v&&mine&&(C(mine).ct||"").split(",").includes(v[1]))best=Math.max(best||0,+v[2]);
   }
@@ -122,7 +125,7 @@ function disguiseOk(x,p){
   const tags=[...t.matchAll(/【([^】]+)】/g)].map(m=>m[1]).filter(s=>s!=="変装");
   return tags.every(tg=>condOk(tg,p)!==false);
 }
-function canPlayColor(card,p){if(window.FX&&FX.ignoreCaseColor&&FX.ignoreCaseColor(card,p))return true;const cc=C(p.caseC).c||"";return colorsOf(card.c).every(ch=>cc.includes(ch))}
+function canPlayColor(card,p,viaHint){if(window.FX&&FX.ignoreCaseColor&&FX.ignoreCaseColor(card,p,viaHint))return true;const cc=C(p.caseC).c||"";return colorsOf(card.c).every(ch=>cc.includes(ch))}
 
 // ================= ログ =================
 // 記録に残してから画面に出す（画面への表示は ui.js の uiLog）

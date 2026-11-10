@@ -16,7 +16,7 @@ function hasTrait(x,t){
   if(window.FX&&p&&p.field.includes(x)&&FX.traitAura(p,x,t))return true; // 現場のキャラが与える特徴（毛利小五郎 B10015）
   if(t==="喫茶ポアロ"&&p&&p.poaroT===G.turnNo)return true; // 榎本梓誘拐事件 B06095: このターン、自分のすべてのキャラは［喫茶ポアロ］を持つ
   if(t==="サッカー選手"&&p&&p.field.includes(x)&&["1065","1066"].includes(idOf(x)))return true; // 現場にいるこのキャラは［サッカー選手］を持つ
-  if(t==="鈴木財閥"&&p&&p.field.includes(x)&&idOf(x)==="1213")return true; // 富沢雄三 B11047
+  if(t==="鈴木財閥"&&p&&p.field.includes(x)&&["1213","0560"].includes(idOf(x)))return true; // 富沢雄三 B11047・B05058
   if(t==="長野県警"&&p&&p.field.includes(x)&&["0900"].includes(idOf(x)))return true; // 現場にいるこのキャラは［長野県警を持つ］を持つ
   return false;
 }
@@ -50,7 +50,9 @@ async function discard(p,n=1,title="手札をリムーブ",chooser=p,filter=null
     const cands=filter?p.hand.filter(filter):p.hand;if(!cands.length)return [];
     const [x]=await pickCards(chooser,title,`${p.name} の手札から1枚リムーブします。`,cands,{min:1,max:1,
       ai:cs=>chooser===p?cs.slice().sort((a,b)=>aiCardValue(p,a)-aiCardValue(p,b)):cs.slice().sort((a,b)=>aiCardValue(p,b)-aiCardValue(p,a))});
-    if(x){detach(x);p.rm.push(x);log(`　${p.name} は手札の ${C(x).nm} をリムーブ`);if(n===1)return [x]}
+    if(x){detach(x);p.rm.push(x);log(`　${p.name} は手札の ${C(x).nm} をリムーブ`);
+      if(G.fxBy&&G.fxBy!==p&&G.turn!==p.idx&&def(x)&&def(x).onDiscardedByOpp)await def(x).onDiscardedByOpp(p,x); // 弁崎素江 B05115: 相手ターンに相手の効果で手札からリムーブされたとき
+      if(n===1)return [x]}
   }
   return [];
 }
