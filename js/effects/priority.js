@@ -42,11 +42,11 @@ const takeFileTop=(p)=>{const y=fileTopCard(p);if(!y)return null;p.file.splice(p
 const isCIblack=y=>hasColor(y,"黒")&&!!C(y).ci;
 // カード名の指定（相手の持つカード名から）。CPUは相手のデッキで一番多い名前
 async function guessName(p,title){const o=opp(p);const pool=[...o.deck,...o.file.filter(y=>y!==o.partner),...o.hand,...o.rm,...o.field,...o.ev];
-  const cnt=new Map;for(const y of pool)cnt.set(nameOf(y),(cnt.get(nameOf(y))||0)+1);
+  const cnt=new Map;for(const y of pool)for(const n of namesOf(y))cnt.set(n,(cnt.get(n)||0)+1); // 複数名カードはそれぞれの名前で数える
   const names=[...cnt.keys()].sort((a,b)=>cnt.get(b)-cnt.get(a));if(!names.length)return null;
   if(p.cpu)return names[0];
-  const [y]=await chooseCards(`${p.name}: カード名を指定`,title||"カード名を指定します",names.map(n=>pool.find(z=>nameOf(z)===n)),{min:1,max:1,okLabel:"指定"});
-  return y?nameOf(y):null}
+  const [y]=await chooseCards(`${p.name}: カード名を指定`,title||"カード名を指定します",names.map(n=>pool.find(z=>nameOf(z)===n)||pool.find(exactName(n))),{min:1,max:1,okLabel:"指定"});
+  return y?names[names.map(n=>pool.find(z=>nameOf(z)===n)||pool.find(exactName(n))).indexOf(y)]:null}
 
 // ================= 事件 =================
 // 「自分の【黒】のパートナーの【事件解決】能力を以下の能力に書き換える。【解決編】【証拠隠滅】…」型
@@ -131,7 +131,7 @@ DEF["0082"]={ // 「刑事なら刑事らしく…」 B01094
   ai:p=>p.rm.some(y=>isChar(y)&&hasColor(y,"黄"))};
 DEF["0083"]={ // 「僕の日本から…」 B01095
   event:async p=>{if(!partnerIs(p,"黄"))return noEff();const nm=await guessName(p,"捜査1で見つかるカード名を指定します");if(!nm)return;
-    log(`　カード名［${nm}］を指定`,"n");const found=investigate(p,1).some(y=>nameOf(y)===nm);
+    log(`　カード名［${nm}］を指定`,"n");const found=investigate(p,1).some(exactName(nm));
     if(!found){log("　指定したカード名は発見されなかった","n");return}
     for(let i=0;i<2;i++){const t=await chooseChar(p,"スタンさせるキャラ",y=>y.st!=="x");if(t)stunC(t)}},
   ai:p=>partnerIs(p,"黄")};

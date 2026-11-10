@@ -107,10 +107,10 @@ DEF["0440"]={ // 羽田秀𠮷 B04048
     const back=await pickCards(p,`デッキの下に移すカード（${n}枚）`,"選んだカードはシャッフルしてデッキの下へ",p.hand,{min:n,max:n,ai:c=>c.slice().sort((a,b)=>aiCardValue(p,a)-aiCardValue(p,b)).slice(0,n)});
     for(const y of shuffle(back)){detach(y);p.deck.push(y)}log(`　手札${back.length}枚をデッキの下へ`,"n")},
   abilities:[{label:"カード名を指定し、デッキの上から2枚見て手札に",turn1:true,can:p=>p.deck.length>0,
-    run:async p=>{const names=[...new Set(p.deck.map(y=>C(y).nm))];let nm;
-      if(p.cpu){const cnt={};for(const y of p.deck)cnt[C(y).nm]=(cnt[C(y).nm]||0)+1;nm=names.sort((a,b)=>cnt[b]-cnt[a])[0]}
-      else{const opts=names.map(n=>p.deck.find(y=>C(y).nm===n));const [y]=await chooseCards(`${p.name}: カード名を指定`,"指定するカード名のカードを選びます（デッキの並びは分かりません）",opts,{min:1,max:1,okLabel:"指定"});nm=y&&C(y).nm}
-      if(!nm)return false;log(`　［${nm}］を指定`,"n");await lookTop(p,2,y=>C(y).nm===nm,{title:`［${nm}］を1枚まで手札に`});return true}}]};
+    run:async p=>{const names=[...new Set(p.deck.flatMap(namesOf))];let nm;
+      if(p.cpu){const cnt={};for(const y of p.deck)for(const n of namesOf(y))cnt[n]=(cnt[n]||0)+1;nm=names.sort((a,b)=>cnt[b]-cnt[a])[0]}
+      else{const opts=names.map(n=>p.deck.find(y=>C(y).nm===n)||p.deck.find(exactName(n)));const [y]=await chooseCards(`${p.name}: カード名を指定`,"指定するカード名のカードを選びます（デッキの並びは分かりません）",opts,{min:1,max:1,okLabel:"指定"});nm=y&&names[opts.indexOf(y)]}
+      if(!nm)return false;log(`　［${nm}］を指定`,"n");await lookTop(p,2,exactName(nm),{title:`［${nm}］を1枚まで手札に`});return true}}]};
 DEF["0698"]={ // 羽田秀𠮷 B06078
   abilities:[{label:"レベル6以上の［赤井家］をスリープ＋デッキの上から3枚リムーブ: ［赤井家］が落ちたらAP8000以下をリムーブ",turn1:true,
     can:p=>p.deck.length>3&&p.field.some(y=>y.st==="a"&&hasTrait(y,"赤井家")&&lvOf(y)>=6),aiCan:p=>p.deck.length>12&&oppHas(p,apLe(8000))&&p.field.some(y=>y.st==="a"&&hasTrait(y,"赤井家")&&lvOf(y)>=6&&!canAct(y,p,"chara")),
