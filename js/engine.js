@@ -11,19 +11,21 @@ function popDeck(p){if(G.over)return null;const x=p.deck.shift();checkDeck(p);re
 function draw(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.hand.push(x)}}}
 function gainEvidence(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.ev.push(x)}}}
 function toFile(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.file.push(x)}}}
-function resetMods(x){x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a"}
+function resetMods(x){x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a";x.tauntT=0;x.bondAll=0}
 function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からなら離れたときの効果を予約）
-  const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);
+  const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);const st=x.st;
+  // 萩原千速 SP010: 現場にいるこのキャラは相手のイベントの効果によってリムーブされない
+  if(wasField&&opt.effect&&G&&G.evtBy&&G.evtBy!==p&&window.FX&&FX.has(x,"noEvRemove")){log(`　${C(x).nm} は相手のイベントの効果ではリムーブされない`,"n");return}
   detach(x);resetMods(x);x.paPend=0;
   if(wasField)dropSets(p,x);
   // MRが相手のターン中に現場を離れたときは、リムーブエリアではなくパートナーエリアへ移る（自分のターン中は移らない）
   if(wasField&&isMR(x)&&G&&G.turn!==p.idx){x.paRet=0;p.pa.push(x);if(why)log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ（${why}）`);
     // リムーブしてからリムーブエリアの代わりにパートナーエリアへ置く扱いなので、現場リムーブ時の効果は発動する
-    G.queue.push({x,p,turn:G.turn,by:opt.by||null,effect:!!opt.effect});return}
+    G.queue.push({x,p,st,turn:G.turn,by:opt.by||null,effect:!!opt.effect});return}
   p.rm.push(x);
   const c=C(x);
   if(why)log(`${p.name} の ${c.nm} をリムーブ（${why}）`);
-  if(wasField&&G){G.queue.push({x,p,turn:G.turn,by:opt.by||null,effect:!!opt.effect});
+  if(wasField&&G){G.queue.push({x,p,st,turn:G.turn,by:opt.by||null,effect:!!opt.effect});
     if(!(window.FX&&FX.automated(x))&&(c.f||"").includes("【現場リムーブ時】"))toast(`${c.nm}【現場リムーブ時】を確認`)}
 }
 // MRが現場かパートナーエリアに来たら、自分の現場・パートナーエリアにいる他のMRをリムーブ（マニュアル §9: MRは同時に1枚だけ）
@@ -310,6 +312,7 @@ function canAct(x,p,kind){ // kind: reason|chara|case
   if(x.st!=="a")return false;
   if(kind==="reason"&&x.kw.includes("推理不可"))return false;
   if(x===p.partner)return kind==="reason"&&p.pLoc==="area";
+  if(kind==="case"&&window.FX&&FX.has(x,"noCase"))return false; // 京極真 B05051: 事件を指定してアクションできない
   if(!x.fresh)return true;
   const k=staticKw(x,p);
   if(k.swift)return true;
@@ -338,11 +341,14 @@ async function reason(p,x){
   clearAct();render();
 }
 async function declareAction(p,x,target){ // target: inst or "case"
-  const kind=target==="case"?"case":"chara";
+  let kind=target==="case"?"case":"chara";
   if(!canAct(x,p,kind)){toast("アクションできない");return}
   const o=opp(p);
   if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||hitsActive(x,p,target)))){toast("対象はスリープかスタン状態のキャラ");return}
   if(kind==="case"&&o.ev.length===0){toast("相手の証拠が0");return}
+  // 横溝重悟 D11005: 「相手のキャラがアクションするとき、このキャラを指定できる場合、必ず指定する」
+  const taunt=o.field.find(y=>(y.tauntT||0)>=G.turnNo&&(y.st==="s"||y.st==="x"||hitsActive(x,p,y))&&canAct(x,p,"chara"));
+  if(taunt&&target!==taunt){log(`　${C(taunt).nm} を必ず指定する`,"n");if(!p.cpu)toast(`${C(taunt).nm} を必ず指定します`);target=taunt;kind="chara"}
   recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);
   x.st="s";
