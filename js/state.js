@@ -66,7 +66,7 @@ function staticKw(x,p){
     if(/^このキャラは[^「」（]*ガードできない/.test(s))out.noGuard=true;
     if(/^このキャラはスリープ状態でもガードできる/.test(s))out.guardSleep=true;
   }
-  for(const k of [...x.kw,...(window.FX&&FX.kwExtra?FX.kwExtra(x,p):[])]){if(k==="突撃")out.rush=true;if(k==="突撃［キャラ］")out.rushC=true;if(k==="突撃［事件］")out.rushE=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true;if(k==="必ずガード")out.mustGuard=true}
+  for(const k of [...x.kw,...(window.FX&&FX.kwExtra?FX.kwExtra(x,p):[])]){if(k==="突撃")out.rush=true;if(k==="突撃［キャラ］")out.rushC=true;if(k==="突撃［事件］")out.rushE=true;if(k==="迅速")out.swift=true;if(k==="ブレット")out.bullet=true;if(k==="必ずガード")out.mustGuard=true;if(k==="突撃［キャラ］喪失")out.rushC=false}
   return out;
 }
 // カットインのAP。他のカードから与えられたカットイン（工藤新一 B07003 など）も含めて一番大きい値
