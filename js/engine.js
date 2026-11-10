@@ -11,9 +11,14 @@ function popDeck(p){if(G.over)return null;const x=p.deck.shift();checkDeck(p);re
 function draw(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.hand.push(x)}}}
 function gainEvidence(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.ev.push(x)}}}
 function toFile(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.file.push(x)}}}
-function resetMods(x){x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a"}
+function resetMods(x){x.trA=null;x.trD=null;x.tmpAb=null;x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a"}
 function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からなら離れたときの効果を予約）
   const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);
+  // 相手の能力・効果・コンタクトで現場を離れるとき: リムーブされない（FX.guarded）／代わりにセットを外して残る（FX.saveLeave。「かっ…和葉ァ!!!」）
+  const by=opt.by||(opt.effect&&G?G.fxBy:null);
+  if(wasField&&window.FX&&by&&by!==p&&opt.effect&&FX.guarded(x,"rm",by)){log(`　${C(x).nm} は相手の効果でリムーブされない`,"n");return}
+  if(wasField&&window.FX&&by&&by!==p&&(opt.effect||why==="コンタクト")&&FX.saveLeave(p,x))return;
+  if(wasField&&window.FX)FX.noteLeftSets(p,x,"rm");
   detach(x);resetMods(x);x.paPend=0;
   if(wasField)dropSets(p,x);
   // MRが相手のターン中に現場を離れたときは、リムーブエリアではなくパートナーエリアへ移る（自分のターン中は移らない）
@@ -34,7 +39,9 @@ const areaCards=p=>[...(p.pLoc==="area"?[p.partner]:[]),...p.pa];
 const inArea=(p,y)=>y===p.partner?p.pLoc==="area":p.pa.includes(y);
 // 効果でキャラをパートナーエリアへ移す。ret=true なら「相手のターンのメインフェイズ開始時、登場させてもよい。しなければリムーブ」（beginTurn → FX.paReturn）
 function toPartnerArea(p,x,{ret=false,why="効果"}={}){
-  const wasField=p.field.includes(x);detach(x);resetMods(x);if(wasField)dropSets(p,x);
+  const wasField=p.field.includes(x);
+  if(wasField&&window.FX&&G.fxBy&&G.fxBy!==p&&FX.saveLeave(p,x))return;
+  if(wasField&&window.FX)FX.noteLeftSets(p,x,"move");detach(x);resetMods(x);if(wasField)dropSets(p,x);
   x.paRet=ret?G.turnNo+1:0;p.pa.push(x);mrReplace(p,x);
   log(`　${p.name} は ${C(x).nm} をパートナーエリアに移した（${why}）`,"n")}
 // 相手のパートナーをアクティブにする。FILEにいる（アシスト中）なら、パートナーエリアに戻してアクティブにする（犯人 B11089）
@@ -249,7 +256,7 @@ async function useFromHand(p,x,viaHint=false,byEffect=false){
   const c=C(x);
   if(!window.SIM_FAST&&!G.sim&&!(c.t==="イベント"&&FX.automated(x))){render();await cutin(x,`${p.name}: ${c.t==="キャラ"?"登場":"使用"}${viaHint?"（ネクストヒント）":""}`,c.t==="キャラ"?`${c.nm}（Lv${c.lv} AP${c.ap}）`:(c.f||"").split("\n")[0].slice(0,60),{who:p})}
   if(c.t==="キャラ"){
-    if(p.field.length>=5){
+    if(p.field.length>=fieldMax(p)){
       const t=p.cpu?[p.field.slice().sort((a,b)=>(C(a).lv||0)-(C(b).lv||0))[0]]:await chooseCards("スイッチ","現場が5体です。リムーブして入れ替えるキャラを選んでください。",p.field,{min:1,max:1});
       if(!t.length)return false;removeCard(t[0],"スイッチ");
     }
@@ -310,6 +317,7 @@ function canAct(x,p,kind){ // kind: reason|chara|case
   if(x.st!=="a")return false;
   if(kind==="reason"&&x.kw.includes("推理不可"))return false;
   if(x===p.partner)return kind==="reason"&&p.pLoc==="area";
+  if(kind!=="reason"&&window.FX&&FX.noAct(x,p))return false; // 毛利小五郎 B07005: 妃英理がいないとアクションできない
   if(!x.fresh)return true;
   const k=staticKw(x,p);
   if(k.swift)return true;
@@ -342,6 +350,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
   if(!canAct(x,p,kind)){toast("アクションできない");return}
   const o=opp(p);
   if(kind==="chara"&&!(o.field.includes(target)&&(target.st==="s"||target.st==="x"||hitsActive(x,p,target)))){toast("対象はスリープかスタン状態のキャラ");return}
+  if(kind==="chara"&&FX.noTarget(p,target)){toast("このキャラは指定してアクションできない");return}
   if(kind==="case"&&o.ev.length===0){toast("相手の証拠が0");return}
   recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);
@@ -367,7 +376,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
   else if(kind==="chara")await contact(p,x,target);
   else{
     const e=o.ev.pop();log(`${o.name} の証拠を1つリムーブ`);
-    await hirameki(o,e);
+    await hirameki(o,e);await FX.onEvRemoved(o);
     gainEvidence(p,1);log(`${p.name} は証拠を1つ得た（証拠${p.ev.length}）`);
     await FX.onCaseGain(p,x);
   }

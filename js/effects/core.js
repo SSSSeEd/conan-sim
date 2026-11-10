@@ -9,8 +9,11 @@ const allChars=()=>[...G.P[0].field,...G.P[1].field];
 const isOpp=(p,x)=>ownerOf(x)!==p;
 const lvOf=x=>Math.max(0,(C(x).lv||0)+(x.lvT||0)+(window.FX&&G?FX.lvBonus(x):0));
 function hasTrait(x,t){
+  if(x.trD&&x.trD.includes(t))return false; // 効果で失った特徴（毛利小五郎 B05101）
+  if(x.trA&&x.trA.includes(t))return true;
   if((C(x).ct||"").split(",").includes(t))return true;
   const p=ownerOf(x);
+  if(window.FX&&p&&p.field.includes(x)&&FX.traitAura(p,x,t))return true; // 現場のキャラが与える特徴（毛利小五郎 B10015）
   if(t==="喫茶ポアロ"&&p&&p.poaroT===G.turnNo)return true; // 榎本梓誘拐事件 B06095: このターン、自分のすべてのキャラは［喫茶ポアロ］を持つ
   if(t==="サッカー選手"&&p&&p.field.includes(x)&&["1065","1066"].includes(idOf(x)))return true; // 現場にいるこのキャラは［サッカー選手］を持つ
   if(t==="鈴木財閥"&&p&&p.field.includes(x)&&idOf(x)==="1213")return true; // 富沢雄三 B11047
@@ -53,20 +56,22 @@ async function discard(p,n=1,title="手札をリムーブ",chooser=p,filter=null
 }
 function drawN(p,n=1){draw(p,n);log(`　${p.name} はカードを${n}枚引いた`,"n")}
 function gainEv(p,n=1){gainEvidence(p,n);log(`　${p.name} は証拠を${n}つ得た（証拠${p.ev.length}）`)}
-function stunC(x){x.st="x";log(`　${C(x).nm} をスタン`,"n")}
-function sleepC(x){if(x.st==="a")x.st="s";log(`　${C(x).nm} をスリープ`,"n")}
+function stunC(x){if(FX.guarded(x,"stun",G.fxBy)){log(`　${C(x).nm} は相手の効果でスタンされない`,"n");return}x.st="x";log(`　${C(x).nm} をスタン`,"n")}
+function sleepC(x){if(FX.guarded(x,"sleep",G.fxBy)){log(`　${C(x).nm} は相手の効果でスリープされない`,"n");return}if(x.st==="a")x.st="s";log(`　${C(x).nm} をスリープ`,"n")}
 function activateC(x){x.st=x.st==="x"?"s":"a";log(`　${C(x).nm} を${x.st==="a"?"アクティブ":"スリープ（スタンから）"}に`,"n")}
 function toDeckBottom(x){const p=ownerOf(x);const wasField=p.field.includes(x);
+  if(wasField&&G.fxBy&&G.fxBy!==p&&FX.saveLeave(p,x))return;
+  if(wasField)FX.noteLeftSets(p,x,"move");
   if(wasField)dropSets(p,x);
   detach(x);resetMods(x);p.deck.push(x);log(`　${p.name} の ${C(x).nm} をデッキの下へ`,"n")}
 function setTop(p,x){const c=popDeck(p);if(!c)return;x.set=x.set||[];x.set.push({c,up:false});log(`　${C(x).nm} にデッキの上から1枚を裏向きでセット`,"n");noteSetOn(ownerOf(x)||p,x)}
 
 // 現場のキャラを選ぶ（両者の現場から）
 async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
-  const cs=allChars().filter(y=>filter(y)&&!immune(p,y));
+  const cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title));
   if(!cs.length){log(`　（対象なし）`,"n");return null}
   const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1)});
-  if(x&&await negateChosen(p,x))return null;
+  if(x&&(FX.negateBySet(p,x)||await negateChosen(p,x)))return null;
   return x||null;
 }
 // 毛利蘭 B10011【絆工藤新一】: 相手のイベントの効果では選べない（リムーブされない）
@@ -81,7 +86,7 @@ async function negateChosen(p,y){const q=ownerOf(y);if(!q||q===p||G.turn!==p.idx
   log(`　${C(s).nm}: 効果は無効になった`,"n");return true}
 // 効果で現場に出す（登場時が発動する）
 async function enterByEffect(p,x,state="a"){
-  if(p.field.length>=5){
+  if(p.field.length>=fieldMax(p)){
     const [t]=await pickCards(p,"スイッチ","現場が5体です。リムーブするキャラを選んでください。",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>lvOf(a)-lvOf(b))});
     if(!t)return false;removeCard(t,"スイッチ");
   }
@@ -177,6 +182,6 @@ const myTurn=p=>G.turn===p.idx;
 const giveKw=(y,k)=>{if(!y.kw.includes(k))y.kw.push(k);log(`　${C(y).nm} はターン終了時まで〚${k}〛`,"n")};
 const setCardsAll=()=>allChars().filter(y=>faceDownSet(y).length);
 async function removeAnySet(p,title){const cs=setCardsAll();const [y]=await pickCards(p,title,"",cs,{min:1,max:1,ai:c=>c.slice().sort((a,b)=>isOpp(p,b)-isOpp(p,a))});if(!y)return null;removeSetCost(ownerOf(y),y);return y}
-function toHandFromField(t){const q=ownerOf(t);dropSets(q,t);detach(t);resetMods(t);q.hand.push(t);log(`　${q.name} の ${C(t).nm} を手札に移した`,"n")}
+function toHandFromField(t){const q=ownerOf(t);if(G.fxBy&&G.fxBy!==q&&FX.saveLeave(q,t))return;FX.noteLeftSets(q,t,"move");dropSets(q,t);detach(t);resetMods(t);q.hand.push(t);log(`　${q.name} の ${C(t).nm} を手札に移した`,"n")}
 const setTotal=cs=>cs.reduce((n,y)=>n+faceDownSet(y).length,0);
 async function pickRmToHand(p,f,title){const [y]=await pickCards(p,title,"",p.rm.filter(f),{max:1,ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});rmToHand(p,y);return y}

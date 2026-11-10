@@ -9,6 +9,7 @@ function mkPlayer(idx,name,deck,cpu){
   return p;
 }
 const opp=p=>G.P[1-p.idx];
+const fieldMax=p=>window.FX&&FX.fieldMax?FX.fieldMax(p):5; // 現場に置けるキャラの上限（探偵の目 PR067 で4）
 const cur=()=>G.P[G.turn];
 function caseLevel(p,first){
   const t=C(p.caseC).df||"先攻7 後攻6";const m=t.match(/先攻\s*(\d+)\s*後攻\s*(\d+)/);
@@ -32,7 +33,7 @@ function detach(x){x._shown=null;const p=ownerOf(x);if(!p)return null;
 // 条件タグの判定
 function condOk(tag,p){
   let m;
-  if((m=tag.match(/^パートナー(.+)$/)))return colorsOf(m[1]).every(ch=>(C(p.partner).c||"").includes(ch));
+  if((m=tag.match(/^パートナー(.+)$/))){const pc=window.FX&&FX.partnerColor?FX.partnerColor(p):C(p.partner).c;return colorsOf(m[1]).every(ch=>(pc||"").includes(ch))}
   if(tag==="事件編")return !p.solved; // 「事件(.+)」より先に判定する（先に判定しないと事件の色・特徴として比べられて常に偽になる）
   if((m=tag.match(/^事件(.+)$/))){const want=m[1];const cc=C(p.caseC);const cols=colorsOf(want.replace(/＆/g,""));
     if(cols.length&&cols.length===want.replace(/＆/g,"").length)return cols.every(ch=>(cc.c||"").includes(ch));

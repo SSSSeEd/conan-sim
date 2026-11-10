@@ -196,7 +196,7 @@ function sideEl(p,top){
     if(x._shown!=="field"){x._shown="field";if(!window.SIM_FAST)e.classList.add("justin")}
     if(G.ui.act){if(G.ui.act.a===x)e.classList.add("acting");if(G.ui.act.t===x)e.classList.add("targeted")}
     if(human&&(canAct(x,p,"reason")||canAct(x,p,"chara")||canAct(x,p,"case")))e.classList.add("ready");
-    if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()&&(x.st!=="a"||hitsActive(G.ui.mode.atk,cur(),x)))e.classList.add("tgt");
+    if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()&&(x.st!=="a"||hitsActive(G.ui.mode.atk,cur(),x))&&!FX.noTarget(cur(),x))e.classList.add("tgt");
     e.onclick=()=>{
       if(G.ui.mode&&G.ui.mode.kind==="target"&&p!==cur()){const a=G.ui.mode.atk;G.ui.mode=null;act(()=>declareAction(cur(),a,x));return}
       showDetail(x,true)};

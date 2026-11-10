@@ -90,7 +90,7 @@ module.exports=[
     assert.ok(!w.hitsActive(x,p,t),"Lv2は指定できない");t.lvT=6;assert.ok(w.hitsActive(x,p,t));
     t.apT=9000;await w.FX.onContact(p,{a:x,d:t});assert.strictEqual(w.apOf(x),w.ev("C")(x).ap+3000);assert.strictEqual(p.hand.length,1)}],
   ["遠山和葉 B08020: 自分ターン中に【緑】のイベントを使うとAP8000以下をリムーブ（ターン1）",async w=>{
-    const g=w.CARD_DB.find(c=>c.t==="イベント"&&c.c==="緑");const e=board(w,{p0:{field:["B08020"],hand:[g.n]},p1:{field:[R,R]}});
+    const g=w.CARD_DB.find(c=>c.t==="イベント"&&c.c==="緑"&&!/セットする/.test(c.f||""));const e=board(w,{p0:{field:["B08020"],hand:[g.n]},p1:{field:[R,R]}});
     const q=e.P[0];q.cpu=true;e.turn=0;await w.FX.event(q,q.hand[0]);assert.strictEqual(e.P[1].field.length,1);
     await w.FX.event(q,q.hand[0]||q.rm[q.rm.length-1]);assert.strictEqual(e.P[1].field.length,1,"ターン1")}],
   ["千速と重悟の婚活パーティー D11021: 表向きにした証拠1つにつきAP－1000（神奈川県警がいて解決編のとき）",async w=>{
@@ -646,4 +646,73 @@ module.exports=[
     const {immune}=w.ev("({immune})");const p=G.P[0],q=G.P[1];const ai=p.field[0];
     const ok=await (async()=>{G.P[0].caseC=w.inst(w.CARD_DB.find(c=>c.t==="事件"&&/青/.test(c.c)&&/黒/.test(c.c)).n);await w.FX.event(p,p.hand[0]);return true})();
     const co=p.field.find(y=>w.C(y).nm==="江戸川コナン");assert.ok(co,"コナンが登場");co.st="s";G.evtBy=q;assert.ok(immune(q,ai));co.st="a";assert.ok(!immune(q,ai));G.evtBy=null}],
+  // ===== 新しい仕組みが要ったカード（js/effects/mech.js、2026-11-10） =====
+  ["「オレのそばから離れんなや…」B05041: 相手の効果でリムーブ・スリープ・スタンされない（コンタクトではリムーブされる）",async w=>{
+    const G=board(w,{p0:{field:["B01028"],hand:["B05041"]},p1:{}});const p=G.P[0],q=G.P[1],[h]=p.field;await w.FX.event(p,p.hand[0]);
+    assert.strictEqual(w.ev("setEvents")(h).length,1);G.fxBy=q;w.ev("sleepC")(h);w.ev("stunC")(h);assert.strictEqual(h.st,"a");
+    w.removeCard(h,"効果",{by:q,effect:true});assert.ok(p.field.includes(h));
+    G.fxBy=p;w.ev("sleepC")(h);assert.strictEqual(h.st,"s","自分の効果ではスリープする");G.fxBy=null;
+    w.removeCard(h,"コンタクト",{by:q});assert.ok(!p.field.includes(h))}],
+  ["「かっ…和葉ァ!!!」B01039: 相手の効果・コンタクトで離れるとき、代わりにこのイベントをリムーブして残る",async w=>{
+    const G=board(w,{p0:{field:["B01028"],hand:["B01039"]},p1:{}});const p=G.P[0],q=G.P[1],[h]=p.field;await w.FX.event(p,p.hand[0]);
+    w.removeCard(h,"コンタクト",{by:q});assert.ok(p.field.includes(h));assert.strictEqual(h.set.length,0);assert.ok(p.rm.some(c=>w.C(c).i==="0033"));
+    w.removeCard(h,"効果",{by:q,effect:true});assert.ok(!p.field.includes(h),"2回目はリムーブされる")}],
+  ["チョーカー型変声機 B02067: 相手の効果で選ばれたとき無効（ターン1）",async w=>{
+    const G=board(w,{p0:{field:["B01064"],hand:["B02067"]},p1:{}});const p=G.P[0],q=G.P[1],[h]=p.field;await w.FX.event(p,p.hand[0]);G.turn=1;
+    const ch=w.ev("chooseChar");assert.strictEqual(await ch(q,"リムーブするキャラ"),null);assert.strictEqual(await ch(q,"リムーブするキャラ"),h)}],
+  ["「最も出会いたくない…」B01057: 相手ターン中に現場からリムーブされたら、手札のレベル7以下の【白】を登場",async w=>{
+    const G=board(w,{p0:{field:["B02042"],hand:["B01057","B04033"]},p1:{}});const p=G.P[0],q=G.P[1],[h]=p.field;await w.FX.event(p,p.hand[0]);
+    G.turn=1;w.removeCard(h,"コンタクト",{by:q});await w.runQueue();assert.ok(p.field.some(y=>w.C(y).n==="B04033"))}],
+  ["コンコン B05117: 相手ターン中に離れて現場が0体なら、キャラを1枚リムーブし、リムーブエリアの【カットイン】持ちを2枚まで登場",async w=>{
+    const G=board(w,{p0:{field:["B01097"],hand:["B05117"],rm:["B01097","B01097"]},p1:{field:["B01064"]}});const p=G.P[0],q=G.P[1],[h]=p.field;await w.FX.event(p,p.hand[0]);
+    G.turn=1;w.removeCard(h,"効果",{by:q,effect:true});await w.runQueue();assert.strictEqual(q.field.length,0);assert.strictEqual(p.field.length,2)}],
+  ["トッ B01058: 突撃［事件］を与え、このターン次に相手の証拠がリムーブされたらスリープ状態のキャラをスタン",async w=>{
+    const G=board(w,{p0:{field:["B04033"],hand:["B01058"]},p1:{field:["B01064"],ev:[R,R]}});const p=G.P[0],q=G.P[1],[a]=p.field;a.fresh=true;q.field[0].st="s";
+    await w.FX.event(p,p.hand[0]);assert.ok(w.canAct(a,p,"case"));await w.declareAction(p,a,"case");
+    assert.strictEqual(q.field[0].st,"x");assert.ok(!p.tohT,"1回だけ")}],
+  ["死力を尽くして B02033: セットされているカードを合わせて2枚リムーブして、キャラを1枚リムーブ",async w=>{
+    const G=board(w,{p0:{field:["B01028",R],hand:["B02033"]},p1:{field:["B01064"]}});const p=G.P[0],q=G.P[1],[h,k]=p.field;
+    h.set=[{c:w.inst(R),up:false}];k.set=[{c:w.inst(R),up:false}];await w.FX.event(p,p.hand[0]);
+    assert.strictEqual(h.set.length+k.set.length,0);assert.strictEqual(q.field.length,0)}],
+  ["トランプ銃 B02052: ターン終了時に3枚リムーブしてスタン。相手ターンにリムーブエリアへ置かれるとき、他の［怪盗］にセットし直す",async w=>{
+    const G=board(w,{p0:{field:["B04033","B04033"],hand:["B02052"],deck:[R,R,R,R,R,R,R,R,R,R,R]},p1:{field:["B01064"]}});const p=G.P[0],q=G.P[1],[h,k]=p.field;
+    await w.FX.event(p,p.hand[0]);const host=w.ev("setEvents")(h).length?h:k,other=host===h?k:h;
+    await w.FX.endTurn(p);assert.strictEqual(q.field[0].st,"x");assert.strictEqual(p.deck.length,8);
+    G.turn=1;G.turnNo++;w.removeCard(host,"コンタクト",{by:q});await w.runQueue();assert.strictEqual(w.ev("setEvents")(other).length,1)}],
+  ["石川五右衛門人形 B06012: ［少年探偵団］はコンタクト中AP＋2000。ターン終了時にリムーブして［阿笠博士］をスリープ状態で登場",async w=>{
+    const G=board(w,{p0:{field:["D01009"],hand:["B06012"],rm:["B01012"]},p1:{field:["B01064"]}});const p=G.P[0],q=G.P[1],[h]=p.field;
+    await w.FX.event(p,p.hand[0]);const ap=w.apOf(h);G.contact={a:h,d:q.field[0]};assert.strictEqual(w.apOf(h),ap+2000);G.contact=null;
+    G.turn=1;await w.FX.endTurn(q);const ag=p.field.find(y=>w.C(y).n==="B01012");assert.ok(ag);assert.strictEqual(ag.st,"s");assert.strictEqual(h.set.length,0)}],
+  ["ここで会うたが百年目 B06042: AP＋1000と、このターンだけのコンタクト発生の【宣言】を与える",async w=>{
+    const G=board(w,{p0:{field:["B01028"],hand:["B06042"]},p1:{field:[R]}});const p=G.P[0],q=G.P[1],[x]=p.field;
+    await w.FX.event(p,p.hand[0]);const ab=w.FX.abilities(p,x).find(a=>/コンタクト/.test(a.label));assert.ok(ab&&ab.ok);
+    await w.FX.useAbility(p,x,ab);assert.strictEqual(q.field.length,0);assert.ok(!w.FX.abilities(p,x).find(a=>/コンタクト/.test(a.label)).ok,"ターン1");
+    G.turnNo++;assert.ok(!w.FX.abilities(p,x).some(a=>/コンタクト/.test(a.label)),"次のターンには無い")}],
+  ["探偵の目 PR067: パートナーは6色、現場は最大4枚",async w=>{
+    const G=board(w,{p0:{}});const p=G.P[0];p.caseC=w.inst("PR067");
+    assert.strictEqual(w.condOk("パートナー赤",p),true);assert.strictEqual(w.ev("fieldMax")(p),4)}],
+  ["江戸川コナン B07002: 【宣言】このターン、相手はカットインと変装を使えない",async w=>{
+    const G=board(w,{p0:{field:["B07002"]}});const p=G.P[0],[x]=p.field;const ab=w.FX.abilities(p,x)[0];assert.ok(ab.ok);
+    await w.FX.useAbility(p,x,ab);assert.strictEqual(G.P[1].noCiDis,G.turnNo);assert.strictEqual(x.st,"s")}],
+  ["江戸川コナン B03002: ［少年探偵団］が【宣言】を使うと、このキャラは突撃（ターン1）",async w=>{
+    const G=board(w,{p0:{field:["B03002","D01009"]}});const p=G.P[0],[x,y]=p.field;
+    await w.FX.useAbility(p,y,{label:"テスト",run:async()=>true});assert.ok(x.kw.includes("突撃"))}],
+  ["工藤新一 B10010: 【絆毛利蘭】相手のイベントの効果ではリムーブされない（能力ではリムーブされる）",async w=>{
+    const G=board(w,{p0:{field:["B10010",R]}});const p=G.P[0],q=G.P[1],[x]=p.field;
+    G.evtBy=q;w.removeCard(x,"効果",{by:q,effect:true});assert.ok(p.field.includes(x));G.evtBy=null;
+    w.removeCard(x,"効果",{by:q,effect:true});assert.ok(!p.field.includes(x))}],
+  ["毛利小五郎 B07005: 妃英理がいないとアクションできない",async w=>{
+    const G=board(w,{p0:{field:["B07005"]}});const p=G.P[0],[x]=p.field;
+    assert.ok(!w.canAct(x,p,"case"));p.field.push(w.inst("B07006"));assert.ok(w.canAct(x,p,"case"))}],
+  ["毛利小五郎 B10015: 自分の妃英理は［毛利探偵事務所］。名前の違う［毛利探偵事務所］4枚で迅速",async w=>{
+    const G=board(w,{p0:{field:["B10015","B07006","B01019","B02007"]}});const p=G.P[0],[x,e]=p.field;const ht=w.ev("hasTrait");
+    assert.ok(ht(e,"毛利探偵事務所"));assert.ok(w.FX.kwExtra(x,p).includes("迅速"))}],
+  ["毛利小五郎 B01020: スリープ状態なら、相手は自分のレベル4以下を指定してアクションできない",async w=>{
+    const G=board(w,{p0:{field:["B01020",R]}});const p=G.P[0],q=G.P[1],[x,y]=p.field;
+    assert.ok(!w.FX.noTarget(q,y));x.st="s";assert.ok(w.FX.noTarget(q,y));assert.ok(!w.FX.noTarget(q,x),"自分自身はレベル5")}],
+  ["毛利小五郎 B05101: 相手ターン中にリムーブされたら、スリープ状態で戻って1枚引き、［警察］を失い［探偵］になる",async w=>{
+    const G=board(w,{p0:{field:["B05101"]}});const p=G.P[0],q=G.P[1],[x]=p.field;G.turn=1;const ht=w.ev("hasTrait");
+    w.removeCard(x,"コンタクト",{by:q});await w.runQueue();assert.ok(p.field.includes(x));assert.strictEqual(x.st,"s");assert.strictEqual(p.hand.length,1);
+    assert.ok(ht(x,"探偵")&&!ht(x,"警察"));w.removeCard(x,"コンタクト",{by:q});assert.ok(ht(x,"警察"),"離れると元に戻る")}],
 ];
+

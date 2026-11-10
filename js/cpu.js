@@ -65,7 +65,7 @@ function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
   if(c.t==="イベント")v+=rm?15:4;
   if(c.t==="キャラ"){if(/【登場時】/.test(f)&&FX.has(x,"enter"))v+=/【登場時】[^\n]*(リムーブ|スタン)/.test(f)?12:8;
     if(/引く|ドロー/.test(f))v+=3;
-    if(p.field.length>=5){const lo=Math.min(...p.field.map(y=>C(y).lv||0));if(!((c.lv||0)>=6||(c.lv||0)>=lo+3))return -999}}
+    if(p.field.length>=fieldMax(p)){const lo=Math.min(...p.field.map(y=>C(y).lv||0));if(!((c.lv||0)>=6||(c.lv||0)>=lo+3))return -999}}
   return v}
 async function cpuTurn(p){
   const g0=G; // 途中で新しい対戦が始まったら、古いCPUの手番はそこで止める
@@ -97,7 +97,7 @@ async function cpuTurn(p){
     const score=x=>{const c=C(x);let v=(c.lv||0)*10;
       if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
       if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.has(x,"enter"))v+=25;
-      if(c.t==="キャラ"&&p.field.length>=5)v-=30;
+      if(c.t==="キャラ"&&p.field.length>=fieldMax(p))v-=30;
       return v};
     return cs.sort((a,b)=>score(b)-score(a))[0]||null};
   // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする
@@ -139,7 +139,7 @@ async function cpuTurn(p){
     else if(plan.act&&!resist)for(const x of rs){
       for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
         if(G.over||!p.field.includes(x)||x.st!=="a")break;
-        if(way==="chara"){const t=o.field.filter(y=>y.st!=="a"&&canAct(x,p,"chara")&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
+        if(way==="chara"){const t=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara")&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
           if(t){await declareAction(p,x,t);await step();break}}
         else if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");await step();break}}}}
   if(G.over)return;
@@ -149,9 +149,9 @@ async function cpuTurn(p){
     // 「必ずガードする」相手のキャラがいれば、APで勝てるキャラでアクションしてガードさせる
     const fg=o.field.find(y=>staticKw(y,o).mustGuard&&canGuardNow(o,y));
     if(fg){const a=p.field.filter(x=>x.st==="a"&&!hold.has(x)&&!staticKw(x,p).bullet&&apOf(x)>=apOf(fg)).sort((a,b)=>apOf(a)-apOf(b))
-        .find(x=>canAct(x,p,"chara")&&o.field.some(y=>y.st!=="a")||canAct(x,p,"case")&&o.ev.length>0);
-      if(a){await declareAction(p,a,canAct(a,p,"chara")&&o.field.find(y=>y.st!=="a")||"case");await step();if(G.over)break;continue}}
-    let tg=o.field.filter(y=>y.st!=="a").sort((a,b)=>(C(b).lv||0)-(C(a).lv||0));
+        .find(x=>canAct(x,p,"chara")&&o.field.some(y=>y.st!=="a"&&!FX.noTarget(p,y))||canAct(x,p,"case")&&o.ev.length>0);
+      if(a){await declareAction(p,a,canAct(a,p,"chara")&&o.field.find(y=>y.st!=="a"&&!FX.noTarget(p,y))||"case");await step();if(G.over)break;continue}}
+    let tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)).sort((a,b)=>(C(b).lv||0)-(C(a).lv||0));
     if(ai2(p,"act2"))tg=tg.filter(y=>lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6).sort((a,b)=>lpOf(b)-lpOf(a)||(strongChar(b)-strongChar(a))||(C(b).lv||0)-(C(a).lv||0)); // SeEd: LP高い→効果→レベル。倒す価値のないキャラは狙わない
     let done=false;
     for(const t of tg){const a=atks.find(x=>apOf(x)>=apOf(t));if(a){await declareAction(p,a,t);await step();done=true;break}}
