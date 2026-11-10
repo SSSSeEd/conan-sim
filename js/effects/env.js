@@ -21,14 +21,14 @@ async function fileNameGuess(p,title){
   const o=opp(p);const top=[...o.file].reverse().find(y=>y!==o.partner);
   if(!top){log("　相手のFILEにカードがない","n");return false}
   const pool=[...o.deck,...o.file.filter(y=>y!==o.partner),...o.hand,...o.rm,...o.field,...o.ev];
-  const cnt=new Map;for(const y of pool)cnt.set(nameOf(y),(cnt.get(nameOf(y))||0)+1);
+  const cnt=new Map;for(const y of pool)for(const n of namesOf(y))cnt.set(n,(cnt.get(n)||0)+1); // 複数名カードはそれぞれの名前で数える
   let nm;
   if(top.fu)nm=nameOf(top);
-  else if(p.cpu){const unk=new Map;for(const y of [...o.deck,...o.file.filter(y=>y!==o.partner&&!y.fu)])unk.set(nameOf(y),(unk.get(nameOf(y))||0)+1);
+  else if(p.cpu){const unk=new Map;for(const y of [...o.deck,...o.file.filter(y=>y!==o.partner&&!y.fu)])for(const n of namesOf(y))unk.set(n,(unk.get(n)||0)+1);
     nm=[...unk.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||nameOf(top)}
-  else{const opts=[...cnt.keys()].sort((a,b)=>cnt.get(b)-cnt.get(a)).map(n=>pool.find(y=>nameOf(y)===n));
+  else{const keys=[...cnt.keys()].sort((a,b)=>cnt.get(b)-cnt.get(a)),opts=keys.map(n=>pool.find(y=>nameOf(y)===n)||pool.find(exactName(n)));
     const [y]=await chooseCards(`${p.name}: カード名を指定`,`${title||"相手のFILEの一番上"}のカード名を指定します（相手のFILEの上は${top.fu?`表向きで ${nameOf(top)}`:"裏向き"}です）`,opts,{min:1,max:1,okLabel:"指定"});
-    nm=y?nameOf(y):null}
+    nm=y?keys[opts.indexOf(y)]:null}
   if(!nm)return false;
   log(`　${p.name} はカード名［${nm}］を指定した`,"n");
   o.file.splice(o.file.indexOf(top),1);top.fu=false;o.rm.push(top);

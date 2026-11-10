@@ -42,7 +42,7 @@ DEF["0409"]={ // 毛利蘭 B04004
 DEF["1073"]={}; // 毛利蘭 B10011（相手のイベントで選ばれない: immune、カットイン: ownCutinAp）
 DEF["0735"]={ // 工藤新一 B07003（手札の【青】にカットインを与える: FX.grantedCutin）
   enter:async(p,x)=>{if(!partnerIs(p,"青"))return;const o=opp(p);const t=await chooseChar(p,"デッキの下に移す相手のキャラ（レベル8以下）",y=>isOpp(p,y)&&lvOf(y)<=8);if(!t)return;
-    const nm=C(t).nm;toDeckBottom(t);const cs=o.rm.filter(y=>C(y).nm===nm);
+    const ns=namesOf(t);toDeckBottom(t);const cs=o.rm.filter(y=>namesOf(y).some(n=>ns.includes(n))); // 複数名カードはどの名前でも同じカード名
     if(cs.length){const [y]=await pickCards(p,"相手のリムーブエリアから同じカード名のキャラをデッキの下へ","",cs,{max:1,ai:c=>c.slice(0,1)});if(y){detach(y);o.deck.push(y);log(`　${o.name} の ${C(y).nm} をデッキの下へ`,"n")}}}};
 DEF["0949"]={ // 毛利蘭 B09004
   onReveal:async(p,self,y)=>{if(!condOk("絆工藤新一",p)||!myTurn(p)||turnCount(self,"ran3")||!named("工藤新一","毛利蘭")(y)||!oppHas(p,lvLe(7)))return;

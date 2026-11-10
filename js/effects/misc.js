@@ -71,7 +71,7 @@ DEF["1051"]={ // キッドVS安室 王妃の前髪 B09112
   abilities:[{label:"裏向きの証拠を2つ表向きに: カード名を指定し、現場のそのキャラ1枚につき山札の上から見て、指定したカード名のキャラを手札に",turn1:true,
     can:p=>p.solved&&evDown(p)>=2&&p.field.length>0,aiCan:p=>p.field.length>0,
     run:async p=>{if(!flipEvidence(p,2))return false;
-      const names=[...new Set(p.field.map(nameOf))];const cnt=n=>p.field.filter(y=>nameOf(y)===n).length;
+      const names=[...new Set(p.field.flatMap(namesOf))];const cnt=n=>p.field.filter(exactName(n)).length;
       let nm=names[0];if(names.length>1){if(p.cpu)nm=names.sort((a,b)=>cnt(b)-cnt(a))[0];else nm=await ask(`${p.name}: 指定するカード名`,"現場のキャラ1枚につきデッキの上から1枚見ます。",names.slice(0,8).map((k,i)=>({label:`${k}（${cnt(k)}枚）`,value:k,primary:!i})))}
       const n=cnt(nm);log(`　カード名［${nm}］を指定（${n}枚）`,"n");
-      await lookTop(p,n,y=>isChar(y)&&C(y).nm===nm,{max:1,title:`［${nm}］のキャラを1枚まで手札に`});return true}}]};
+      await lookTop(p,n,y=>isChar(y)&&exactName(nm)(y),{max:1,title:`［${nm}］のキャラを1枚まで手札に`});return true}}]};

@@ -310,13 +310,13 @@ DEF["1193"]={ // 和田進一 B11026（すべてのエリアで［伊織無我�
     sleepC(x);const t=await chooseChar(p,"セットされる相手のキャラ（レベル7以下）",y=>isOpp(p,y)&&lvOf(y)<=7);if(t)setTop(opp(p),t)}};
 DEF["1204"]={ // 工藤有希子 B11038
   enter:async p=>{const byName=new Map;
-    for(const y of [...p.deck,...p.hand,...p.rm,...p.field,...p.file,...p.ev])if(isChar(y)&&!byName.has(nameOf(y)))byName.set(nameOf(y),y);
+    for(const y of [...p.deck,...p.hand,...p.rm,...p.field,...p.file,...p.ev])if(isChar(y))for(const n of namesOf(y))if(!byName.has(n))byName.set(n,y);
     if(!byName.size)return;
-    const cnt=n=>p.deck.filter(y=>isChar(y)&&nameOf(y)===n).length;
-    const [r]=await pickCards(p,"指定するキャラのカード名","デッキの上から4枚を見て、指定した名前のキャラを手札に加えます。",[...byName.values()],{min:1,max:1,
+    const cnt=n=>p.deck.filter(y=>isChar(y)&&exactName(n)(y)).length;const nameBy=new Map([...byName].map(([n,y])=>[y,n])); // 複数名カードは名前ごとに候補にする
+    const [r]=await pickCards(p,"指定するキャラのカード名","デッキの上から4枚を見て、指定した名前のキャラを手札に加えます。",[...new Set(byName.values())],{min:1,max:1,
       ai:cs=>cs.slice().sort((a,b)=>cnt(nameOf(b))-cnt(nameOf(a))||lvOf(b)-lvOf(a)).slice(0,1)});
-    if(!r)return;const n=nameOf(r);log(`　${p.name} はカード名［${n}］を指定した`,"n");
-    await lookTop(p,4,y=>isChar(y)&&nameOf(y)===n,{max:1,title:`［${n}］を1枚まで手札に`})}};
+    if(!r)return;const n=p.cpu?[...byName.keys()].filter(k=>byName.get(k)===r).sort((a,b)=>cnt(b)-cnt(a))[0]:nameOf(r);log(`　${p.name} はカード名［${n}］を指定した`,"n");
+    await lookTop(p,4,y=>isChar(y)&&exactName(n)(y),{max:1,title:`［${n}］を1枚まで手札に`})}};
 DEF["1206"]={ // シャロン・ヴィンヤード B11040（事件の色を無視は FX.ignoreCaseColor）
   disguiseReplaced:async(p,x,by)=>{if(myTurn(p)||!anyExact("ベルモット")(by))return false;
     if(!await yes(p,"シャロン・ヴィンヤード","デッキの下に移す代わりにリムーブして、アクション中のキャラ1枚をスタンさせますか？",true))return false;
