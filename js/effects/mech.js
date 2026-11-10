@@ -34,7 +34,9 @@ const MECH_FX={
     const c=setEvents(y).find(c=>def(c)&&def(c).setNegate);if(!c)return false;
     useTurn(y,"setNeg");log(`　${C(y).nm}（${C(c).nm}）: 選ばれた効果を無効にした`,"n");return true},
   noAct(x,p){const d=def(x);return !!(d&&d.noActUnless&&p.field.includes(x)&&!d.noActUnless(p,x))},
-  noTarget(p,y){const q=ownerOf(y);if(!q||q===p||!q.field.includes(y)||lvOf(y)>4)return false;
+  noTarget(p,y){const q=ownerOf(y);if(!q||q===p||!q.field.includes(y))return false;
+    {const d=def(y);if(d&&d.untargetable&&d.untargetable(q,y))return true} // 榎本梓 B01082:【パートナー黄】相手のキャラはこのキャラを指定してアクションできない
+    if(lvOf(y)>4)return false;
     return q.field.some(z=>z.st==="s"&&def(z)&&def(z).protectLow)},
   // 相手の証拠がリムーブされたとき（トッ: このターン次に1回）
   async onEvRemoved(o){const p=opp(o);

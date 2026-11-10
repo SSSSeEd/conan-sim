@@ -11,7 +11,7 @@ function popDeck(p){if(G.over)return null;const x=p.deck.shift();checkDeck(p);re
 function draw(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.hand.push(x)}}}
 function gainEvidence(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.ev.push(x)}}}
 function toFile(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.file.push(x)}}}
-function resetMods(x){x.trA=null;x.trD=null;x.tmpAb=null;x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a";x.tauntT=0;x.bondAll=0}
+function resetMods(x){x.lockBy=null;x.trA=null;x.trD=null;x.tmpAb=null;x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a";x.tauntT=0;x.bondAll=0}
 function removeCard(x,why,opt={}){ // リムーブエリアへ（現場からなら離れたときの効果を予約）
   const p=ownerOf(x);if(!p)return;const wasField=p.field.includes(x);const st=x.st;
   // 萩原千速 SP010: 現場にいるこのキャラは相手のイベントの効果によってリムーブされない
@@ -361,8 +361,11 @@ async function declareAction(p,x,target){ // target: inst or "case"
   if(kind==="chara"&&FX.noTarget(p,target)){toast("このキャラは指定してアクションできない");return}
   if(kind==="case"&&o.ev.length===0){toast("相手の証拠が0");return}
   // 横溝重悟 D11005: 「相手のキャラがアクションするとき、このキャラを指定できる場合、必ず指定する」
-  const taunt=o.field.find(y=>(y.tauntT||0)>=G.turnNo&&(y.st==="s"||y.st==="x"||hitsActive(x,p,y))&&canAct(x,p,"chara"));
+  // 鬼丸猛 B02022:【ターン1】同じ（1ターンに1回）
+  const taunt=o.field.find(y=>((y.tauntT||0)>=G.turnNo||FX.has(y,"taunt1")&&!turnCount(y,"taunt1"))&&(y.st==="s"||y.st==="x"||hitsActive(x,p,y))&&canAct(x,p,"chara",y)&&!FX.noTarget(p,y));
   if(taunt&&target!==taunt){log(`　${C(taunt).nm} を必ず指定する`,"n");if(!p.cpu)toast(`${C(taunt).nm} を必ず指定します`);target=taunt;kind="chara"}
+  if(taunt&&target===taunt&&FX.has(taunt,"taunt1"))useTurn(taunt,"taunt1");
+  G.actor=x; // アクション中のキャラ（諸伏景光 B03085 のヒラメキ）
   recAct(p,"action",x,target);
   await showCpu(p,x,"アクション",kind==="case"?`${C(x).nm}（AP${apOf(x)}）→ 事件（証拠を狙う）`:`${C(x).nm}（AP${apOf(x)}）→ ${C(target).nm}（AP${apOf(target)}）`,target);
   x.st="s";
@@ -438,8 +441,8 @@ async function contactRight(q,ct,tp){
   if(G.over)return false;
   const mine=q===tp?ct.a:ct.d,theirs=q===tp?ct.d:ct.a;
   if(!q.field.includes(mine)||!opp(q).field.includes(theirs))return false;
-  const lockCD=q.noCiDis===G.turnNo; // 「このターン中、相手はカットインと変装を使用できない」（「君は思ったより手強いって事がね！」など）
-  const cuts=lockCD||FX.noCutin(mine)||q!==tp&&FX.cutinLocked(tp,ct.a)?[]:q.hand.filter(x=>cutinUsable(x,q)); // 条件（自分ターン中など）を満たすものだけ
+  const lockCD=q.noCiDis===G.turnNo;const lockCi=opp(q).field.some(y=>FX.has(y,"noOppCutin")); // 羽田秀𠮷 B02063: 相手はカットインを使用できない // 「このターン中、相手はカットインと変装を使用できない」（「君は思ったより手強いって事がね！」など）
+  const cuts=lockCD||lockCi||FX.noCutin(mine)||q!==tp&&FX.cutinLocked(tp,ct.a)?[]:q.hand.filter(x=>cutinUsable(x,q)); // 条件（自分ターン中など）を満たすものだけ
   const dis=lockCD?[]:q.hand.filter(x=>C(x).t==="キャラ"&&C(x).dg&&disguiseOk(x,q));
   if(!cuts.length&&!dis.length)return false;
   let choice=null;

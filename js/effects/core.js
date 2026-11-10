@@ -79,6 +79,8 @@ async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
 }
 // 毛利蘭 B10011【絆工藤新一】: 相手のイベントの効果では選べない（リムーブされない）
 function immune(p,y){const q=ownerOf(y);if(!q||q===p||!q.field.includes(y))return false;
+  {const d=def(y);if(d&&d.unselectable&&d.unselectable(q,y))return true} // 伊織無我 B03030【絆大岡紅葉】相手の能力や効果によって選ばれない
+  if(q.field.some(z=>{const d=def(z);return d&&d.protectAlly&&d.protectAlly(q,z,y)}))return true; // 黒羽快斗 B05048: 自分の［中森青子］は選ばれない
   if(["0002","0514"].includes(idOf(y))&&condOk("絆江戸川コナン",q))return true; // 灰原哀【絆江戸川コナン】相手の能力や効果によって選ばれない
   if(q.field.some(h=>setEvents(h).some(s=>def(s)&&def(s).setShield&&def(s).setShield(q,h,y))))return true; // セットされたイベントが与える「相手のイベントでは選ばれない」
   return !!(G.evtBy===p&&idOf(y)==="1073"&&condOk("絆工藤新一",q))}
@@ -93,7 +95,7 @@ async function enterByEffect(p,x,state="a"){
     const [t]=await pickCards(p,"スイッチ","現場が5体です。リムーブするキャラを選んでください。",p.field,{min:1,max:1,ai:cs=>cs.slice().sort((a,b)=>lvOf(a)-lvOf(b))});
     if(!t)return false;removeCard(t,"スイッチ");
   }
-  detach(x);resetMods(x);x.st=FX.entersSleeping(x)?"s":state;x.fresh=true;x.viaAb=!G.evtBy;p.field.push(x);mrReplace(p,x);
+  detach(x);resetMods(x);x.st=FX.entersSleeping(x)?"s":state;x.fresh=true;x.viaAb=!G.evtBy;x.byFxT=G.turnNo;p.field.push(x);mrReplace(p,x); // byFxT: 能力や効果によって登場した（阿笠博士 B01012）
   log(`　${p.name} は ${C(x).nm} を${state==="s"?"スリープ状態で":""}登場させた`);
   render();
   await FX.enter(p,x);

@@ -49,7 +49,10 @@ const FX={
     if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await fxIf(p,mine,"コンタクト",()=>def(mine).onCutinInContact(p,mine,card));
     if(own&&mine)for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyCutin&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"カットイン",()=>e.onAllyCutin(p,y,mine,card))}}, // 自分がカットインを使用したとき（キャンティ＆コルン）
   // 工藤新一 B07003: 現場にいると、手札の【青】のカードは「【カットイン】AP＋1000」を持つ
-  grantedCutin:(p,x)=>p&&p.hand.includes(x)&&hasColor(x,"青")&&p.field.some(y=>idOf(y)==="0735")?1000:null,
+  grantedCutin:(p,x)=>{if(!p||!p.hand.includes(x))return null;let v=null;
+    if(hasColor(x,"青")&&p.field.some(y=>idOf(y)==="0735"))v=1000;
+    if(G.turn===p.idx&&isChar(x)&&hasColor(x,"緑")&&hasTrait(x,"YAIBA")&&p.field.some(y=>idOf(y)==="0643"&&def(y)))v=Math.max(v||0,2000); // 佐々木小次郎 B06020
+    return v},
   // 妃英理 B05007: このターン、［毛利探偵事務所］のアクション中は相手はカットインできない
   cutinLocked:(tp,atk)=>tp.cutLock===G.turnNo&&tp.field.includes(atk)&&hasTrait(atk,"毛利探偵事務所"),
   noCutin:x=>!!x&&!!G.contact&&(G.contact.a===x||G.contact.d===x)&&(turnCount(x,"noCutin")>0||!!(def(x)&&def(x).noOwnCutin)),
@@ -91,7 +94,8 @@ const FX={
   // 自分のメインフェイズ開始時（沖矢昴 B05072・勝又力 B05075）
   async mainStart(p){if(!G||G.over)return;for(const y of p.field.slice()){const d=def(y);if(d&&d.mainStart&&p.field.includes(y))await fxIf(p,y,"メインフェイズ開始時",()=>d.mainStart(p,y))}render();await runQueue()},
   async actionEnd(p,actor){actor.apA=0;for(const y of opp(p).field)y.cSafe=false;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
-  async contactWin(p,winner,victim){if(winner.kw.includes("勝利ドロー")&&p.field.includes(winner))drawN(p,1); // 工藤新一NYの事件 B10100P が与えた「コンタクトでリムーブしたとき1枚引く」
+  async contactWin(p,winner,victim){if(winner.kw.includes("勝利ドロー")&&p.field.includes(winner))drawN(p,1);
+    if(winner.kw.includes("勝利ドロー1")&&p.field.includes(winner)&&!turnCount(winner,"cwd1")){useTurn(winner,"cwd1");log(`　${C(winner).nm}（鈴木園子が与えた能力）`,"n");drawN(p,1)} // 鈴木園子 B07063 // 工藤新一NYの事件 B10100P が与えた「コンタクトでリムーブしたとき1枚引く」
     if(winner.cwLook===G.turnNo&&!turnCount(winner,"cwLook")&&p.field.includes(winner)){useTurn(winner,"cwLook"); // 狙われた唇 B10101 が与えた「相手のキャラをコンタクトでリムーブしたとき、上から4枚見て〚突撃〛のキャラを手札に」
       log(`　${C(winner).nm}（狙われた唇が与えた能力）`,"n");await lookTop(p,4,y=>isChar(y)&&/〚突撃〛/.test(C(y).f||""),{max:1,title:"手札に加える〚突撃〛を持つキャラ"})}
     const d=def(winner);if(d&&d.contactWin&&p.field.includes(winner))await fxIf(p,winner,"コンタクト",()=>d.contactWin(p,winner,victim));
@@ -183,7 +187,7 @@ const FX={
   eraseEvidence:p=>!!(def(p.caseC)&&def(p.caseC).eraseEvidence)&&partnerIs(p,"黒"),
   eventAi(p,x){const d=def(x);return !!(d&&d.event&&(!d.ai||d.ai(p)))},
   automated:x=>!!def0(x)&&!def0(x).partial,
-  noAutoWake:x=>/(^|\n)このキャラはオートフェイズにアクティブにならない。/.test(C(x).f||""),
+  noAutoWake:x=>/(^|\n)このキャラはオートフェイズにアクティブにならない。/.test(C(x).f||"")||!!(x.lockBy&&allChars().includes(x.lockBy)&&def(x.lockBy)), // 榎本梓 B01082 が選んだキャラ
   entersSleeping:x=>/(^|\n)このキャラはスリープ状態で登場する。/.test(C(x).f||""),
 };
 Object.assign(FX,MECH_FX);window.FX=FX;

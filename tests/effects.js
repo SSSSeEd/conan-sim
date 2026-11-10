@@ -840,4 +840,34 @@ module.exports=[
   ["複数名カード: 《遠山和葉＆大岡紅葉》は［遠山和葉］と［大岡紅葉］の両方として数える（「平次…」「カッコエ――ッ♡」B11027 で2体リムーブ）",async w=>{
     const G=board(w,{p0:{field:["B07015"],hand:["B11027"],solved:true},p1:{field:[R,R,R]}});const p=G.P[0];
     await w.FX.event(p,p.hand[0]);assert.strictEqual(G.P[1].field.length,1)}],
+  // ---- レベル7の自動化（js/effects/lv7.js、2026-11-10） ----
+  ["レベル7: lv7.js のカードはすべて自動",async w=>{
+    const src=require("fs").readFileSync(require("path").join(__dirname,"../js/effects/lv7.js"),"utf8");const ids=[...src.matchAll(/^DEF\["(\d{4})"\]/gm)].map(m=>m[1]);
+    assert.ok(ids.length>=69);for(const i of ids){const c=w.CARD_DB.find(c=>c.i===i);assert.ok(w.FX.automated({n:c.n}),c.n)}}],
+  ["榎本梓 B01082: 【パートナー黄】相手は指定してアクションできず、登場時に選んだキャラはこのキャラが現場にいるかぎりオートフェイズで起きない",async w=>{
+    const G=board(w,{p0:{field:["B01082"]},p1:{field:[R]}});const p=G.P[0],[x]=p.field,[t]=G.P[1].field;p.partner=w.inst("B03106");
+    assert.ok(!w.FX.noTarget(G.P[1],x),"パートナーが黄でなければ指定できる");p.partner=w.inst(w.CARD_DB.find(c=>c.t==="パートナー"&&c.c==="黄").n);assert.ok(w.FX.noTarget(G.P[1],x));
+    await w.ev("DEF")["0070"].enter(p,x);assert.strictEqual(t.st,"s");assert.ok(w.FX.noAutoWake(t));w.removeCard(x,"効果",{by:G.P[1],effect:true});assert.ok(!w.FX.noAutoWake(t))}],
+  ["伊織無我 B03030: 【絆大岡紅葉】相手の効果では選ばれない／黒羽快斗 B05048 は［中森青子］を選ばれなくする",async w=>{
+    const aoko=w.CARD_DB.find(c=>c.nm==="中森青子"&&c.t==="キャラ").n,momiji=w.CARD_DB.find(c=>c.nm==="大岡紅葉"&&c.t==="キャラ").n;
+    const G=board(w,{p0:{field:["B03030",momiji,"B05048",aoko]}});const p=G.P[0],q=G.P[1];const {immune}=w.ev("({immune})");
+    assert.ok(immune(q,p.field[0]));assert.ok(immune(q,p.field[3]));assert.ok(!immune(q,p.field[2]))}],
+  ["鬼丸猛 B02022: 1ターンに1回、相手のアクションでは必ずこのキャラを指定する",async w=>{
+    const G=board(w,{p0:{field:["B01008"]},p1:{field:["B02022",R]}});const p=G.P[0],[a]=p.field,[oni,r]=G.P[1].field;oni.st="s";r.st="s";
+    await w.declareAction(p,a,r);assert.ok(w.ev("turnCount")(oni,"taunt1")>=1)}],
+  ["羽田秀𠮷 B02063: 相手はカットインを使用できない",async w=>{
+    const G=board(w,{p0:{field:[R]},p1:{field:["B02063"],hand:[R]}});const [a]=G.P[0].field;G.P[1].field[0].st="s";
+    G.contact={a,d:G.P[1].field[0]};assert.strictEqual(await w.ev("contactRight")(G.P[0],G.contact,G.P[0]),false);G.contact=null}],
+  ["ジェイムズ・ブラック B01071: FBIがアクションしたら1枚引く",async w=>{
+    const G=board(w,{p0:{field:["B01071","B01062"]}});const p=G.P[0];await w.FX.onAction(p,p.field[1],null);assert.strictEqual(p.hand.length,1)}],
+  ["阿笠博士 B01012: 能力で登場したレベル6以下の［少年探偵団］をアクティブにして迅速",async w=>{
+    const G=board(w,{p0:{field:["B01012"],hand:["B01008"]}});const p=G.P[0];const y=p.hand[0];await w.ev("enterByEffect")(p,y,"s");
+    assert.strictEqual(y.st,"a","スリープ状態で登場してもアクティブになる");assert.ok(y.kw.includes("迅速"))}],
+  ["鈴木園子 B07063: AP7000以上のキャラがアクションすると、コンタクト勝利で1枚引く能力を与える",async w=>{
+    const G=board(w,{p0:{field:["B07063","B04052"]}});const p=G.P[0],[x,y]=p.field;await w.FX.onAction(p,y,null);assert.ok(y.kw.includes("勝利ドロー1"));
+    const h=p.hand.length;await w.FX.contactWin(p,y,G.P[1].field[0]||w.inst(R));assert.strictEqual(p.hand.length,h+1)}],
+  ["阿笠博士 B08003: 登場時にレベル8のカード名の異なる［少年探偵団］を3枚まで下に重ねる",async w=>{
+    const co=w.CARD_DB.find(c=>c.nm==="江戸川コナン"&&c.lv===8).n,ha=w.CARD_DB.find(c=>c.nm==="灰原哀"&&c.lv===8),mi=w.CARD_DB.find(c=>c.nm==="円谷光彦"&&c.lv===8);
+    const G=board(w,{p0:{field:["B08003"],rm:[co,co,...[ha,mi].filter(Boolean).map(c=>c.n)]}});const p=G.P[0],[x]=p.field;
+    await w.ev("DEF")["0844"].enter(p,x);const n=(x.set||[]).filter(s=>s.under).length;assert.ok(n>=1&&n<=3)}],
 ];
