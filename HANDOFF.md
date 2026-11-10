@@ -121,3 +121,9 @@
   - **事件が変えるもの** `partnerColors`(condOk のパートナー色)・`fieldMax`(`fieldMax(p)`。登場・スイッチ・CPU)。
 - 判断した読み: ①探偵の目の「指定されたイベントでのみ使用できる」はデッキ構築の制限なので扱わない。②トランプ銃の「代わりにセット」は、リムーブエリアに置かれた直後に移す(setToRm で近似)。③「オレのそばから離れんなや…」はデッキの下・手札へ移す効果は防がない(カード文どおり)。④石川五右衛門人形のAP＋2000は「コンタクト中の［少年探偵団］」として扱う。⑤小五郎B05101は、戻ったあと再び離れると特徴が元に戻るので、また発動できる。
 - 次: SeEd依頼の「2〜3枚が絡むコンボの探索ツール」(既存 tools/find_combos.js を拡張)。
+
+## レベル5の自動化(2026-11-10、SeEdの方針: 残りはレベル5→7→4→6 の順。レベル5は簡単なものが多いので先に)
+- 新ファイル js/effects/lv5.js(index.html と sw.js に登録済み)。未自動化だったレベル5の91種をすべて自動化。テストは tests/effects.js の末尾(「レベル5の自動化」)。各カードを環境デッキに入れたCPU同士364戦でエラーなし。
+- 追加した仕組み(lv5.js 先頭のコメントにも一覧): `mainStart`(自分のメインフェイズ開始時、engine.js beginTurn → FX.mainStart)・`reasonNoEv`(推理で証拠を得ない代わりの効果)・`onAllyGuard`(自分のキャラがガードしたとき。FX.onGuarded に target を追加)・`onAnyDisguise`・`onOppEvRemoved`(アクション［事件］で相手の証拠がリムーブされたとき。mech.js onEvRemoved)・`onDiscardedByOpp`(core.js discard)・`G.noEvGain`(ヒラメキ「このアクションで証拠を得られない」)・DEF の `setsToHand`(engine.js dropSets)・`noReason`・キーワード `突撃［レベル4以下のキャラ］`(**canAct の第4引数 target**。cpu.js も対象ごとに canAct を見るよう変更)・removeCard の `info.why`・`canPlayColor` / `FX.ignoreCaseColor` の第3引数 viaHint。
+- カットインAP(state.js ownCutinAp): 「【黒】のキャラに【カットイン】する場合」が行頭にあるテキーラ B08086 を読めるようにした。仮面ヤイバー B02006 の「レベル5以下の［少年探偵団］なら代わりに＋3000」を追加。
+- 判断した読み: 世良真純 B02062 の「相手の証拠がリムーブされたとき」はアクション［事件］によるものだけ。千葉和伸のAP＋はガードしたキャラの apA(アクション終了時まで)。大岡紅葉 B01030 はコンタクトでのリムーブ(info.why)で判定。

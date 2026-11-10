@@ -41,7 +41,8 @@ const FX={
   async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x),p)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
   async disguise(p,x,mine){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await resolving(()=>d.disguise(p,x,mine),p)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
-    const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onOppDisguise&&o.field.includes(y))await fxIf(o,y,"変装",()=>e.onOppDisguise(o,y,x))}}, // 相手が【変装】を使用したとき（茶木神太郎）
+    const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onOppDisguise&&o.field.includes(y))await fxIf(o,y,"変装",()=>e.onOppDisguise(o,y,x))} // 相手が【変装】を使用したとき（茶木神太郎）
+    for(const q of G.P)for(const y of q.field.slice()){const e=def(y);if(e&&e.onAnyDisguise&&y!==x&&q.field.includes(y))await fxIf(q,y,"変装",()=>e.onAnyDisguise(q,y,x))}}, // このキャラ以外のキャラが【変装】したとき（茶木神太郎 B03058）
   async disguiseReplaced(p,mine,by){const d=def(mine);return !!(d&&d.disguiseReplaced&&await d.disguiseReplaced(p,mine,by))}, // 変装で入れ替わるキャラが、デッキの下の代わりにリムーブされるか
   async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await resolving(()=>d.hirameki(o,e),o);return true}return false},
   async cutin(p,card,mine,own=true){const d=def(card);if(own&&d&&d.cutin)await fxIf(p,card,"カットイン",()=>d.cutin(p,card,mine));
@@ -82,8 +83,13 @@ const FX={
    const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
   lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
     for(const q of G.P)for(const y of q.field){const d=def(y);if(d&&d.lvAura)b+=d.lvAura(q,y,x)||0}return b},
-  async onGuarded(p,actor,guard){actor.guardedT=G.turnNo;const d=def(actor); // アクションがガードされた（京極真 B09041）
-    if(d&&d.onGuarded&&p.field.includes(actor))await fxIf(p,actor,"ガードされたとき",()=>d.onGuarded(p,actor,guard))},
+  async onGuarded(p,actor,guard,target){actor.guardedT=G.turnNo;const d=def(actor); // アクションがガードされた（京極真 B09041）
+    if(d&&d.onGuarded&&p.field.includes(actor))await fxIf(p,actor,"ガードされたとき",()=>d.onGuarded(p,actor,guard))
+    const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onAllyGuard&&o.field.includes(y))await fxIf(o,y,"ガード",()=>e.onAllyGuard(o,y,guard,target))}}, // 自分のキャラがガードしたとき（千葉和伸 B04073）。target=指定されていたキャラ（事件なら null）
+  // 自分のキャラが推理したとき、証拠を得る代わりの効果（時津潤哉 B03038）。真なら、この推理では証拠を得ない
+  async reasonNoEv(p,x,lp){for(const y of p.field.slice()){const d=def(y);if(d&&d.reasonNoEv&&p.field.includes(y)&&await resolving(()=>d.reasonNoEv(p,y,x,lp),p))return true}return false},
+  // 自分のメインフェイズ開始時（沖矢昴 B05072・勝又力 B05075）
+  async mainStart(p){if(!G||G.over)return;for(const y of p.field.slice()){const d=def(y);if(d&&d.mainStart&&p.field.includes(y))await fxIf(p,y,"メインフェイズ開始時",()=>d.mainStart(p,y))}render();await runQueue()},
   async actionEnd(p,actor){actor.apA=0;for(const y of opp(p).field)y.cSafe=false;const d=def(actor);if(d&&d.actionEnd&&p.field.includes(actor))await fxIf(p,actor,"アクション終了時",()=>d.actionEnd(p,actor));await runQueue()},
   async contactWin(p,winner,victim){if(winner.kw.includes("勝利ドロー")&&p.field.includes(winner))drawN(p,1); // 工藤新一NYの事件 B10100P が与えた「コンタクトでリムーブしたとき1枚引く」
     if(winner.cwLook===G.turnNo&&!turnCount(winner,"cwLook")&&p.field.includes(winner)){useTurn(winner,"cwLook"); // 狙われた唇 B10101 が与えた「相手のキャラをコンタクトでリムーブしたとき、上から4枚見て〚突撃〛のキャラを手札に」
@@ -107,7 +113,8 @@ const FX={
     // セットされたイベントの「ターン終了時」（setEndTurn(持ち主,セット先,イベント,自分のターンか)。トランプ銃・石川五右衛門人形）
     for(const r of [p,q])for(const y of r.field.slice())for(const sc of setEvents(y)){const e=def(sc);if(e&&e.setEndTurn&&r.field.includes(y)&&setEvents(y).includes(sc))await fxIf(r,y,"ターン終了時",()=>e.setEndTurn(r,y,sc,r===p))}
     await runQueue()}, // 相手のターン終了時（ルパン）
-  ignoreCaseColor:(c,p)=>c.i==="1206"&&condOk("事件黒",p)===true||c.i==="0693"&&condOk("事件YAIBA",p)===true, // シャロン・ヴィンヤード B11040【事件黒】・かぐや B06072【事件YAIBA】: 手札から使用するとき事件の色を無視
+  ignoreCaseColor:(c,p,viaHint)=>c.i==="1206"&&condOk("事件黒",p)===true||c.i==="0693"&&condOk("事件YAIBA",p)===true
+    ||c.i==="0375"||c.i==="0248"&&!!viaHint||c.i==="1107"&&p&&C(p.caseC).nm.includes("工藤新一NYの事件"), // 犯人 B03126・キール B02087（ネクストヒントのとき）・ラディッシュ B10047 // シャロン・ヴィンヤード B11040【事件黒】・かぐや B06072【事件YAIBA】: 手札から使用するとき事件の色を無視
   // 相手のターンのメインフェイズ開始時: 効果でパートナーエリアに移したキャラ(paRet)を、登場させてもよい。しなければリムーブエリアへ（スコッチ B11084・公安部の潜入捜査官）
   async paReturn(q){for(const x of q.pa.slice()){if(!x.paRet||x.paRet!==G.turnNo||!q.pa.includes(x))continue;x.paRet=0;
       if(await yes(q,C(x).nm,`${C(x).nm} をパートナーエリアから登場させますか？（しないとリムーブエリアへ）`,()=>true)){await enterByEffect(q,x,"a")}

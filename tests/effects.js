@@ -801,5 +801,40 @@ module.exports=[
     const G=board(w,{p0:{field:["B05101"]}});const p=G.P[0],q=G.P[1],[x]=p.field;G.turn=1;const ht=w.ev("hasTrait");
     w.removeCard(x,"コンタクト",{by:q});await w.runQueue();assert.ok(p.field.includes(x));assert.strictEqual(x.st,"s");assert.strictEqual(p.hand.length,1);
     assert.ok(ht(x,"探偵")&&!ht(x,"警察"));w.removeCard(x,"コンタクト",{by:q});assert.ok(ht(x,"警察"),"離れると元に戻る")}],
+  // ---- レベル5の自動化（js/effects/lv5.js、2026-11-10） ----
+  ["レベル5: lv5.js のカードはすべて自動",async w=>{
+    const src=require("fs").readFileSync(require("path").join(__dirname,"../js/effects/lv5.js"),"utf8");const ids=[...src.matchAll(/^DEF\["(\d{4})"\]/gm)].map(m=>m[1]);
+    assert.ok(ids.length>=90);for(const i of ids){const c=w.CARD_DB.find(c=>c.i===i);assert.ok(w.FX.automated({n:c.n}),c.n)}}],
+  ["沖矢昴 B05072: メインフェイズ開始時、手札を1枚リムーブして［赤井秀一］か［ライ］を手札に",async w=>{
+    const aka=w.CARD_DB.find(c=>c.nm==="赤井秀一"&&c.t==="キャラ").n;
+    const G=board(w,{p0:{field:["B05072"],hand:[R,R],rm:[aka]}});const p=G.P[0];await w.FX.mainStart(p);
+    assert.ok(p.hand.some(y=>w.C(y).n===aka));assert.strictEqual(p.hand.length,2)}],
+  ["時津潤哉 B03038: LP1以上の推理で1枚引くと、その推理では証拠を得ない",async w=>{
+    const G=board(w,{p0:{field:["B03038","B01008"],ev:Array(9).fill(R)}});const p=G.P[0];
+    await w.reason(p,p.field[1]);assert.strictEqual(p.ev.length,9);assert.strictEqual(p.hand.length,1)}],
+  ["千葉和伸 B04073: 自分のキャラがガードしたらアクション終了時までAP＋1000",async w=>{
+    const G=board(w,{p0:{field:[R]},p1:{field:["B04073",R]}});const g=G.P[1].field[1];
+    await w.FX.onGuarded(G.P[0],G.P[0].field[0],g,null);assert.strictEqual(w.apOf(g),w.C(g).ap+1000)}],
+  ["ウォッカ B07096: 登場したターンでもレベル4以下のキャラにだけアクションできる",async w=>{
+    const G=board(w,{p0:{field:["B07096"]},p1:{field:[R,"B01008"]}});const p=G.P[0],[x]=p.field;p.partner=w.inst("B03106");x.fresh=true;
+    assert.ok(w.canAct(x,p,"chara",G.P[1].field[0]));assert.ok(!w.canAct(x,p,"chara",G.P[1].field[1]));assert.ok(!w.canAct(x,p,"case"))}],
+  ["広田正巳 B08054: 相手の効果で離れるとき、裏向きのセットは手札へ",async w=>{
+    const G=board(w,{p0:{field:["B08054"]}});const p=G.P[0],[x]=p.field;const c=w.inst(R);x.set=[{c,up:false}];
+    w.removeCard(x,"効果",{by:G.P[1],effect:true});assert.ok(p.hand.includes(c))}],
+  ["犯人 B03126 のヒラメキ: 相手はこのアクションで証拠を得られない",async w=>{
+    const G=board(w,{p0:{field:[R]},p1:{ev:["B03126"]}});const p=G.P[0];
+    await w.declareAction(p,p.field[0],"case");assert.strictEqual(G.P[1].ev.length,0);assert.strictEqual(p.ev.length,0)}],
+  ["弁崎素江 B05115: 相手ターンに相手の効果で手札からリムーブされたら登場できる",async w=>{
+    const G=board(w,{p0:{hand:["B05115"]}});const p=G.P[0];G.turn=1;G.fxBy=G.P[1];
+    await w.ev("discard")(p,1);G.fxBy=null;assert.strictEqual(p.field.length,1)}],
+  ["キール B02087: ネクストヒントのときだけ事件の色を無視",async w=>{
+    const G=board(w,{p0:{}});const p=G.P[0];const k=w.CARD_DB.find(c=>c.n==="B02087");
+    assert.ok(!w.canPlayColor(k,p));assert.ok(w.canPlayColor(k,p,true))}],
+  ["カットインAP: テキーラ B08086 は自分のターンに【黒】へ＋2000、仮面ヤイバー B02006 はレベル5以下の［少年探偵団］へ＋3000",async w=>{
+    const G=board(w,{p0:{field:["B03119","B01008",R]},p1:{field:[R]}});const p=G.P[0],[k,c,r]=p.field;
+    G.contact={a:k,d:G.P[1].field[0]};assert.strictEqual(w.cutinAp(w.inst("B08086"),p),2000);
+    G.contact={a:c,d:G.P[1].field[0]};assert.strictEqual(w.cutinAp(w.inst("B02006"),p),3000);
+    G.contact={a:r,d:G.P[1].field[0]};assert.strictEqual(w.cutinAp(w.inst("B02006"),p),1000);G.contact=null}],
+  ["爆弾犯 B10079: 推理もアクションもできない",async w=>{
+    const G=board(w,{p0:{field:["B10079"]}});const p=G.P[0],[x]=p.field;for(const k of ["reason","chara","case"])assert.ok(!w.canAct(x,p,k),k)}],
 ];
-

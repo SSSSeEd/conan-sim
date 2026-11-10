@@ -37,7 +37,9 @@ const MECH_FX={
   noTarget(p,y){const q=ownerOf(y);if(!q||q===p||!q.field.includes(y)||lvOf(y)>4)return false;
     return q.field.some(z=>z.st==="s"&&def(z)&&def(z).protectLow)},
   // 相手の証拠がリムーブされたとき（トッ: このターン次に1回）
-  async onEvRemoved(o){const p=opp(o);if(p.tohT!==G.turnNo)return;p.tohT=0;
+  async onEvRemoved(o){const p=opp(o);
+    for(const y of p.field.slice()){const d=def(y);if(d&&d.onOppEvRemoved&&p.field.includes(y))await fxIf(p,y,"相手の証拠がリムーブされたとき",()=>d.onOppEvRemoved(p,y))} // 世良真純 B02062
+    if(p.tohT!==G.turnNo)return;p.tohT=0;
     await resolving(async()=>{log("　トッ: 相手の証拠がリムーブされたので、スリープ状態のキャラを1枚までスタン","n");
       const t=await chooseChar(p,"スタンさせるキャラ（スリープ状態）",y=>y.st==="s");if(t)stunC(t)},p)},
   partnerColor(p){const d=def(p.caseC);return d&&d.partnerColors||C(p.partner).c},
