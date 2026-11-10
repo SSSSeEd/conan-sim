@@ -837,4 +837,7 @@ module.exports=[
     G.contact={a:r,d:G.P[1].field[0]};assert.strictEqual(w.cutinAp(w.inst("B02006"),p),1000);G.contact=null}],
   ["爆弾犯 B10079: 推理もアクションもできない",async w=>{
     const G=board(w,{p0:{field:["B10079"]}});const p=G.P[0],[x]=p.field;for(const k of ["reason","chara","case"])assert.ok(!w.canAct(x,p,k),k)}],
+  ["複数名カード: 《遠山和葉＆大岡紅葉》は［遠山和葉］と［大岡紅葉］の両方として数える（「平次…」「カッコエ――ッ♡」B11027 で2体リムーブ）",async w=>{
+    const G=board(w,{p0:{field:["B07015"],hand:["B11027"],solved:true},p1:{field:[R,R,R]}});const p=G.P[0];
+    await w.FX.event(p,p.hand[0]);assert.strictEqual(G.P[1].field.length,1)}],
 ];

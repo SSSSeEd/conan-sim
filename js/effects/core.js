@@ -150,7 +150,9 @@ const ALIAS_ALL={"1193":"伊織無我"}; // 和田進一 B11026: すべてのエ
 const ALIAS_OFF={"1180":"工藤新一"}; // 日原誠人 B11012: 現場以外のエリアにあるこのキャラは［工藤新一］としても扱う
 const namesOf=x=>{const n=[nameOf(x)];const p=ownerOf(x);if(ALIAS[idOf(x)]&&p&&p.field.includes(x))n.push(ALIAS[idOf(x)]);
   if(ALIAS_OFF[idOf(x)]&&!(p&&p.field.includes(x)))n.push(ALIAS_OFF[idOf(x)]);
-  if(ALIAS_ALL[idOf(x)])n.push(ALIAS_ALL[idOf(x)]);return n};
+  if(ALIAS_ALL[idOf(x)])n.push(ALIAS_ALL[idOf(x)]);
+  for(const m of n.slice())if(/[＆&]/.test(m))n.push(...m.split(/\s*[＆&]\s*/).filter(Boolean)); // 複数名カード《A＆B》は全ての名前を持つ（ルール）
+  return n};
 const sameName=(a,b)=>namesOf(a).some(n=>namesOf(b).includes(n));
 const named=(...ns)=>y=>namesOf(y).some(n=>ns.some(m=>n.includes(m)));
 const isChar=y=>C(y).t==="キャラ";
