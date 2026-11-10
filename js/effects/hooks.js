@@ -50,11 +50,15 @@ const FX={
   cutinLocked:(tp,atk)=>tp.cutLock===G.turnNo&&tp.field.includes(atk)&&hasTrait(atk,"毛利探偵事務所"),
   noCutin:x=>!!x&&turnCount(x,"noCutin")>0&&G.contact&&(G.contact.a===x||G.contact.d===x),
   async onAction(p,actor,target){for(const y of [...p.field,...opp(p).field])y.apA=0;
+    if(actor.actDrawT===G.turnNo&&p.field.includes(actor)){log(`　${C(actor).nm}: アクションしたのでカードを1枚引く`,"n");drawN(p,1)} // 少年探偵団の活躍 B02014
+    if(actor.fevT===G.turnNo&&!target&&p.field.includes(actor)&&p.hand.length&&await yes(p,C(actor).nm,"手札を1枚リムーブして、ターン終了時までブレットを得ますか？",()=>p.hand.length>=2)){await discard(p,1);giveKw(actor,"ブレット")} // 「行け秀一！その熱病でお前の命が尽きるまで…」
     for(const y of p.field.slice()){const d=def(y);if(d&&d.onAction)await fxIf(p,y,"アクション",()=>d.onAction(p,y,actor,target))}
     if(!target&&p.field.includes(actor))for(const sc of setEvents(actor)){const e=def(sc);if(e&&e.setOnCase)await fxIf(p,actor,"アクション",()=>e.setOnCase(p,actor,sc))} // セットされたイベントが与える「アクション［事件］したとき」（BANG）
     const o=opp(p);for(const y of o.field.slice()){const d=def(y);if(d&&d.onOppAction&&o.field.includes(y))await fxIf(o,y,"アクション",()=>d.onOppAction(o,y,actor,target))}},
   async onCaseGain(p,actor){for(const y of p.field.slice()){const d=def(y);if(d&&d.onCaseGain&&p.field.includes(y))await fxIf(p,y,"証拠を得たとき",()=>d.onCaseGain(p,y,actor))}}, // アクション［事件］で証拠を得たとき（メアリー）
-  async onContact(p,ct){ // セットされたイベントの「コンタクトしたとき」（相手ターン中・漆黒の星 B11050）
+  async onContact(p,ct){
+    for(const q of G.P)for(const y of q.field)if(y.contactDrawT===G.turnNo&&(y===ct.a||y===ct.d)){log(`　${C(y).nm}: コンタクトしたのでカードを1枚引き、AP＋1000`,"n");drawN(q,1);y.apC+=1000} // 「真さんガンバッてー♡」
+    // セットされたイベントの「コンタクトしたとき」（相手ターン中・漆黒の星 B11050）
     for(const q of G.P)if(q!==p)for(const y of q.field.slice())if((y===ct.a||y===ct.d)&&q.field.includes(y))for(const sc of setEvents(y)){const e=def(sc);
       if(e&&e.setContact&&await e.setContact(q,y,sc,ct))ct.safe=y}
     for(const q of G.P)for(const y of q.field.slice()){const d=def(y);if(d&&d.onContact&&q.field.includes(y))await fxIf(q,y,"コンタクト",()=>d.onContact(q,y,ct))}
@@ -69,7 +73,10 @@ const FX={
     for(const s of setEvents(x)){const e=def(s);if(e&&e.setKw)out.push(...e.setKw(p,x))}return out}, // setKw: セットされたイベントが与えるキーワード
   async onHintUse(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onHintUse&&p.field.includes(y))await fxIf(p,y,"ネクストヒント",()=>d.onHintUse(p,y,x))}
     const pd=def(p.partner);if(pd&&pd.onHintUse&&p.pLoc==="area")await fxIf(p,p.partner,"ネクストヒント",()=>pd.onHintUse(p,p.partner,x))},
-  useBlock(p,x){if(p.banNm&&p.banNm.t===G.turnNo&&C(x).nm.includes(p.banNm.nm))return `このターンは［${p.banNm.nm}］を使用できない`;const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
+  useBlock(p,x){if(p.banNm&&p.banNm.t===G.turnNo&&C(x).nm.includes(p.banNm.nm))return `このターンは［${p.banNm.nm}］を使用できない`;
+    if(p.noEvT===G.turnNo&&C(x).t==="イベント")return "このターンはイベントを使用できない"; // 「朝日射し夕日輝く鉄の瓶…」
+    const cd=def(p.caseC);if(cd&&cd.handBlock&&C(x).t==="キャラ"){const r=cd.handBlock(p,x);if(r)return r} // 事件が課す「手札から使用できない」（集められた名探偵 など）
+   const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
   lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
     for(const q of G.P)for(const y of q.field){const d=def(y);if(d&&d.lvAura)b+=d.lvAura(q,y,x)||0}return b},
   async onGuarded(p,actor,guard){actor.guardedT=G.turnNo;const d=def(actor); // アクションがガードされた（京極真 B09041）
@@ -82,6 +89,7 @@ const FX={
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyContactWin&&p.field.includes(y))await fxIf(p,y,"コンタクト",()=>e.onAllyContactWin(p,y,winner,victim))}},
   async endTurn(p){for(const y of p.field.filter(y=>y.kw.includes("終了時デッキの下")))toDeckBottom(y); // 目暮十三 PR181 が与えた能力
     for(const y of p.field.filter(y=>y.kw.includes("終了時リムーブ")))removeCard(y,"効果",{by:p,effect:true}); // 黒田兵衛 B03089 が与えた能力
+    for(const y of p.field.filter(y=>y.kw.includes("終了時手札")))toHandFromField(y); // 園子のアブない夏物語 が与えた能力
     await runQueue();
     // 同時に発動するターン終了時の効果は、人なら順番を選べる（CPUは現場の左から、パートナーは最後）
     const here=y=>inArea(p,y)||p.field.includes(y);
@@ -149,6 +157,7 @@ const FX={
     return a?Math.max(0,(own??(C(x).lv||0))+a):own},
   // イベントがキャラにセットされたとき（setEventOn から。鉄刃 B06046・B06047）
   async onSet(p,h,c){const d=def(h);if(d&&d.onSet&&p.field.includes(h))await fxIf(p,h,"セット",()=>d.onSet(p,h,c))},
+  noSolve:p=>!!(def(p.caseC)&&def(p.caseC).noSolve), // 犯人たちの犯行: 自分は【事件解決】できない
   eraseEvidence:p=>!!(def(p.caseC)&&def(p.caseC).eraseEvidence)&&partnerIs(p,"黒"),
   eventAi(p,x){const d=def(x);return !!(d&&d.event&&(!d.ai||d.ai(p)))},
   automated:x=>!!def0(x)&&!def0(x).partial,

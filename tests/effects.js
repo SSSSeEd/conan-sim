@@ -590,4 +590,60 @@ module.exports=[
   ["毛利小五郎 B04011: 現場のコナンをデッキの下に移してLP＋2",async w=>{
     const G=board(w,{p0:{field:["B04011","B04005"]}});const p=G.P[0],[k,c]=p.field;G.turn=0;
     const a=w.FX.abilities(p,k)[0];const lp=w.lpOf(k);assert.ok(a.can(p,k));await a.run(p,k);assert.ok(!p.field.includes(c));assert.strictEqual(w.lpOf(k),lp+2)}],
+  // ---- イベント・事件の自動化（js/effects/priority.js、2026-11-10） ----
+  ["優先度の高いイベント・事件: 登録したカードはすべて自動で、ヒラメキを持つカードにはヒラメキの処理がある",async w=>{
+    const ids=Object.keys(w.ev("DEF")).filter(i=>w.CARD_DB.some(c=>c.i===i&&(c.t==="イベント"||c.t==="事件")&&c.pk!=="CT-P11"));
+    const done=["0018","0034","0066","0067","0082","0083","0172","0186","0202","0218","0231","0244","0282","0283","0299","0317","0318","0335","0356","0357","0383","0384","0398","0417","0452","0453","0468","0469","0499","0528","0529","0546","0563","0564","0565","0581","0582","0583","0600","0601","0614","0615","0616","0625","0657","0702","0713","0714","0723","0724","0725","0726","0758","0783","0785","0786","0805","0806","0818","0832","0858","0882","0898","0912","0928","0944","0964","0977","0978","0995","1009","1029","1044","1045","1046","1059","1093","1094","1108","1119","1137","1151","1164","1168","0162","0164","0165","0166","0406","0498"];
+    for(const i of done){const c=w.CARD_DB.find(c=>c.i===i);assert.ok(ids.includes(i),i+" の定義がない");assert.ok(w.FX.automated({n:c.n}),c.n);
+      if(c.hr)assert.strictEqual(typeof w.ev("DEF")[i].hirameki,"function",c.n+" ヒラメキの処理がない")}}],
+  ["黒のパートナーの事件解決を書き換える事件: あばよ…名探偵!! B03135 は証拠隠滅になる（黒以外のパートナーでは通常）",async w=>{
+    const G=board(w,{p0:{}});const p=G.P[0];p.caseC=w.inst("B03135");
+    p.partner=w.inst(w.CARD_DB.find(c=>c.t==="パートナー"&&c.c==="黒").n);assert.ok(w.FX.eraseEvidence(p));
+    p.partner=w.inst("B01001");assert.ok(!w.FX.eraseEvidence(p))}],
+  ["犯人たちの犯行 B09107: 事件解決できない／デッキを全部リムーブして証拠を表にし、［犯人］8枚で相手の敗北",async w=>{
+    const G=board(w,{p0:{ev:Array(8).fill("PR158"),solved:true}});const p=G.P[0];p.caseC=w.inst("B09107");
+    assert.ok(w.FX.noSolve(p));const a=w.ev("DEF")["1046"].abilities[0];assert.ok(a.can(p));await a.run(p);
+    assert.ok(G.over,"相手の敗北")}],
+  ["集められた名探偵 B05120: ［探偵］以外のキャラは手札から使用できない",async w=>{
+    const G=board(w,{p0:{hand:["B04005","PR158"],file:Array(6).fill("B01019")}});const p=G.P[0];p.caseC=w.inst("B05120");
+    const [det,non]=p.hand;assert.ok(!w.FX.useBlock(p,det),"探偵は使える");assert.ok(w.FX.useBlock(p,non),"探偵以外は使えない")}],
+  ["少年探偵団の活躍 B02014: レベル5以下の［少年探偵団］に突撃［事件］、アクションすると1枚引く",async w=>{
+    const G=board(w,{p0:{hand:["B02014"],field:["B04005","B03003"]}});const p=G.P[0],[a,b]=p.field;
+    await w.FX.event(p,p.hand[0]);assert.ok(a.kw.includes("突撃［事件］"));assert.ok(!b.kw.includes("突撃［事件］"),"レベル8は対象外");
+    const h=p.hand.length;await w.FX.onAction(p,a,null);assert.strictEqual(p.hand.length,h+1)}],
+  ["レッドヘリング B02051: 自分のキャラをスリープして、レベル7以下のキャラをリムーブ",async w=>{
+    const G=board(w,{p0:{hand:["B02051"],field:["B01008"]},p1:{field:["B01008"]}});
+    await w.FX.event(G.P[0],G.P[0].hand[0]);assert.strictEqual(G.P[0].field[0].st,"s");assert.strictEqual(G.P[1].field.length,0)}],
+  ["「説得するよりこの方が早い…」 B06082: 解決編のとき、AP8000以下をリムーブ、FILEの上を手札に加えてもう1枚リムーブ",async w=>{
+    const G=board(w,{p0:{hand:["B06082"],file:Array(4).fill("B01019"),solved:true},p1:{field:["B01019","B01019","B01019"]}});const p=G.P[0];
+    await w.FX.event(p,p.hand[0]);assert.strictEqual(G.P[1].field.length,1);assert.strictEqual(p.file.length,3)}],
+  ["「オレがついてる!!」 B05022: 相手のキャラの元のAPがターン終了時まで0",async w=>{
+    const G=board(w,{p0:{hand:["B05022"]},p1:{field:["B01008","B01019"]}});
+    await w.FX.event(G.P[0],G.P[0].hand[0]);for(const y of G.P[1].field)assert.strictEqual(w.apOf(y),0)}],
+  ["手のこんだ悪巧み B08043: 自分の最大LP以下のLPの相手キャラをリムーブ",async w=>{
+    const G=board(w,{p0:{hand:["B08043"],field:["B01008"]},p1:{field:["B01019"]}});
+    await w.FX.event(G.P[0],G.P[0].hand[0]);assert.strictEqual(G.P[1].field.length,0)}],
+  ["ドゴ B10033: 解決編で［服部平蔵］か［遠山銀司郎］がいると手札で使うレベルが－3",async w=>{
+    const hei=w.CARD_DB.find(c=>c.nm==="服部平蔵"&&c.t==="キャラ").n;
+    const G=board(w,{p0:{hand:["B10033"],field:[hei],solved:true}});const p=G.P[0],x=p.hand[0];
+    assert.strictEqual(w.FX.handLevel(p,x),4);p.solved=false;assert.strictEqual(w.FX.handLevel(p,x),null)}],
+  ["青の古城探索事件 D08026: 裏向きの証拠を表向きにした数だけ［少年探偵団］のAPを＋1000",async w=>{
+    const G=board(w,{p0:{ev:["B01019","B01019"],field:["B04005"],solved:true}});const p=G.P[0];p.caseC=w.inst("D08026");
+    const a=w.ev("DEF")["0499"].abilities[0];assert.ok(a.can(p));await a.run(p);assert.strictEqual(w.apOf(p.field[0]),(w.C(p.field[0]).ap||0)+2000)}],
+  ["ブルーサファイア PR195: 中森青子を探して手札に加え、このカードをパートナーエリアへ",async w=>{
+    const aoko=w.CARD_DB.find(c=>c.nm==="中森青子"&&c.t==="キャラ").n;
+    const G=board(w,{p0:{hand:["PR195"],deck:["B01019","B01019",aoko,"B01019"]}});const p=G.P[0],x=p.hand[0];
+    w.ev("detach")(x);p.rm.push(x);await w.FX.event(p,x);assert.ok(p.hand.some(y=>w.C(y).n===aoko));assert.ok(p.pa.includes(x))}],
+  ["「君は思ったより手強いって事がね！」 B07076: 手札をすべてリムーブして4枚引き、相手はこのターンカットイン・変装できない",async w=>{
+    const G=board(w,{p0:{hand:["B07076",...Array(6).fill("B01019")]},p1:{}});const p=G.P[0];p.partner=w.inst(w.CARD_DB.find(c=>c.t==="パートナー"&&c.c==="赤").n);
+    const x=p.hand[0];w.ev("detach")(x);p.rm.push(x);await w.FX.event(p,x);assert.strictEqual(p.hand.length,4);assert.strictEqual(G.P[1].noCiDis,G.turnNo)}],
+  ["弁当型携帯FAX B07014: 【青】のキャラにセット。突撃［キャラ］と、リムーブエリアのキャラをデッキの上に移す宣言を持つ",async w=>{
+    const G=board(w,{p0:{hand:["B07014"],field:["B01019"],rm:["B04005"]}});const p=G.P[0],x=p.hand[0],h=p.field[0];
+    await w.FX.event(p,x);assert.ok(w.FX.kwExtra(h,p).includes("突撃［キャラ］"));
+    const a=w.FX.abilities(p,h).find(a=>/デッキの上/.test(a.label));assert.ok(a&&a.ok);await a.run(p,h);assert.strictEqual(p.deck[0],p.deck.find(y=>w.C(y).n==="B04005"))}],
+  ["どうしてお姉ちゃんを… B08017: セットされたキャラがスリープ中は、［灰原哀］が相手のイベントで選べない",async w=>{
+    const G=board(w,{p0:{hand:["B08017"],field:["B03003"],rm:["B04005"]},p1:{}});G.P[0].caseC=w.inst("B01024");
+    const {immune}=w.ev("({immune})");const p=G.P[0],q=G.P[1];const ai=p.field[0];
+    const ok=await (async()=>{G.P[0].caseC=w.inst(w.CARD_DB.find(c=>c.t==="事件"&&/青/.test(c.c)&&/黒/.test(c.c)).n);await w.FX.event(p,p.hand[0]);return true})();
+    const co=p.field.find(y=>w.C(y).nm==="江戸川コナン");assert.ok(co,"コナンが登場");co.st="s";G.evtBy=q;assert.ok(immune(q,ai));co.st="a";assert.ok(!immune(q,ai));G.evtBy=null}],
 ];

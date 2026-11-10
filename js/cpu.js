@@ -89,7 +89,7 @@ async function cpuTurn(p){
   };
   if(plan.abFirst){await runAbilities();if(G.over)return}
   // 1) 事件解決
-  if(p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level){solve(p);return}
+  if(p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level&&!FX.noSolve(p)){solve(p);return}
   // 2) 手札の使用（基本方針: 毎ターン必ず使う。相手のキャラを減らす効果を優先）
   const best=viaHint=>{
     const cs=p.hand.filter(x=>!playableReason(p,x,viaHint)&&(C(x).t==="キャラ"||FX.eventAi(p,x)));
@@ -179,7 +179,7 @@ async function cpuTurn(p){
   // 5) パートナー
   if(p.pLoc==="area"&&p.partner.st==="a"){
     if(!p.solved&&p.file.length>=6)await assist(p);
-    else if(p.solved&&p.ev.length>=p.level)solve(p);
+    else if(p.solved&&p.ev.length>=p.level&&!FX.noSolve(p))solve(p);
     else await reason(p,p.partner);
     await step();
   }
