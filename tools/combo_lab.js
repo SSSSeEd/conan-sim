@@ -14,9 +14,10 @@
 const H=require("./headless");const fs=require("fs");
 const args=process.argv.slice(2);const flag=k=>{const i=args.indexOf(k);if(i<0)return null;const v=args[i+1];args.splice(i,2);return v};
 const bool=k=>{const i=args.indexOf(k);if(i<0)return false;args.splice(i,1);return true};
+const JSONOUT=flag("--json");
 const STEPS=+(flag("--steps")||3),EXTRA=(flag("--cards")||"").split(",").filter(Boolean),TOP=+(flag("--top")||20),SHOWLOG=bool("--log"),SOLVED=!bool("--notsolved");
 const deckArg=args[0];
-if(!deckArg){console.log("usage: node tools/combo_lab.js デッキ.txt|環境デッキ番号|名前の一部|- [--cards 番号,...] [--steps 3] [--top 20] [--log] [--notsolved]");process.exit(1)}
+if(!deckArg){console.log("usage: node tools/combo_lab.js デッキ.txt|環境デッキ番号|名前の一部|- [--cards 番号,...] [--steps 3] [--top 20] [--log] [--notsolved] [--json 出力.json]");process.exit(1)}
 
 (async()=>{
   const w=H.load({seed:1});const E=w.ENV_DECKS.decks;const C=w.C,FX=w.ev("FX"),DB=w.ev("DB");
@@ -85,12 +86,14 @@ if(!deckArg){console.log("usage: node tools/combo_lab.js デッキ.txt|環境デ
       const F2=F.map((n,i)=>pt.where==="現場"&&i===pt.i?filler:n);
       const r=await best(F2,pt.where==="手札"?filler:X,pt.where==="デッキ"?null:D);worst=Math.max(worst,r.v)}
     const gain=full.v-worst;if(gain<=0.5)continue;
-    results.push({gain,v:full.v,size:parts.length,steps:full.seq.length,cards:parts.map(p=>`${C({n:p.n}).nm}(${p.n}・${p.where})`),names:parts.map(p=>C({n:p.n}).nm+"・"+p.where),ns:parts.map(p=>p.n),how:how(full.seq),d:full.d,log:full.log})}
+    results.push({seq:full.seq,act:full.seq.length===1&&!D?full.seq[0]:null,parts:parts.map(p=>({n:p.n,where:p.where})),gain,v:full.v,size:parts.length,steps:full.seq.length,cards:parts.map(p=>`${C({n:p.n}).nm}(${p.n}・${p.where})`),names:parts.map(p=>C({n:p.n}).nm+"・"+p.where),ns:parts.map(p=>p.n),how:how(full.seq),d:full.d,log:full.log})}
   // 同じ顔ぶれの重複（行動違い）は得点の高い方だけ
   // 同じカード名の顔ぶれ（再録・番号違いを含む）は1行にまとめ、番号を並べる
   const seen=new Map();for(const r of results){const k=r.names.slice().sort().join("|");const o=seen.get(k);
     if(!o||o.v<r.v||o.v===r.v&&o.gain<r.gain)seen.set(k,{...r,alt:o?o.alt:new Set()});seen.get(k).alt.add(r.ns.join("+"))}
   const rows=[...seen.values()].sort((a,b)=>b.v-a.v||b.gain-a.gain);
+  // --json: tools/combo_gate.js 用。act は1手で済み、デッキのカードを使わないものだけ（CPUの comboNow は1手のコンボだけ扱う）。seq は全部の手
+  if(JSONOUT)fs.writeFileSync(JSONOUT,JSON.stringify(rows.map(r=>({act:r.act,seq:r.seq,parts:r.parts,v:r.v,gain:r.gain,how:r.how,d:r.d})),null,1));
   console.log(`${label}: 候補${pool.length}枚（キャラ${chars.length}）、${tried}通りの盤面で${STEPS}手まで試した（${SOLVED?"解決編":"事件編"}・${memo.size}盤面）`);
   console.log("そろったときだけ得するもの（得点＝その並びの得、上乗せ＝どれか1枚を抜いたときとの差。得点の高い順）:");
   const f=v=>(v>=0?"+":"")+(+v.toFixed(1));

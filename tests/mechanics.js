@@ -41,4 +41,10 @@ module.exports=[
     await w.FX.endTurn(p);p.cpu=false;
     await assert.rejects(()=>w.FX.endTurn(p),/orderCards/);
     p.field.pop();await w.FX.endTurn(p)}],
+  ["コンボ表: parts がそろっていれば行動を先に行う（表が空・ai2 の combo2 がオフなら何もしない）",async w=>{
+    const G=board(w,{p0:{field:["B06004"],hand:["B09004",R],file:[R,R,R,R,R,R,R,R,R]},p1:{field:[R]}});const p=G.P[0];const T=w.ev("COMBO2");
+    assert.strictEqual(w.comboNow(p),null,"表が空なら無し");
+    T.push({parts:[{n:"B06004",where:"現場"},{n:"B09004",where:"手札"}],act:{kind:"hand",n:"B09004"}});
+    try{const c=w.comboNow(p);assert.ok(c&&c.x.n==="B09004");
+      T[0].parts[1].n="B99999";assert.strictEqual(w.comboNow(p),null,"手札にないカードなら無し")}finally{T.length=0}}],
 ];
