@@ -567,4 +567,27 @@ module.exports=[
   ["宮本武蔵 B06050: カットインは自分ターン中AP＋2000か、事件YAIBAで［YAIBA］のイベントを手札に（どちらか1つ）",async w=>{
     const G=board(w,{p0:{hand:["B06050"],rm:["B06030"]},p1:{}});const p=G.P[0];G.turn=0;
     assert.ok(w.FX.has(p.hand[0],"cutin")&&w.FX.automated(p.hand[0]));assert.strictEqual(w.cutinAp(p.hand[0],p),2000)}],
+  ["江戸川コナン B01005: 青パートナーでネクストヒント使用時、使ったカードのレベル以下のキャラをデッキの下へ（ターン1）",async w=>{
+    const G=board(w,{p0:{field:["B01005"]},p1:{field:["B01019","B02007"]}});const p=G.P[0],[x]=p.field,o=G.P[1];G.turn=0;
+    await w.FX.onHintUse(p,x,w.inst("B01019"));assert.strictEqual(o.field.length,1,"Lv2以下を1枚");
+    await w.FX.onHintUse(p,x,w.inst("B01019"));assert.strictEqual(o.field.length,1,"ターン1")}],
+  ["江戸川コナン B02002: 登場時、レベル7以上の青以外がいれば突撃／アクション時、青以外1枚につきAP＋1000",async w=>{
+    const G=board(w,{p0:{field:["B02002","B01044"]}});const p=G.P[0],[x]=p.field;G.turn=0;
+    await w.FX.enter(p,x);assert.ok(x.kw.includes("突撃"));
+    await w.FX.onAction(p,x,null);assert.strictEqual(x.apA,1000)}],
+  ["江戸川コナン B04005: 登場時に2枚引いて2枚リムーブ／宣言で［毛利探偵事務所］AP＋1000",async w=>{
+    const G=board(w,{p0:{field:["B04005","B02012"],hand:["B01019","B01019","B01019"]}});const p=G.P[0],[x,k]=p.field;G.turn=0;
+    await w.FX.enter(p,x);assert.strictEqual(p.hand.length,3);
+    const a=w.FX.abilities(p,x)[0];assert.ok(a.can(p,x));const ap0=w.apOf(k);await a.run(p,x);assert.strictEqual(w.apOf(k),ap0+1000)}],
+  ["工藤新一 B05014: 突撃を持つ／ターン終了時にスリープなら手札に戻り、Lv3以下のコナンをスリープで登場",async w=>{
+    const G=board(w,{p0:{field:["B05014"],rm:["B04005","B02007"]}});const p=G.P[0],[x]=p.field;
+    assert.ok(w.FX.kwExtra(x,p).includes("突撃"));x.st="s";await w.FX.endTurn(p);
+    assert.ok(p.hand.includes(x));assert.ok(p.field.some(y=>w.C(y).n==="B02007"&&y.st==="s"))}],
+  ["毛利小五郎 B02012: 自分ターン中、Lv5以下の青にAP＋1000／［毛利探偵事務所］のアクションで1枚引く（ターン1）",async w=>{
+    const G=board(w,{p0:{field:["B02012","B01019","B04005"]}});const p=G.P[0],[k,r,c]=p.field;G.turn=0;
+    assert.strictEqual(w.apOf(r),2000);G.turn=1;assert.strictEqual(w.apOf(r),1000);G.turn=0;
+    const h=p.hand.length;await w.FX.onAction(p,k,c);assert.strictEqual(p.hand.length,h+1);await w.FX.onAction(p,k,c);assert.strictEqual(p.hand.length,h+1)}],
+  ["毛利小五郎 B04011: 現場のコナンをデッキの下に移してLP＋2",async w=>{
+    const G=board(w,{p0:{field:["B04011","B04005"]}});const p=G.P[0],[k,c]=p.field;G.turn=0;
+    const a=w.FX.abilities(p,k)[0];const lp=w.lpOf(k);assert.ok(a.can(p,k));await a.run(p,k);assert.ok(!p.field.includes(c));assert.strictEqual(w.lpOf(k),lp+2)}],
 ];
