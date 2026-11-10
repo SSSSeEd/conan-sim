@@ -108,3 +108,16 @@
   - 追加した仕組み: キーワード `アクティブ指定セット`(カードがセットされている相手のアクティブ状態のキャラを指定できる、state.js hitsActive)・`G.fxSrc`/`withSrc(x,fn)`(今解決している効果のカード。core.js chooseChar が自分のMRに選ばれたキャラに `x.mrPick=G.turnNo` を付ける。毛利蘭B08014)・CPUはジンB01098の「コンタクト中のすべてのキャラをリムーブ」カットインを、自分のターンに相手のレベル6以上と相打ちにするときに使う(cpu.js cpuContact0)。
   - 毛利蘭B01007 は相手をコンタクトでリムーブすると1枚引くので、工藤新一NYの事件のテストの期待値を+2に直した。
 - 次: 残り447種(Lv6 122・Lv5 92・Lv4 80・Lv7 71・Lv3 49・Lv2 22・イベント10・事件1)。CSV(共有フォルダ simulator/unimplemented-priority-2026-11-10.csv)の上から FX.automated が偽のもの(コナン・新一・小五郎の「未」は main.js 第1弾の注記を参照)。どこまで進めるかはSeEdさんに確認。
+## 見送りカードの新しい仕組み(2026-11-10、Opus)
+- 新ファイル js/effects/mech.js(index.html と sw.js に登録済み)。PR #69・#70 で見送った17種を自動化: 「かっ…和葉ァ!!!」0033・「最も出会いたくない…」0049・コンコン0613・トッ0050・死力を尽くして0203・トランプ銃0217・チョーカー型変声機0230・「オレのそばから離れんなや…」0545・石川五右衛門人形0637・ここで会うたが百年目0665・探偵の目PR067(0407)・コナンB03002 0260(B07002 0734 は同時に入った mr8.js 側を採用)・新一B10010 1072・小五郎B07005 0737/B10015 1077/B01020 0016/B05101 0599。テストは tests/effects.js の末尾。
+- 追加した仕組み(詳しくは mech.js 先頭のコメント):
+  - **「相手の能力や効果によって」の判定**: `G.fxBy`＝今効果を使っているプレイヤー。hooks.js の `resolving(fn,by)` が設定する(fxIf・登場時・イベント・宣言・ヒラメキ・変装時・現場リムーブ時・解決編)。**新しいフックを足すときは fxIf か resolving(fn,p) を通すこと**。
+  - **耐性** `FX.guarded(x,種類,相手)`: removeCard(effect:true)・sleepC・stunC が見る。DEF の `setGuard`(セットされたイベント)と `guard`(キャラ自身)。chooseChar は題名(「リムーブする」「スリープさせる」「スタンさせる」)から効かない相手を候補から外す。**相手のキャラを直接 `y.st="s"` にせず sleepC/stunC を使うこと**。
+  - **置換「離れる代わりに残る」** `FX.saveLeave`(DEF の `setSave`): removeCard(相手の効果かコンタクト)・toDeckBottom・toHandFromField・toPartnerArea が見る。
+  - **セットが与える「現場から離れたとき」** DEF の `setLeave(p,host,c,info)`(info.how="rm"/"move")。セットを外す前に `FX.noteLeftSets` が待ち行列に積む。
+  - **セットのターン終了時** `setEndTurn(p,host,c,自分のターンか)`(両者のターン終了時)。**選ばれたとき無効** `setNegate`(chooseChar)。
+  - **一時的な宣言能力** `x.tmpAb=[{id,t}]`＋DEF[id].`tmpGrants`。**次に相手の証拠がリムーブされたとき** `p.tohT`→`FX.onEvRemoved`(事件へのアクションと stealEv)。
+  - **アクション制限** `noActUnless`(canAct)・`protectLow`(`FX.noTarget`。declareAction・CPU・画面の対象表示)・`noOwnCutin`(FX.noCutin)。**特徴の付与・喪失** `traitAura` と `x.trA`/`x.trD`(現場を離れると消える)。**宣言使用時** `onAllyDeclare`。
+  - **事件が変えるもの** `partnerColors`(condOk のパートナー色)・`fieldMax`(`fieldMax(p)`。登場・スイッチ・CPU)。
+- 判断した読み: ①探偵の目の「指定されたイベントでのみ使用できる」はデッキ構築の制限なので扱わない。②トランプ銃の「代わりにセット」は、リムーブエリアに置かれた直後に移す(setToRm で近似)。③「オレのそばから離れんなや…」はデッキの下・手札へ移す効果は防がない(カード文どおり)。④石川五右衛門人形のAP＋2000は「コンタクト中の［少年探偵団］」として扱う。⑤小五郎B05101は、戻ったあと再び離れると特徴が元に戻るので、また発動できる。
+- 次: SeEd依頼の「2〜3枚が絡むコンボの探索ツール」(既存 tools/find_combos.js を拡張)。

@@ -14,13 +14,14 @@ async function fxPre(p,x,kind,text){if(typeof showFx==="function")await showFx(p
 // G.fxSrc: 今解決している効果のカード（「自分のMRの能力によって選ばれた」の判定用）
 async function withSrc(x,fn){const s0=G.fxSrc;G.fxSrc=x;try{return await fn()}finally{G.fxSrc=s0}}
 async function fxIf(p,x,kind,fn0){const fn=()=>withSrc(x,fn0);const n0=G.rec?G.rec.log.length:0;
-  if(typeof showFx!=="function"||!G.rec){await resolving(fn);return}
-  await resolving(fn);
+  if(typeof showFx!=="function"||!G.rec){await resolving(fn,p);return}
+  await resolving(fn,p);
   if(G.rec.log.length>n0)await showFx(p,x,kind,effText(x,kind),{after:true})}
 
 // 効果の解決中に起きた「手札から公開したとき」は、今の効果（一番外側）を解決し終えてから発動する（毛利蘭 B09004・B10006 など）
-async function resolving(fn){G.fxD=(G.fxD||0)+1;try{return await fn()}finally{G.fxD--;if(!G.fxD)await flushReveal()}}
-async function flushReveal(){while(G.revealQ&&G.revealQ.length&&!G.over){const r=G.revealQ.shift();await resolving(()=>FX.runReveal(r.p,r.x))}}
+// by: 効果を使っているプレイヤー（G.fxBy）。「相手の能力や効果によって」の判定に使う（removeCard / sleepC / stunC / toDeckBottom など）
+async function resolving(fn,by){G.fxD=(G.fxD||0)+1;const pv=G.fxBy;if(by)G.fxBy=by;try{return await fn()}finally{G.fxBy=pv;G.fxD--;if(!G.fxD)await flushReveal()}}
+async function flushReveal(){while(G.revealQ&&G.revealQ.length&&!G.over){const r=G.revealQ.shift();await resolving(()=>FX.runReveal(r.p,r.x),r.p)}}
 // セットされている表向きのイベント（下に重ねたカードは除く）
 const setEvents=x=>(x.set||[]).filter(s=>s.up&&!s.under).map(s=>s.c);
 
@@ -34,15 +35,15 @@ const FX={
     const first=p.field.includes(x)&&p.galeT!==G.turnNo;if(p.field.includes(x))p.galeT=G.turnNo;
     const free=p.galeFree===G.turnNo;if(free)p.galeFree=0; // 風の女神 B09090: このターン次に登場したキャラは【疾風】の条件を無視できる（2番目以降でも発動）
     await FX.enter0(p,x);
-    const d=def(x);if((first||free)&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x));render();await runQueue()}
+    const d=def(x);if((first||free)&&d&&d.gale&&p.field.includes(x)){p.galeFired=G.turnNo;await fxPre(p,x,"疾風");log(`　【疾風】${C(x).nm}`,"n");await resolving(()=>d.gale(p,x),p);render();await runQueue()}
     for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyEnter&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"登場",()=>e.onAllyEnter(p,y,x))}await runQueue()},
-  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>withSrc(x,()=>d.enter(p,x)));render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
-  async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x))}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
+  async enter0(p,x){const d=def(x);if(d&&d.enter){await fxPre(p,x,"登場時");log(`　【登場時】${C(x).nm}`,"n");await resolving(()=>withSrc(x,()=>d.enter(p,x)),p);render();if(d.partial&&/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時")}else if(/【登場時】/.test(C(x).f||""))noteEffect(p,x,"登場時");await runQueue()},
+  async event(p,x){const d=def(x);if(d&&d.event){await fxPre(p,x,"イベント");G.evtBy=p;try{await resolving(()=>d.event(p,x),p)}finally{G.evtBy=null}render()}else noteEffect(p,x,"イベント");await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onEventUse&&p.field.includes(y))await fxIf(p,y,"イベント使用",()=>e.onEventUse(p,y,x))}await runQueue()},
-  async disguise(p,x,mine){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await d.disguise(p,x,mine)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
+  async disguise(p,x,mine){const d=def(x);if(d&&d.disguise){await fxPre(p,x,"変装時");log(`　【変装時】${C(x).nm}`,"n");await resolving(()=>d.disguise(p,x,mine),p)}else if(/【変装時】/.test(C(x).f||""))noteEffect(p,x,"変装時");
     const o=opp(p);for(const y of o.field.slice()){const e=def(y);if(e&&e.onOppDisguise&&o.field.includes(y))await fxIf(o,y,"変装",()=>e.onOppDisguise(o,y,x))}}, // 相手が【変装】を使用したとき（茶木神太郎）
   async disguiseReplaced(p,mine,by){const d=def(mine);return !!(d&&d.disguiseReplaced&&await d.disguiseReplaced(p,mine,by))}, // 変装で入れ替わるキャラが、デッキの下の代わりにリムーブされるか
-  async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await d.hirameki(o,e);return true}return false},
+  async hirameki(o,e){const d=def(e);if(d&&d.hirameki){await fxPre(o,e,"ヒラメキ");await resolving(()=>d.hirameki(o,e),o);return true}return false},
   async cutin(p,card,mine,own=true){const d=def(card);if(own&&d&&d.cutin)await fxIf(p,card,"カットイン",()=>d.cutin(p,card,mine));
     if(mine&&def(mine)&&def(mine).onCutinInContact&&ownerOf(mine)===p)await fxIf(p,mine,"コンタクト",()=>def(mine).onCutinInContact(p,mine,card));
     if(own&&mine)for(const y of [...p.field,...areaCards(p)]){const e=def(y);if(e&&e.onAllyCutin&&(inArea(p,y)?e.partnerToo:p.field.includes(y)))await fxIf(p,y,"カットイン",()=>e.onAllyCutin(p,y,mine,card))}}, // 自分がカットインを使用したとき（キャンティ＆コルン）
@@ -50,7 +51,7 @@ const FX={
   grantedCutin:(p,x)=>p&&p.hand.includes(x)&&hasColor(x,"青")&&p.field.some(y=>idOf(y)==="0735")?1000:null,
   // 妃英理 B05007: このターン、［毛利探偵事務所］のアクション中は相手はカットインできない
   cutinLocked:(tp,atk)=>tp.cutLock===G.turnNo&&tp.field.includes(atk)&&hasTrait(atk,"毛利探偵事務所"),
-  noCutin:x=>!!x&&turnCount(x,"noCutin")>0&&G.contact&&(G.contact.a===x||G.contact.d===x),
+  noCutin:x=>!!x&&!!G.contact&&(G.contact.a===x||G.contact.d===x)&&(turnCount(x,"noCutin")>0||!!(def(x)&&def(x).noOwnCutin)),
   async onAction(p,actor,target){for(const y of [...p.field,...opp(p).field])y.apA=0;
     if(actor.actDrawT===G.turnNo&&p.field.includes(actor)){log(`　${C(actor).nm}: アクションしたのでカードを1枚引く`,"n");drawN(p,1)} // 少年探偵団の活躍 B02014
     if(actor.fevT===G.turnNo&&!target&&p.field.includes(actor)&&p.hand.length&&await yes(p,C(actor).nm,"手札を1枚リムーブして、ターン終了時までブレットを得ますか？",()=>p.hand.length>=2)){await discard(p,1);giveKw(actor,"ブレット")} // 「行け秀一！その熱病でお前の命が尽きるまで…」
@@ -102,15 +103,19 @@ const FX={
     if(!p.cpu&&xs.length>1&&typeof orderCards==="function")xs=await orderCards(`${p.name}: ターン終了時の効果の順番`,xs,
       {body:"ターン終了時に発動する効果が複数あります。解決する順にカードをタップしてください（①から先に解決）。もう一度タップで取り消し。",okLabel:"この順番で解決",keepLabel:"表示の順のまま解決"});
     for(const y of xs){const d=def(y);if(d&&d.endTurn&&here(y))await fxIf(p,y,"ターン終了時",()=>d.endTurn(p,y))}
-    const q=opp(p);for(const y of q.field.slice()){const d=def(y);if(d&&d.oppEndTurn&&q.field.includes(y))await fxIf(q,y,"ターン終了時",()=>d.oppEndTurn(q,y))}await runQueue()}, // 相手のターン終了時（ルパン）
+    const q=opp(p);for(const y of q.field.slice()){const d=def(y);if(d&&d.oppEndTurn&&q.field.includes(y))await fxIf(q,y,"ターン終了時",()=>d.oppEndTurn(q,y))}await runQueue();
+    // セットされたイベントの「ターン終了時」（setEndTurn(持ち主,セット先,イベント,自分のターンか)。トランプ銃・石川五右衛門人形）
+    for(const r of [p,q])for(const y of r.field.slice())for(const sc of setEvents(y)){const e=def(sc);if(e&&e.setEndTurn&&r.field.includes(y)&&setEvents(y).includes(sc))await fxIf(r,y,"ターン終了時",()=>e.setEndTurn(r,y,sc,r===p))}
+    await runQueue()}, // 相手のターン終了時（ルパン）
   ignoreCaseColor:(c,p)=>c.i==="1206"&&condOk("事件黒",p)===true||c.i==="0693"&&condOk("事件YAIBA",p)===true, // シャロン・ヴィンヤード B11040【事件黒】・かぐや B06072【事件YAIBA】: 手札から使用するとき事件の色を無視
   // 相手のターンのメインフェイズ開始時: 効果でパートナーエリアに移したキャラ(paRet)を、登場させてもよい。しなければリムーブエリアへ（スコッチ B11084・公安部の潜入捜査官）
   async paReturn(q){for(const x of q.pa.slice()){if(!x.paRet||x.paRet!==G.turnNo||!q.pa.includes(x))continue;x.paRet=0;
       if(await yes(q,C(x).nm,`${C(x).nm} をパートナーエリアから登場させますか？（しないとリムーブエリアへ）`,()=>true)){await enterByEffect(q,x,"a")}
       else{detach(x);resetMods(x);q.rm.push(x);log(`　${q.name} の ${C(x).nm} はリムーブエリアに移った`,"n")}}
     render();await runQueue()},
-  async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await d.solvedTrigger(p)}},
+  async solvedTrigger(p){const d=def(p.caseC);if(d&&d.solvedTrigger){await fxPre(p,p.caseC,"解決編");await resolving(()=>d.solvedTrigger(p),p)}},
   async onLeave(info){ // {x,p,turn,by,effect}。rmLeft: リムーブエリアから離れた（諸伏高明 B05087 など）。setRm: セットされていたイベントがリムーブエリアに置かれた
+    if(info.leftSets){for(const c of info.leftSets){const e=DEF[idOf(c)];if(e&&e.setLeave)await fxIf(info.p,c,"セット",()=>e.setLeave(info.p,info.x,c,info))}return} // セットされたイベントが与えた「現場から離れたとき」（コンコン など）
     if(info.setRm){for(const c of info.setRm){const e=def(c);if(e&&e.setToRm&&info.p.rm.includes(c))await fxIf(info.p,c,"セット",()=>e.setToRm(info.p,c,info))}return}
     // セットのトリガー: onSetOn(p,x,n)=このキャラにカードがセットされるたび／onSetOff(p,y,info)=自分の現場のキャラにセットされていたカードが現場から離れるたび（info.down=裏向き）
     if(info.setOn){const e=def(info.x);if(e&&e.onSetOn&&info.p.field.includes(info.x))await fxIf(info.p,info.x,"セット",()=>e.onSetOn(info.p,info.x,info.n));return}
@@ -123,13 +128,14 @@ const FX={
       log(`　【現場リムーブ時】${C(info.x).nm}（服部平蔵が与えた能力）`,"n");drawN(info.p,1);await discard(info.p,1)}
     if(info.x.leaveDrawT&&info.x.leaveDrawT>=G.turnNo){info.x.leaveDrawT=0;log(`　【現場リムーブ時】${C(info.x).nm}（ジン＆ベルモットが与えた能力）`,"n");drawN(info.p,1)}
     const d=def(info.x);if(!d)return;
-    if(d.leaveOppTurn&&info.turn!==info.p.idx){await fxPre(info.p,info.x,"現場リムーブ時");log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await d.leaveOppTurn(info.p,info.x)}
+    if(d.leaveOppTurn&&info.turn!==info.p.idx){await fxPre(info.p,info.x,"現場リムーブ時");log(`　【現場リムーブ時】${C(info.x).nm}`,"n");await resolving(()=>d.leaveOppTurn(info.p,info.x),info.p)}
     if(d.selfRemovedOwnTurn&&info.turn===info.p.idx&&info.by===info.p&&info.effect)await fxIf(info.p,info.x,"現場リムーブ時",()=>d.selfRemovedOwnTurn(info.p,info.x))},
   abilities(p,x){const d=def(x);
     let list=[];
     if(p.hand.includes(x))list=(d&&d.handAbilities||[]).map((a,i)=>({...a,key:"hab"+i,hand:true}));
     else{list=(d&&d.abilities||[]).map((a,i)=>({...a,key:"ab"+i})).filter(a=>(x!==p.partner&&!p.pa.includes(x))||a.partner);
-      for(const s of x.set||[]){const sd=s.up&&!s.under&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}}
+      for(const s of x.set||[]){const sd=s.up&&!s.under&&def(s.c);if(sd&&sd.grants)list.push(...sd.grants.map((a,i)=>({...a,key:"g"+idOf(s.c)+i})))}
+      if(p.field.includes(x))for(const t of x.tmpAb||[])if(t.t===G.turnNo&&DEF[t.id]&&DEF[t.id].tmpGrants)list.push(...DEF[t.id].tmpGrants.map((a,i)=>({...a,key:"t"+t.id+i})))}
     const base=list.map(a=>({...a,ok:G.turn===p.idx&&!G.contact&&(!a.turn1||!turnCount(x,a.key))&&(!a.turn2||turnCount(x,a.key)<2)&&a.can(p,x)}));
     return base.concat(FX.costSubs(p,x,base))},
   // コスト代替（楠川探偵 B05033: 現場のこのキャラをリムーブすることで、［探偵］は【宣言】のコスト（【スリープ】を含む）を支払わずに宣言できる）。
@@ -147,7 +153,9 @@ const FX={
         run:async(p2,x2)=>{if(!p2.field.includes(k))return false;removeCard(k,"コスト（コストの代わり）",{by:p2});await runQueue();
           G.costFree={x:x2};try{return a.freeRun?await a.freeRun(p2,x2):await a.run(p2,x2)}finally{G.costFree=null}}})}
     return out},
-  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1||a.turn2)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>withSrc(x,()=>a.run(p,x)));render();await runQueue();return r},
+  async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1||a.turn2)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>withSrc(x,()=>a.run(p,x)),p);render();await runQueue();
+    for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyDeclare&&p.field.includes(y))await fxIf(p,y,"能力",()=>e.onAllyDeclare(p,y,x,a))} // 自分のキャラが【宣言】能力を使用したとき（江戸川コナン B03002）
+    await runQueue();return r},
   apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
     if(G.turn===p.idx&&hasTrait(x,"サッカー選手"))b+=1000*p.field.filter(y=>idOf(y)==="0954").length; // 赤木守
     if(G.turn===p.idx&&idOf(x)==="1061")b+=1000; // 沖田総司 PR290
@@ -171,4 +179,4 @@ const FX={
   noAutoWake:x=>/(^|\n)このキャラはオートフェイズにアクティブにならない。/.test(C(x).f||""),
   entersSleeping:x=>/(^|\n)このキャラはスリープ状態で登場する。/.test(C(x).f||""),
 };
-window.FX=FX;
+Object.assign(FX,MECH_FX);window.FX=FX;

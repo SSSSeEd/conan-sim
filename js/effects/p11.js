@@ -475,7 +475,7 @@ async function pickMode(p,title,labels,aiIdx=0){
   return await ask(`${p.name}: ${title}`,"1つ選んで行います",labels.map((l,i)=>({label:l,value:i,primary:i===0})))}
 const drawDiscard=async p=>{drawN(p,1);await discard(p,1)};
 // 相手の証拠を上から1つリムーブして、自分は証拠を1つ得る
-async function stealEv(p){const o=opp(p);if(!o.ev.length)return;const e=o.ev.pop();log(`　${o.name} の証拠を1つリムーブ`,"n");await hirameki(o,e);gainEvidence(p,1);log(`　${p.name} は証拠を1つ得た（証拠${p.ev.length}）`,"n")}
+async function stealEv(p){const o=opp(p);if(!o.ev.length)return;const e=o.ev.pop();log(`　${o.name} の証拠を1つリムーブ`,"n");await hirameki(o,e);await FX.onEvRemoved(o);gainEvidence(p,1);log(`　${p.name} は証拠を1つ得た（証拠${p.ev.length}）`,"n")}
 
 DEF["1183"]={ // 毛利蘭 B11015
   enter:async p=>{if(!condOk("絆工藤新一",p))return;await drawDiscard(p)}};
