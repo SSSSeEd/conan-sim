@@ -128,7 +128,7 @@ DEF["0352"]={ // 大和敢助 B03099
 DEF["0454"]={ // 安室透 B04068
   onAction:async(p,self,actor)=>{if(actor!==self||!condOk("FILE5",p)||!fileTopCard(p))return;
     if(!await yes(p,"安室透","FILEの上から1枚を手札に加えて、AP＋2000し、手札から［喫茶ポアロ］を登場させますか？",()=>!p.solved&&fileN(p)>=6))return;
-    const y=takeFileTop(p);y.fu=false;p.hand.push(y);log(`　FILEの上の ${C(y).nm} を手札に`,"n");apTurn(self,2000);await playFromHand(p,z=>hasTrait(z,"喫茶ポアロ")&&lvOf(z)<=7,"登場させる［喫茶ポアロ］（レベル7以下）")}};
+    const y=takeFileTop(p);y.fu=false;p.hand.push(y);noteFileHand(p);log(`　FILEの上の ${C(y).nm} を手札に`,"n");apTurn(self,2000);await playFromHand(p,z=>hasTrait(z,"喫茶ポアロ")&&lvOf(z)<=7,"登場させる［喫茶ポアロ］（レベル7以下）")}};
 DEF["0460"]={ // 降谷零 B04074
   abilities:[{label:"スリープ: 〚捜査2〛（［風見裕也］がいれば〚捜査4〛）し、発見したカードと同じレベルのキャラをリムーブ",turn1:true,can:(p,x)=>partnerIs(p,"黄")&&x.st==="a"&&opp(p).deck.length>0,aiCan:p=>opp(p).field.length>0,
     run:async(p,x)=>{sleepCost(x);const xs=investigate(p,p.field.some(exactName("風見裕也"))?4:2);const lvs=new Set(xs.map(y=>C(y).lv||0));await rmChar(p,y=>lvs.has(lvOf(y)));return true}}]};

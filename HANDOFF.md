@@ -154,3 +154,15 @@
 - 仕組み: js/combo_table.js の `COMBO2`（採用済みコンボ表。最初は空）。cpu.js の `comboNow(p)` が手番のはじめに「partsがそろい、行動が使える」コンボを返し、あればその行動（手札の使用=plan.play、現場の宣言=先に使う）を探索なしで行う。`ai2(p,"combo2")`で席ごとにオフにできる。出たら `G.comboFired` と記録(rec.combo)に残る。
 - 採用判定: `node tools/combo_gate.js デッキ [--top 8] [--fired 40] [--max 400] [--search] [--write]`。combo_lab(--json)の候補を、同じseed・同じ席で「あり/なし」のペア対戦にし、コンボが出た対戦だけ符号検定。b>c・b+c>=8・p<0.05÷試した数 で採用、--write で表に追記。
 - 分かったこと: 2〜3枚コンボが同じ手番にそろう割合は低い(400戦中0〜10戦)。デッキ別の試験(赤単赤井家FBIなど)では有意なものはまだ無し。試合数を増やすか、探索ありで比べる。
+
+## レベル6（2026-11-10、js/effects/lv6.js）
+- 新ファイル js/effects/lv6.js(index.html と sw.js に登録済み)。Lv6 119種すべて自動化。部品名は他ファイルと衝突しないよう `l6_` を付けた。
+- 追加した仕組み: reasonLp(相手の推理のLPを書き換え)・G.cutNeg と onOppCutDis の第5引数(相手のカットイン無効)・rescue(離れる代わりに手札へ。mech.js saveLeave)・untargetAlly・onOppSetOff・onAllySleep(engine.js noteSlept)・onOppMisread・noOppDisguiseFx・noOppHirameki(関数も可)・noRefEv(リフレッシュで証拠を得られない)・onOppChoose(選ばれたとき無効にできる。core.js negateChosen)。
+- 近似: 松田陣平 B01092 は自動判断(離れるキャラのレベルが自分以上のときだけ身代わり)。ジョディ B08049 の「このターンアクションしていた」は、ジョディが現場にいる間の記録だけ。
+- 全体は効果のある1333種のうち1261種(95%)。残りは Lv3 49・Lv2 22・Lv4 1(犯人 B10094 は「表向きで証拠/FILEにあるとき宣言可」が未対応)。
+
+## レベル3・レベル2（2026-11-10、js/effects/lv3.js）
+- 新ファイル js/effects/lv3.js(index.html と sw.js に登録済み)。Lv3 49種とLv2 22種。部品は lv6.js の l6_ を付けたものなどを流用。
+- 追加した仕組み: onFileHand(FILEから手札に加えたとき。engine.js noteFileHand を FILE→手札のコード5か所＋ネクストヒントに入れた)・guardWhileSleeping を関数でも可・zoneAbilities(表向きで証拠エリアやFILEエリアにあるときの【宣言】。犯人 B10094。画面の証拠・FILEの一覧からカードを選ぶと出る。FX.abilities と ui.js)。
+- 近似: フィリップ王子 B07049 はリムーブエリアのみ(パートナーエリアは対象外)。和田進一 B03040 は証拠の一番上をトーストで見せるだけ。福井柚嬉 B07011 のじゃんけんは乱数。
+- これで効果のある1333種すべてが自動化済み（node tools/coverage.js の未自動化は0）。

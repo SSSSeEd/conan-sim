@@ -59,7 +59,7 @@ async function discard(p,n=1,title="手札をリムーブ",chooser=p,filter=null
 function drawN(p,n=1){draw(p,n);log(`　${p.name} はカードを${n}枚引いた`,"n")}
 function gainEv(p,n=1){gainEvidence(p,n);log(`　${p.name} は証拠を${n}つ得た（証拠${p.ev.length}）`)}
 function stunC(x){if(FX.guarded(x,"stun",G.fxBy)){log(`　${C(x).nm} は相手の効果でスタンされない`,"n");return}x.st="x";log(`　${C(x).nm} をスタン`,"n")}
-function sleepC(x){if(FX.guarded(x,"sleep",G.fxBy)){log(`　${C(x).nm} は相手の効果でスリープされない`,"n");return}if(x.st==="a")x.st="s";log(`　${C(x).nm} をスリープ`,"n")}
+function sleepC(x){if(FX.guarded(x,"sleep",G.fxBy)){log(`　${C(x).nm} は相手の効果でスリープされない`,"n");return}noteSlept(x);if(x.st==="a")x.st="s";log(`　${C(x).nm} をスリープ`,"n")}
 function activateC(x){x.st=x.st==="x"?"s":"a";log(`　${C(x).nm} を${x.st==="a"?"アクティブ":"スリープ（スタンから）"}に`,"n")}
 function toDeckBottom(x){const p=ownerOf(x);const wasField=p.field.includes(x);
   if(wasField&&G.fxBy&&G.fxBy!==p&&FX.saveLeave(p,x))return;
@@ -86,7 +86,9 @@ function immune(p,y){const q=ownerOf(y);if(!q||q===p||!q.field.includes(y))retur
   if(q.field.some(h=>setEvents(h).some(s=>def(s)&&def(s).setShield&&def(s).setShield(q,h,y))))return true; // セットされたイベントが与える「相手のイベントでは選ばれない」
   return !!(G.evtBy===p&&idOf(y)==="1073"&&condOk("絆工藤新一",q))}
 // 工藤新一 B04003【絆毛利蘭】【相手ターン中】【ターン1】: 自分の［毛利蘭］が相手の能力や効果で選ばれたら、相手は手札を1枚リムーブしないと無効
-async function negateChosen(p,y){const q=ownerOf(y);if(!q||q===p||G.turn!==p.idx||!C(y).nm.includes("毛利蘭"))return false;
+async function negateChosen(p,y){const q=ownerOf(y);
+  if(q&&q!==p&&G.turn===p.idx)for(const z of q.field.slice()){const d=def(z);if(d&&d.onOppChoose&&z!==y&&await d.onOppChoose(q,z,y,p))return true} // 広田雅美 B08081: 選ばれたとき、相手が手札をリムーブしなければ無効
+  if(!q||q===p||G.turn!==p.idx||!C(y).nm.includes("毛利蘭"))return false;
   const s=q.field.find(z=>idOf(z)==="0408"&&def(z)&&!turnCount(z,"shinRan")&&condOk("絆毛利蘭",q));if(!s)return false;useTurn(s,"shinRan");
   if(p.hand.length&&await yes(p,"工藤新一の効果",`手札を1枚リムーブしないと、${C(y).nm} を選んだ効果は無効になります。リムーブしますか？`,()=>p.hand.length>=2)){await discard(p,1);return false}
   log(`　${C(s).nm}: 効果は無効になった`,"n");return true}
@@ -183,7 +185,7 @@ async function bottomChar(p,f,title="デッキの下に移すキャラ"){const t
 const apLe=v=>y=>apOf(y)<=v,lvLe=v=>y=>lvOf(y)<=v;
 // 宣言能力の部品: 【スリープ】コスト
 // G.costFree={x}: 楠川探偵 B05033 など「コストを支払う代わりに」宣言したとき、x のスリープのコストは払わない（hooks.js の abilities）
-const sleepCost=(x)=>{if(G.costFree&&G.costFree.x===x){log(`　（コストの代わりに支払い済み: ${C(x).nm} はスリープしない）`,"n");return}x.st="s";log(`　コスト: ${C(x).nm} をスリープ`,"n")};
+const sleepCost=(x)=>{if(G.costFree&&G.costFree.x===x){log(`　（コストの代わりに支払い済み: ${C(x).nm} はスリープしない）`,"n");return}noteSlept(x);x.st="s";log(`　コスト: ${C(x).nm} をスリープ`,"n")};
 const myTurn=p=>G.turn===p.idx;
 
 // 色をまたいで使う部品（各デッキの所にあったものをここへ移した）

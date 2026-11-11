@@ -41,7 +41,7 @@ DEF["0721"]={ // カッ
   event:async(p,x)=>{if(!partnerIs(p,"黒")||!p.solved){log("　条件（パートナー黒・解決編）を満たさないので効果なし","n");return}
     for(const y of allChars())removeCard(y,"カッ",{by:p,effect:true});
     const top=[...p.file].reverse().filter(y=>y!==p.partner).slice(0,2);
-    for(const y of top){p.file.splice(p.file.indexOf(y),1);p.hand.push(y)}log(`　FILEの上から${top.length}枚を手札に（FILE ${p.file.length}枚）`);
+    for(const y of top){p.file.splice(p.file.indexOf(y),1);p.hand.push(y)}noteFileHand(p);log(`　FILEの上から${top.length}枚を手札に（FILE ${p.file.length}枚）`);
     p.noHint=true;await runQueue();
     await playFromHand(p,y=>hasColor(y,"黒")&&lvOf(y)<=7)},
   ai:p=>p.solved&&partnerIs(p,"黒")&&opp(p).field.length>=p.field.length+1};

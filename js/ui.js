@@ -72,7 +72,7 @@ function buildActs(box,x,p,z){
       }
       if(z==="partner"){btn2(box,"アシスト",()=>assist(p),{disabled:x.st!=="a"});btn2(box,FX.eraseEvidence(p)?"証拠隠滅（相手の敗北）":"事件解決",()=>solve(p),{disabled:x.st!=="a"||!p.solved,primary:p.solved&&p.ev.length>=p.level})}
     }
-    if(z==="field"||z==="case"||z==="pa"){
+    if(z==="field"||z==="case"||z==="pa"||z==="ev"||z==="file"){
       for(const a of FX.abilities(p,x))btn2(box,`能力: ${a.label}${a.turn1?"（ターン1）":""}`,()=>FX.useAbility(p,x,a),{disabled:!a.ok});
     }
   }

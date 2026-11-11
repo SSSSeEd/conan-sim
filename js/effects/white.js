@@ -52,7 +52,7 @@ DEF["0547"]={ // 怪盗キッド＆黒羽快斗 B05045
   abilities:[{label:"デッキの上から5枚リムーブ: AP8000以下のキャラをデッキの下へ",turn1:true,can:p=>partnerIs(p,"白")&&p.deck.length>5,aiCan:p=>p.deck.length>15&&oppHas(p,apLe(8000)),
     run:async(p,x)=>{millSelf(p,5);await bottomChar(p,y=>y!==x&&apLe(8000)(y));return true}},
     {label:"FILEの上から1枚を手札に、手札1枚をFILEの一番下へ",turn1:true,partner:true,noAi:true,can:p=>p.file.some(y=>y!==p.partner),
-    run:async p=>{const top=[...p.file].reverse().find(y=>y!==p.partner);p.file.splice(p.file.indexOf(top),1);p.hand.push(top);log(`　FILEの上の ${C(top).nm} を手札に`,"n");
+    run:async p=>{const top=[...p.file].reverse().find(y=>y!==p.partner);p.file.splice(p.file.indexOf(top),1);p.hand.push(top);noteFileHand(p);log(`　FILEの上の ${C(top).nm} を手札に`,"n");
       const [y]=await pickCards(p,"FILEの一番下に移すカード","",p.hand,{min:1,max:1});if(y){detach(y);p.file.unshift(y);log(`　${C(y).nm} をFILEの一番下へ`,"n")}return true}}]};
 DEF["0873"]={ // 工藤優作 B08034
   enter:async(p,x)=>{if(!condOk("事件白",p)||!partnerIs(p,"白"))return;await rmChar(p,y=>y!==x&&apLe(8000)(y));
