@@ -106,7 +106,7 @@ function renderMyDecks(){
       const a=loadMyDecks();a.push({name:`${r.name||"デッキ"}（${id}）`,text:r.text,id});saveMyDecks(a);
       m.className=w.length?"dmsg bad":"dmsg good";m.textContent=`登録しました: ${r.name}${w.length?"\n注意: "+w.join(" / "):""}`;
       const keep=m.textContent,cls=m.className;showSetup();const m2=document.getElementById("myMsg");m2.textContent=keep;m2.className=cls}
-    catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+(e.message==="Cannot read properties of null (reading 'name')"?"そのIDのデッキが見つかりません":e.message)+"）"}};
+    catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）"}};
   B.querySelectorAll("[data-mydel]").forEach(b=>b.onclick=()=>{const a=loadMyDecks();a.splice(+b.dataset.mydel,1);saveMyDecks(a);showSetup()});
 }
 function renderRecords(){
