@@ -68,7 +68,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       const r=fillDeck(d,{onlyAuto:document.getElementById("fa"+i).checked});ta.value=fillText(r);chk(i);
       const lines=[...r.warns,`補った${r.main.length-d.main.length}枚: `+r.why.map(x=>`${C({n:x.n}).nm}×${x.k}（${x.why}）`).join("、")];
       m.textContent+="\n"+lines.join("\n")};
-    S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=document.getElementById("sh"+i).value.trim().replace(/.*deck\//,"");const m=document.getElementById("dm"+i);
+    S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=shareIdOf(document.getElementById("sh"+i).value);const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
   }
   document.getElementById("fbTop").onclick=()=>feedbackPage(null);
@@ -95,7 +95,7 @@ function resumeBox(){const s=loadSave();if(!s)return "";
 function renderMyDecks(){
   const B=document.getElementById("myBox");if(!B)return;const my=loadMyDecks();
   B.innerHTML=`<b>デッキ登録（マイデッキ ${my.length}個）</b>
-   <div class="hint">conan-tcg-app のデッキ共有リンク（または共有ID）を貼って「登録」すると、上のデッキ一覧の「マイデッキ」に追加されます。端末に保存されます。</div>
+   <div class="hint">conan-tcg-app のデッキ共有リンク・公式デッキレシピのリンク（またはID）を貼って「登録」すると、上のデッキ一覧の「マイデッキ」に追加されます。端末に保存されます。</div>
    <div class="row"><input id="myUrl" placeholder="共有リンク または ID" style="flex:1;min-width:0"><button id="myAdd" class="primary">登録</button></div>
    <div class="dmsg" id="myMsg"></div>
    <div class="reclist">${my.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-mydel="${k}">削除</button></div>`).join("")}</div>`;
