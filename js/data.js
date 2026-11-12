@@ -93,7 +93,8 @@ function deckByKey(v){const [g,k]=String(v).split(":");const grp=deckGroups().fi
 async function fetchShareDeck(id){
   const r=await fetch(`https://conan-tcg-app.com/api/deck/share?share_id=${encodeURIComponent(id)}`,{headers:{Accept:"application/json"}});
   if(!r.ok)throw new Error("HTTP "+r.status);
-  const j=await r.json();const k=j.deck;
+  const j=await r.json();const k=j&&j.deck;
+  if(!k)throw new Error("そのIDのデッキが見つかりません（共有リンクかIDを確認してください）");
   return {name:k.name,text:deckToText({partner:k.partner_num,caseN:k.case_card_num,main:k.card_num_list})};
 }
 function randomDeck(color){
