@@ -81,7 +81,7 @@ function deckToText(d){
 const MY_KEY="conan-sim-mydecks";
 function loadMyDecks(){try{return JSON.parse(localStorage.getItem(MY_KEY)||"[]")}catch(e){return []}}
 function saveMyDecks(a){try{localStorage.setItem(MY_KEY,JSON.stringify(a))}catch(e){}}
-function shareIdOf(s){s=(s||"").trim();const m=s.match(/(?:deck\/|share_id=|deck=)([A-Za-z0-9_-]{4,})/);return m?m[1]:s.replace(/[^A-Za-z0-9_-]/g,"")}
+function shareIdOf(s){s=(s||"").trim();const m=s.match(/(?:deck\/|share_id=|deck=|d_code=)([A-Za-z0-9_-]{4,})/);return m?m[1]:s.replace(/[^A-Za-z0-9_-]/g,"")}
 function deckGroups(){return [["マイデッキ","m",loadMyDecks()],["プリセット","p",PRESETS],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]]]}
 // 効果の自動化率: 効果文のあるカード（枚数で数える。パートナー・事件も1枚）のうち自動で処理されるもの。CPUは100%のデッキだけ使う
 function autoRate(d){let all=0,ok=0;const ng=[];
@@ -90,12 +90,24 @@ function autoRate(d){let all=0,ok=0;const ng=[];
   return {all,ok,pct:all?Math.floor(ok/all*100):100,ng}}
 function cpuReady(d){const r=autoRate(d);return r.ok===r.all}
 function deckByKey(v){const [g,k]=String(v).split(":");const grp=deckGroups().find(x=>x[1]===g);return grp&&grp[2][+k]}
+// 公式（タカラトミー）デッキレシピ。共有IDで見つからないとき、同じ文字列を公式のデッキコードとして取得する
+async function fetchOfficialDeck(id){
+  const r=await fetch(`https://www.takaratomy.co.jp/products/conan-cardgame/deckrecipe/show?d_code=${encodeURIComponent(id)}`);
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const h=await r.text();const m=h.match(/name=['"]deck['"]\s+value=['"]([^'"]+)['"]/);
+  if(!m)return null;
+  const j=JSON.parse(m[1].replace(/&quot;/g,'"').replace(/&amp;/g,"&"));
+  if(!j||!j.partner||!j.partner[0]||!j.incident||!j.incident[0])return null;
+  return {name:"公式レシピ",text:deckToText({partner:j.partner[0],caseN:j.incident[0],main:j.other||[]})};
+}
 async function fetchShareDeck(id){
   const r=await fetch(`https://conan-tcg-app.com/api/deck/share?share_id=${encodeURIComponent(id)}`,{headers:{Accept:"application/json"}});
   if(!r.ok)throw new Error("HTTP "+r.status);
   const j=await r.json();const k=j&&j.deck;
-  if(!k)throw new Error("そのIDのデッキが見つかりません（共有リンクかIDを確認してください）");
-  return {name:k.name,text:deckToText({partner:k.partner_num,caseN:k.case_card_num,main:k.card_num_list})};
+  if(k)return {name:k.name,text:deckToText({partner:k.partner_num,caseN:k.case_card_num,main:k.card_num_list})};
+  let o=null;try{o=await fetchOfficialDeck(id)}catch(e){}
+  if(o)return o;
+  throw new Error("そのIDのデッキが見つかりません（共有リンクかIDを確認してください）");
 }
 function randomDeck(color){
   const pool=window.CARD_DB.filter(c=>(c.t==="キャラ"||c.t==="イベント")&&c.c===color&&!/P$/.test(c.n)&&!BANNED.includes(c.i));
