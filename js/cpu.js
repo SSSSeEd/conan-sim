@@ -6,7 +6,8 @@
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 //   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo"];
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose"];
+// 2026-11-12 SeEdの使い方の差から試す3案（既定は無効。AI_OFFから外すと有効）: early6=FILE6なら手札の前にアシストして解決編へ / mid=序盤〜中盤は推理より事件アクション / lose=相手が次のターンに解決しそうなら事件アクションで抵抗
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 function cpuGuard(o,atk,target,guards){
@@ -119,7 +120,7 @@ async function cpuTurn(p){
   if(ai2(p,"assist")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
     const lvOf=x=>x?(C(x).lv||0):-1;const now=best(false);
     p.file.push(p.partner);const after=best(false);p.file.pop();
-    if(plan.assist||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
+    if(plan.assist||ai2(p,"early6")&&p.file.length>=6||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
   }
   let pick1=planned();
   if(pick1){await useFromHand(p,pick1);await step()}
@@ -141,7 +142,8 @@ async function cpuTurn(p){
   await runAbilities();
   if(G.over)return;
   // 相手が事件を解決編にしていて、次のターンに解決しそうなら、キャラへのアクションをやめて全員で相手の事件にアクションし、証拠を減らして抵抗する
-  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0;
+  const oppPot=o.field.reduce((a,y)=>a+(y.st==="a"?lpOf(y):0),0)+(o.pLoc==="area"&&o.partner.st==="a"?lpOf(o.partner):0);
+  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0||ai2(p,"lose")&&o.solved&&o.ev.length>0&&o.ev.length+oppPot>=o.level;
   // 2.8) 出たばかりでもアクションできるキャラ（突撃・迅速）。探索（plan.act）で動かし方を選ぶ。stay は動かさず起こしておく
   const hold=new Set();
   {const rushers=()=>p.field.filter(x=>x.fresh&&x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case"))).sort((a,b)=>apOf(b)-apOf(a));
@@ -183,7 +185,7 @@ async function cpuTurn(p){
       const late=p.ev.length>=p.level-2;
       const threat=o.field.some(y=>y.st!=="x"&&apOf(y)>=apOf(x));
       if(!late&&threat&&(strongChar(x)||G.turnNo<=4)){continue}}
-    if(o.ev.length>0&&canAct(x,p,"case")&&(resist||ai2(p,"end2")&&oppNear||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
+    if(o.ev.length>0&&canAct(x,p,"case")&&(resist||ai2(p,"end2")&&oppNear||ai2(p,"mid")&&p.ev.length<p.level-3||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
     if(lpOf(x)>=1&&canAct(x,p,"reason")){await reason(p,x);left--;await step();continue}
     if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");left--;await step()}
   }
