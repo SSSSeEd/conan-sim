@@ -25,8 +25,9 @@ const partnerIs=(p,col)=>condOk("パートナー"+col,p);
 const faceDownSet=x=>(x.set||[]).filter(s=>!s.up);
 
 // AI用の評価: 相手のカードほど・レベルが高いほど優先
-const aiScoreTarget=(p,x)=>(isOpp(p,x)?1000:-1000)+lvOf(x)*10+apOf(x)/1000;
-const aiBestTargets=(p,n=1)=>cs=>cs.slice().sort((a,b)=>aiScoreTarget(p,b)-aiScoreTarget(p,a)).filter(x=>isOpp(p,x)).slice(0,n);
+const aiScoreTarget=(p,x,how)=>(isOpp(p,x)?1000:-1000)+(how&&window.aiTgtScore?aiTgtScore(p,x,how):lvOf(x)*10+apOf(x)/1000);
+const tgtHow=t=>/スタン/.test(t||"")?"st":/デッキの下/.test(t||"")?"bt":/リムーブ/.test(t||"")?"rm":null; // chooseChar の title から除去の種類を読む
+const aiBestTargets=(p,n=1,how)=>cs=>cs.slice().sort((a,b)=>aiScoreTarget(p,b,how)-aiScoreTarget(p,a,how)).filter(x=>isOpp(p,x)).slice(0,n);
 const aiCardValue=(p,x)=>{const c=C(x);let v=lvOf(x);if(c.ci)v+=2;if(c.t==="キャラ"&&lvOf(x)<=p.file.length+2)v+=3;if(!canPlayColor(c,p))v-=5;return v};
 
 async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true}={}){
@@ -73,7 +74,7 @@ async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
   let cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title));
   if(G.evtBy===p){const f=cs.filter(y=>isOpp(p,y)&&def(y)&&def(y).forceByEvt);if(f.length)cs=f} // 吞口重彦 B08087: 相手はイベントの効果で選べるなら必ず選ぶ
   if(!cs.length){log(`　（対象なし）`,"n");return null}
-  const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1)});
+  const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1,tgtHow(title))});
   if(x&&(FX.negateBySet(p,x)||await negateChosen(p,x)))return null;
   if(x&&G.fxSrc&&isMR(G.fxSrc)&&ownerOf(G.fxSrc)===ownerOf(x))x.mrPick=G.turnNo; // 自分のMRの能力によって選ばれた（毛利蘭 B08014）
   return x||null;
