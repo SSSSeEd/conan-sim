@@ -6,7 +6,7 @@
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 //   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose"];
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","tgt2"];
 // 2026-11-12 SeEdの使い方の差から試す3案（既定は無効。AI_OFFから外すと有効）: early6=FILE6なら手札の前にアシストして解決編へ / mid=序盤〜中盤は推理より事件アクション / lose=相手が次のターンに解決しそうなら事件アクションで抵抗
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
@@ -203,3 +203,19 @@ async function cpuTurn(p){
   endTurn();
 }
 
+
+// ---- 対象選びの点数（2026-11-14 回答フォーム30問 → simulator/cpu-judgment-survey-2026-11-14.md）。tgt2 を AI_OFF から外すと有効 ----
+// how: "rm"=リムーブ / "bt"=デッキの下 / "st"=スタン。場にいる間に効く強いカード・アクティブなミスリードを最優先で消す。登場時のみは使用済みで優先度が下がる
+// スタンは宣言スリープ持ち・登場時のみ向き、デッキの下はカットイン／ヒラメキ／リムーブエリアから回収できるカードを避ける
+function tgtInfo(x){const c=C(x),f=c.f||"",L=f.split("\n");
+  const decl=L.filter(l=>/【宣言】/.test(l)),pers=L.filter(l=>/【(自分|相手)ターン中】/.test(l)&&!/【現場リムーブ時】/.test(l)),enter=L.some(l=>/【登場時】/.test(l));
+  return {pers:pers.length>0,decl:decl.length>0,declSleep:decl.some(l=>/【スリープ】/.test(l)),enterOnly:enter&&!pers.length&&!decl.length,
+    helper:[...decl,...pers].some(l=>/(他の|自分の)[^。]{0,14}キャラ/.test(l)),recur:/【カットイン】|【ヒラメキ】|リムーブエリア/.test(f)}}
+function aiTgtScore(p,x,how){
+  let v=lvOf(x)*10+apOf(x)/1000;if(!ai2(p,"tgt2")||!how)return v;
+  const i=tgtInfo(x),mis=(staticKw(x,ownerOf(x))||{}).misread||0,hot=!!p.solved;
+  if(how==="st"){if(x.st==="x")return -999;
+    v=lvOf(x)*6+(C(x).lp||0)*4+apOf(x)/1000;
+    if(i.declSleep)v+=30;else if(i.decl)v+=10;if(i.enterOnly)v+=12;if(i.pers)v-=25;if(i.helper)v-=20;if(mis&&x.st==="a")v+=10;return v}
+  if(i.pers)v+=35;if(mis&&x.st==="a")v+=(hot?40:20)*mis;if(i.helper)v+=15;if(i.decl&&!i.declSleep)v+=6;
+  if(i.enterOnly)v-=25;if(how==="bt"&&i.recur)v-=45;if(how==="rm"&&i.recur)v+=10;return v}
