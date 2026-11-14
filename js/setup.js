@@ -28,8 +28,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       ${i===1?`<label><input type="checkbox" id="cpu1" ${saved.cpu1===false?"":"checked"}> CPUが操作</label>`:`<label><input type="checkbox" id="cpu0"> CPUが操作（観戦）</label>`}</div>
       <div class="row"><select id="ps${i}" aria-label="デッキ一覧">${deckOptions(i,i===1?saved.cpu1!==false:false)}</select><button data-s="${i}">このデッキを使う</button></div>
       <div class="row">
-        <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button>
-        <button data-fill="${i}" title="下のリストに書いたカード（15枚ほど）を元に、残りを環境デッキの実績などから選んで40枚にします">40枚に補完</button><label title="外すと、効果が未自動化のカードも候補に入れる"><input type="checkbox" id="fa${i}" checked> 自動化済みだけ</label></div>
+        <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button></div>
       <div class="row"><input id="sh${i}" placeholder="共有ID 例: X3zM3U7m" size="16"><button data-f="${i}">conan-tcg-appから読込</button></div>
       <textarea id="dk${i}" spellcheck="false" aria-label="デッキリスト">${esc(saved["dk"+i]||PRESETS[i?1:0].text)}</textarea>
       <div class="dmsg" id="dm${i}"></div></div>`).join("")}
@@ -39,7 +38,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
    <div class="hint">デッキリストの書き方: 1行に「カードNo x枚数」。パートナーと事件はカードNoを書けば自動で判別します。conan-tcg-app の共有IDでの読込はブラウザから直接通信するため、環境によっては失敗します。その場合はリストを貼り付けてください。<br>
    操作: カードをクリックすると右パネルに操作が出ます。アクション［キャラ］は対象（赤く点滅）をクリック、Escでキャンセル。デッキ・FILE・証拠・リムーブの枚数をクリックすると中身と手動操作が開きます。</div>
    </div>
-   <div class="tabp" data-tab="decks"><h2>デッキ</h2><div class="box" id="myBox"></div></div>
+   <div class="tabp" data-tab="decks"><h2>デッキ</h2><div class="box" id="myBox"></div><div class="box" id="fillBox"></div></div>
    <div class="tabp" data-tab="rec"><h2>記録</h2><div class="box" id="recBox"></div></div>
    <div class="tabp" data-tab="fb"><h2>フィードバック</h2><div class="box"><b>アプリへの改善点・CPUへの要望</b>
     <div class="hint">気づいたことを書いて送ると、GitHubのIssueとして届きます（対戦後の画面からも書けます）。</div>
@@ -48,7 +47,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
     <div class="hint">使われなかったカードや使い残しなどの傾向が見られます（書き出したJSONを読み込んでも同じです）。</div>
     <div class="row"><button id="recFb" class="primary">この端末の記録でフィードバック</button><button id="recImp">記録JSONを読み込んでフィードバック</button></div></div></div>`;
   showTab(tab);
-  renderRecords();renderMyDecks();
+  renderRecords();renderMyDecks();renderFill();
   const rs=document.getElementById("resume");if(rs)rs.onclick=()=>{const v=loadSave();if(v)resumeGame(v);else showSetup()};
   const rd=document.getElementById("resumeDel");if(rd)rd.onclick=async()=>{if(await ask("途中の対戦を消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){clearSave();showSetup()}};
   const isCpu=i=>document.getElementById("cpu"+i).checked;
@@ -63,11 +62,6 @@ function showSetup(){document.documentElement.classList.remove("spectate");
     document.getElementById("cpu"+i).onchange=()=>{const ps=document.getElementById("ps"+i),v=ps.value;ps.innerHTML=deckOptions(i,isCpu(i));
       if([...ps.options].some(o=>o.value===v))ps.value=v;chk(i)};
     S.querySelector(`[data-r="${i}"]`).onclick=()=>{ta.value=randomDeck(document.getElementById("rc"+i).value).text;chk(i)};
-    S.querySelector(`[data-fill="${i}"]`).onclick=()=>{const d=parseDeckText(ta.value),m=document.getElementById("dm"+i);
-      if(d.errors.length||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"補完のもとになるカードを書いてください（15枚ほど）";return}
-      const r=fillDeck(d,{onlyAuto:document.getElementById("fa"+i).checked});ta.value=fillText(r);chk(i);
-      const lines=[...r.warns,`補った${r.main.length-d.main.length}枚: `+r.why.map(x=>`${C({n:x.n}).nm}×${x.k}（${x.why}）`).join("、")];
-      m.textContent+="\n"+lines.join("\n")};
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=shareIdOf(document.getElementById("sh"+i).value);const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
   }
@@ -97,8 +91,9 @@ function renderMyDecks(){
   B.innerHTML=`<b>デッキ登録（マイデッキ ${my.length}個）</b>
    <div class="hint">conan-tcg-app のデッキ共有リンク・公式デッキレシピのリンク（またはID）を貼って「登録」すると、上のデッキ一覧の「マイデッキ」に追加されます。端末に保存されます。</div>
    <div class="row"><input id="myUrl" placeholder="共有リンク または ID" style="flex:1;min-width:0"><button id="myAdd" class="primary">登録</button></div>
+   <div class="row"><button id="myLast" title="対戦タブで最後に「対戦開始」したときの、あなたのデッキを登録します">最後に使ったデッキを登録</button></div>
    <div class="dmsg" id="myMsg"></div>
-   <div class="reclist">${my.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-mydel="${k}">削除</button></div>`).join("")}</div>`;
+   <div class="reclist">${my.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-myren="${k}">名前を変更</button><button data-mydel="${k}">削除</button></div>`).join("")}</div>`;
   document.getElementById("myAdd").onclick=async()=>{const id=shareIdOf(document.getElementById("myUrl").value);const m=document.getElementById("myMsg");
     if(!id){m.className="dmsg bad";m.textContent="リンクを貼ってください";return}
     m.className="dmsg";m.textContent="読込中…";
@@ -107,7 +102,42 @@ function renderMyDecks(){
       m.className=w.length?"dmsg bad":"dmsg good";m.textContent=`登録しました: ${r.name}${w.length?"\n注意: "+w.join(" / "):""}`;
       const keep=m.textContent,cls=m.className;showSetup();const m2=document.getElementById("myMsg");m2.textContent=keep;m2.className=cls}
     catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）"}};
+  document.getElementById("myLast").onclick=async()=>{const m=document.getElementById("myMsg");
+    let sv={};try{sv=JSON.parse(localStorage.getItem("conan-sim-setup")||"{}")}catch(e){}
+    const d=parseDeckText(sv.dk0||"");if(!sv.dk0||d.errors.length||!d.partner||!d.caseN){m.className="dmsg bad";m.textContent="最後に使ったデッキがありません（一度「対戦開始」すると記録されます）";return}
+    const key=t=>deckToText(parseDeckText(t));
+    const hit=deckGroups().flatMap(g=>g[2]).find(x=>key(x.text)===key(sv.dk0)); // 同じ中身の登録済み・プリセットがあればその名前
+    const nm=await askText("最後に使ったデッキを登録","デッキの名前を入力してください。",hit?hit.name:`${C({n:d.partner}).nm}のデッキ`);
+    if(nm===null)return;
+    const a=loadMyDecks();a.push({name:nm,text:deckToText(d)});saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`登録しました: ${nm}`};
+  B.querySelectorAll("[data-myren]").forEach(b=>b.onclick=async()=>{const a=loadMyDecks(),k=+b.dataset.myren;
+    const nm=await askText("デッキの名前を変更","新しい名前を入力してください。",a[k].name);if(nm===null)return;
+    a[k].name=nm;saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`名前を変更しました: ${nm}`});
   B.querySelectorAll("[data-mydel]").forEach(b=>b.onclick=()=>{const a=loadMyDecks();a.splice(+b.dataset.mydel,1);saveMyDecks(a);showSetup()});
+}
+// デッキ補完（デッキタブ）。15枚ほど書くと40枚にして、マイデッキに登録／対戦のデッキ欄にセットできる
+function renderFill(){
+  const B=document.getElementById("fillBox");if(!B)return;
+  B.innerHTML=`<b>デッキ補完</b>
+   <div class="hint">主要カード15枚ほど（＋パートナー・事件）を「カードNo x枚数」で書いて「40枚に補完」を押すと、残りを環境デッキの実績などから選んで40枚にします。</div>
+   <textarea id="fillTx" spellcheck="false" aria-label="補完するデッキリスト" placeholder="パートナー B03107&#10;事件 B06105&#10;B05108 x3&#10;…"></textarea>
+   <div class="row"><button class="primary" id="fillGo">40枚に補完</button><label title="外すと、効果が未自動化のカードも候補に入れる"><input type="checkbox" id="fillAuto" checked> 自動化済みだけ</label></div>
+   <div class="dmsg" id="fillMsg"></div>
+   <div class="row"><button id="fillReg">マイデッキに登録</button><button id="fillSet0">あなたのデッキにセット</button><button id="fillSet1">相手のデッキにセット</button></div>`;
+  const ta=document.getElementById("fillTx"),m=document.getElementById("fillMsg");
+  document.getElementById("fillGo").onclick=()=>{const d=parseDeckText(ta.value);
+    if(d.errors.length||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"補完のもとになるカードを書いてください（15枚ほど）";return}
+    const r=fillDeck(d,{onlyAuto:document.getElementById("fillAuto").checked});ta.value=fillText(r);
+    const w=validateDeck({partner:r.partner,caseN:r.caseN,main:r.main});
+    m.className=w.length?"dmsg bad":"dmsg good";
+    m.textContent=[...w,...r.warns,`補った${r.main.length-d.main.length}枚: `+r.why.map(x=>`${C({n:x.n}).nm}×${x.k}（${x.why}）`).join("、")].join("\n")};
+  const okDeck=()=>{const d=parseDeckText(ta.value);if(d.errors.length||!d.partner||!d.caseN||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"デッキリストを確認してください";return null}return d};
+  document.getElementById("fillReg").onclick=async()=>{const d=okDeck();if(!d)return;
+    const nm=await askText("マイデッキに登録","デッキの名前を入力してください。",`${C({n:d.partner}).nm}の補完デッキ`);if(nm===null)return;
+    const a=loadMyDecks();a.push({name:nm,text:deckToText(d)});saveMyDecks(a);showSetup();const m2=document.getElementById("fillMsg");m2.className="dmsg good";m2.textContent=`マイデッキに登録しました: ${nm}`};
+  for(const i of [0,1])document.getElementById("fillSet"+i).onclick=()=>{if(!okDeck())return;
+    const keep=ta.value;let sv={};try{sv=JSON.parse(localStorage.getItem("conan-sim-setup")||"{}")}catch(e){}
+    showSetup();const dk=document.getElementById("dk"+i);dk.value=keep;dk.oninput();showTab("play");scrollTo(0,0);toast(i?"相手のデッキにセットしました":"あなたのデッキにセットしました")};
 }
 function renderRecords(){
   const B=document.getElementById("recBox");if(!B)return;
