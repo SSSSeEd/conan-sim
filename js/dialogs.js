@@ -21,6 +21,18 @@ function ask(title,body,options){ // options:[{label,value,primary}]
     for(const op of options){const b=document.createElement("button");b.textContent=op.label;if(op.primary)b.className="primary";b.onclick=()=>done(op.value);o.appendChild(b)}
   });
 }
+// 文字を入力してもらう。決定で文字列、キャンセルで null
+function askText(title,body,init){
+  return modal((m,done)=>{
+    m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div>${body?`<div class="mb">${esc(body)}</div>`:""}<input id="askTx" value="${esc(init||"")}" style="width:100%;box-sizing:border-box;margin:6px 0"><div class="opts"></div>`);
+    const inp=m.querySelector("#askTx"),o=m.querySelector(".opts");
+    const ok=document.createElement("button");ok.className="primary";ok.textContent="決定";
+    const go=()=>{const v=inp.value.trim();if(v)done(v)};
+    ok.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()};
+    const no=document.createElement("button");no.textContent="やめる";no.onclick=()=>done(null);
+    o.appendChild(ok);o.appendChild(no);inp.focus();inp.select();
+  });
+}
 function chooseCards(title,body,cards,{min=0,max=1,okLabel="決定",faceUp=true,can=null,tag=null}={}){
   return modal((m,done)=>{
     m.insertAdjacentHTML("beforeend",`<div class="mt">${esc(title)}</div>${body?`<div class="mb">${hl(body)}</div>`:""}<div class="cards"></div><div class="opts"></div>`);
