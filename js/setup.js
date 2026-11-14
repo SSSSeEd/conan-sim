@@ -30,7 +30,8 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       <div class="row">
         <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button></div>
       <div class="row"><input id="sh${i}" placeholder="共有ID 例: X3zM3U7m" size="16"><button data-f="${i}">conan-tcg-appから読込</button></div>
-      <textarea id="dk${i}" spellcheck="false" aria-label="デッキリスト">${esc(saved["dk"+i]||PRESETS[i?1:0].text)}</textarea>
+      <div class="dprev" id="dpv${i}"></div>
+      <textarea id="dk${i}" hidden spellcheck="false" aria-label="デッキリスト">${esc(saved["dk"+i]||PRESETS[i?1:0].text)}</textarea>
       <div class="dmsg" id="dm${i}"></div></div>`).join("")}
    </div>
    <div class="row"><label>先攻: <select id="first"><option value="rand">ランダム</option><option value="0">あなた</option><option value="1">相手</option></select></label>
@@ -51,7 +52,13 @@ function showSetup(){document.documentElement.classList.remove("spectate");
   const rs=document.getElementById("resume");if(rs)rs.onclick=()=>{const v=loadSave();if(v)resumeGame(v);else showSetup()};
   const rd=document.getElementById("resumeDel");if(rd)rd.onclick=async()=>{if(await ask("途中の対戦を消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){clearSave();showSetup()}};
   const isCpu=i=>document.getElementById("cpu"+i).checked;
-  const chk=i=>{const d=parseDeckText(document.getElementById("dk"+i).value);const w=[...d.errors,...validateDeck(d)];const m=document.getElementById("dm"+i);
+  const preview=(i,d)=>{const B=document.getElementById("dpv"+i);B.innerHTML="";
+    if(!d.partner||!d.caseN)return;
+    const cnt={};for(const n of d.main)cnt[n]=(cnt[n]||0)+1;
+    const key=[...new Set(d.main)].filter(n=>DB[n]&&DB[n].t==="キャラ").sort((a,b)=>(DB[b].lv||0)-(DB[a].lv||0)||cnt[b]-cnt[a])[0]; // レベルが一番高いキャラ（MR・レベル8など）
+    for(const [lab,n] of [["事件",d.caseN],["パートナー",d.partner],["主力",key]]){if(!n||!DB[n])continue;
+      const w=document.createElement("div");w.className="dpc";w.innerHTML=`<div class="meta">${lab}</div>`;const x=inst(n),el=cardEl(x);el.onclick=()=>showPeek(x);w.appendChild(el);B.appendChild(w)}};
+  const chk=i=>{const d=parseDeckText(document.getElementById("dk"+i).value);preview(i,d);const w=[...d.errors,...validateDeck(d)];const m=document.getElementById("dm"+i);
     if(!w.length&&isCpu(i)&&!cpuReady(d)){const r=autoRate(d);
       w.push(`CPUは効果がすべて自動で処理されるデッキだけ使えます（このデッキは ${r.pct}%）。未自動化: ${[...new Set(r.ng.map(c=>c.nm))].join("、")}`)}
     if(w.length){m.className="dmsg bad";m.textContent=w.join("\n")}else{m.className="dmsg good";m.textContent=`OK: ${C({n:d.partner}).nm} / ${C({n:d.caseN}).nm} / 40枚`}return {d,w}};

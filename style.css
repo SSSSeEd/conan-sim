@@ -370,3 +370,7 @@ html.portrait #peek .pkc .card{width:min(52vw,210px);height:calc(min(52vw,210px)
 #setup{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 #setup .tabp{display:flex;flex-direction:column;gap:14px}
 #setup .tabp>h2{font-family:var(--f-display);font-weight:400;font-size:18px;margin:0}
+
+#setup .dprev{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+#setup .dpc{text-align:center}
+#setup .dpc .meta{font-size:11px;margin-bottom:2px}
