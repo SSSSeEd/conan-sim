@@ -122,29 +122,54 @@ function renderMyDecks(){
     a[k].name=nm;saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`名前を変更しました: ${nm}`});
   B.querySelectorAll("[data-mydel]").forEach(b=>b.onclick=()=>{const a=loadMyDecks();a.splice(+b.dataset.mydel,1);saveMyDecks(a);showSetup()});
 }
-// デッキ補完（デッキタブ）。15枚ほど書くと40枚にして、マイデッキに登録／対戦のデッキ欄にセットできる
+// デッキ補完（デッキタブ）。事件を選ぶと、その色の主力カード（環境デッキに出てくるレベル6以上・MR）が並ぶので、タップして枚数を選ぶ。
+// 選んだカードを元に「40枚に補完」。結果はマイデッキに登録、または対戦タブのデッキ欄にセットできる。通信は不要（収録カードの中だけで動く）
 function renderFill(){
   const B=document.getElementById("fillBox");if(!B)return;
+  const {used,rep}=fillPoolInfo();
+  const cases=[...new Map(window.CARD_DB.filter(c=>c.t==="事件").map(c=>[c.i,DB[rep[c.i]]||c])).values()]
+    .sort((a,b)=>(used[b.i]||0)-(used[a.i]||0)||a.c.localeCompare(b.c)||a.nm.localeCompare(b.nm));
+  const grp=c=>used[c.i]?"環境デッキで使われている事件":"そのほかの事件";
   B.innerHTML=`<b>デッキ補完</b>
-   <div class="hint">主要カード15枚ほど（＋パートナー・事件）を「カードNo x枚数」で書いて「40枚に補完」を押すと、残りを環境デッキの実績などから選んで40枚にします。</div>
-   <textarea id="fillTx" spellcheck="false" aria-label="補完するデッキリスト" placeholder="パートナー B03107&#10;事件 B06105&#10;B05108 x3&#10;…"></textarea>
+   <div class="hint">① 事件を選ぶ → ② その色の主力カード（環境デッキに出てくるレベル6以上・MR）をタップして枚数を決める（タップするたびに 1→2→3→0枚）→ ③「40枚に補完」。残りは環境デッキの実績などから選びます。</div>
+   <div class="row"><select id="fillCase" aria-label="事件">${[...new Set(cases.map(grp))].map(g=>`<optgroup label="${g}">${cases.filter(c=>grp(c)===g).map(c=>`<option value="${c.n}">${esc(c.nm)}（${esc(c.c)}）</option>`).join("")}</optgroup>`).join("")}</select></div>
+   <div class="row"><select id="fillPartner" aria-label="パートナー"></select></div>
+   <div class="dmsg" id="fillCnt"></div>
+   <div class="pickgrid" id="fillGrid"></div>
    <div class="row"><button class="primary" id="fillGo">40枚に補完</button><label title="外すと、効果が未自動化のカードも候補に入れる"><input type="checkbox" id="fillAuto" checked> 自動化済みだけ</label></div>
    <div class="dmsg" id="fillMsg"></div>
-   <div class="row"><button id="fillReg">マイデッキに登録</button><button id="fillSet0">あなたのデッキにセット</button><button id="fillSet1">相手のデッキにセット</button></div>`;
-  const ta=document.getElementById("fillTx"),m=document.getElementById("fillMsg");
+   <div class="row"><button id="fillReg">マイデッキに登録</button><button id="fillSet0">あなたのデッキにセット</button><button id="fillSet1">相手のデッキにセット</button></div>
+   <details><summary class="hint">リストで確認・編集（カードNoを直接書くこともできます）</summary><textarea id="fillTx" spellcheck="false" aria-label="補完するデッキリスト"></textarea></details>`;
+  const ta=document.getElementById("fillTx"),m=document.getElementById("fillMsg"),cs=document.getElementById("fillCase"),ps=document.getElementById("fillPartner"),grid=document.getElementById("fillGrid"),cnt=document.getElementById("fillCnt");
+  const partnerOpts=()=>{const cols=(DB[cs.value]||{}).c||"";const v=ps.value;
+    ps.innerHTML=`<option value="">パートナー: おまかせ</option>`+window.CARD_DB.filter(c=>c.t==="パートナー"&&!/P\d*$/.test(c.n)&&[...c.c].every(x=>cols.includes(x))).map(c=>`<option value="${c.n}">パートナー: ${esc(c.nm)}（${esc(c.c)}）</option>`).join("");
+    if([...ps.options].some(o=>o.value===v))ps.value=v};
+  const counts=()=>{const d=parseDeckText(ta.value),c={};for(const n of d.main)if(DB[n])c[DB[n].i]=(c[DB[n].i]||0)+1;return c};
+  const total=c=>Object.values(c).reduce((a,b)=>a+b,0);
+  const write=c=>{const L=[];if(ps.value)L.push("パートナー "+ps.value);L.push("事件 "+cs.value);
+    for(const i in c)if(c[i]>0)L.push(`${rep[i]||i} x${c[i]}`);ta.value=L.join("\n")};
+  const mkGrid=()=>{const cand=fillCandidates(cs.value);grid.innerHTML="";
+    const info=()=>cnt.textContent=`主力カード候補 ${cand.length}枚（レベルの高い順）・選択中 ${total(counts())}枚`;info();
+    for(const k of cand){const x=inst(k.n),el=cardEl(x);
+      const mark=()=>{const n=counts()[k.i]||0;el.classList.toggle("picked",n>0);let t=el.querySelector(".pickn");if(!t){t=document.createElement("span");t.className="pickn";el.appendChild(t)}t.textContent=n?`×${n}`:"";t.hidden=!n};
+      el.onclick=()=>{const c=counts(),mx=LIMIT1.includes(k.i)?1:3,n=(c[k.i]||0)+1;c[k.i]=n>mx?0:n;write(c);mark();info()};
+      el.oncontextmenu=e=>{e.preventDefault();showPeek(x)};
+      grid.appendChild(el);mark()}};
+  cs.onchange=()=>{const c=counts();partnerOpts();write(c);mkGrid()};
+  ps.onchange=()=>write(counts());
+  partnerOpts();write({});mkGrid();
   document.getElementById("fillGo").onclick=()=>{const d=parseDeckText(ta.value);
-    if(d.errors.length||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"補完のもとになるカードを書いてください（15枚ほど）";return}
-    const r=fillDeck(d,{onlyAuto:document.getElementById("fillAuto").checked});ta.value=fillText(r);
+    if(d.errors.length||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"主力カードを選んでください（15枚ほど）";return}
+    const r=fillDeck(d,{onlyAuto:document.getElementById("fillAuto").checked});ta.value=fillText(r);mkGrid();
     const w=validateDeck({partner:r.partner,caseN:r.caseN,main:r.main});
     m.className=w.length?"dmsg bad":"dmsg good";
     m.textContent=[...w,...r.warns,`補った${r.main.length-d.main.length}枚: `+r.why.map(x=>`${C({n:x.n}).nm}×${x.k}（${x.why}）`).join("、")].join("\n")};
-  const okDeck=()=>{const d=parseDeckText(ta.value);if(d.errors.length||!d.partner||!d.caseN||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"デッキリストを確認してください";return null}return d};
+  const okDeck=()=>{const d=parseDeckText(ta.value);if(d.errors.length||!d.partner||!d.caseN||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"先に「40枚に補完」を押してください（パートナーが決まります）";return null}return d};
   document.getElementById("fillReg").onclick=async()=>{const d=okDeck();if(!d)return;
     const nm=await askText("マイデッキに登録","デッキの名前を入力してください。",`${C({n:d.partner}).nm}の補完デッキ`);if(nm===null)return;
     const a=loadMyDecks();a.push({name:nm,text:deckToText(d)});saveMyDecks(a);showSetup();const m2=document.getElementById("fillMsg");m2.className="dmsg good";m2.textContent=`マイデッキに登録しました: ${nm}`};
   for(const i of [0,1])document.getElementById("fillSet"+i).onclick=()=>{if(!okDeck())return;
-    const keep=ta.value;let sv={};try{sv=JSON.parse(localStorage.getItem("conan-sim-setup")||"{}")}catch(e){}
-    showSetup();const dk=document.getElementById("dk"+i);dk.value=keep;dk.oninput();showTab("play");scrollTo(0,0);toast(i?"相手のデッキにセットしました":"あなたのデッキにセットしました")};
+    const keep=ta.value;showSetup();const dk=document.getElementById("dk"+i);dk.value=keep;dk.oninput();showTab("play");scrollTo(0,0);toast(i?"相手のデッキにセットしました":"あなたのデッキにセットしました")};
 }
 function renderRecords(){
   const B=document.getElementById("recBox");if(!B)return;
