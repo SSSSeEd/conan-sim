@@ -903,4 +903,10 @@ module.exports=[
   ["レベル3: 大滝悟郎 B09028 は［大阪府警］が2枚以上いるときだけスリープ状態でもガードできる",async w=>{
     const G=board(w,{p0:{field:["B09028"]}});const x=G.P[0].field[0];x.st="s";assert.ok(!w.FX.canGuardSleeping(x));
     const osk=w.CARD_DB.find(c=>c.t==="キャラ"&&(c.ct||"").split(",").includes("大阪府警")).n;G.P[0].field.push(w.inst(osk),w.inst(osk));assert.ok(w.FX.canGuardSleeping(x))}],
+  ["スリープ・スタンさせる対象の選択: すでにスリープ／スタンのキャラは選べない（セットを伴うものは除く）",async w=>{
+    const G=board(w,{p0:{field:["B01028","B01028","B01028"]},p1:{}});const p=G.P[0];const [a,s,x]=p.field;s.st="s";x.st="x";p.cpu=true;
+    const ch=w.ev("chooseChar"),seen=[];const ai=cs=>{seen.push(cs.slice());return cs.slice(0,1)};
+    await ch(p,"スリープさせるキャラ",()=>true,{ai});{const r=seen.pop();assert.ok(r.length===1&&r[0]===a,"スリープ対象はアクティブのみ")};
+    await ch(p,"スタンさせるキャラ",()=>true,{ai});{const r=seen.pop();assert.ok(r.length===2&&r[0]===a&&r[1]===s,"スタン対象はスタン中を除く")};
+    await ch(p,"セットしてスリープさせる相手のキャラ",()=>true,{ai});assert.strictEqual(seen.pop().length,3)}],
 ];

@@ -68,9 +68,16 @@ function toDeckBottom(x){const p=ownerOf(x);const wasField=p.field.includes(x);
   detach(x);resetMods(x);p.deck.push(x);log(`　${p.name} の ${C(x).nm} をデッキの下へ`,"n")}
 function setTop(p,x){const c=popDeck(p);if(!c)return;x.set=x.set||[];x.set.push({c,up:false});log(`　${C(x).nm} にデッキの上から1枚を裏向きでセット`,"n");noteSetOn(ownerOf(x)||p,x)}
 
+// 「スリープさせる」「スタンさせる」と題した選択では、すでにその状態のキャラは選べない（スリープはアクティブのみ、スタンはスタン中を除く）
+function stateOkFor(title,y){
+  if(/セット/.test(title))return true; // 「セットしてスリープさせる」は、セットも効果なので状態は問わない
+  if(/スタン／スリープさせる/.test(title))return y.st!=="x";
+  if(/スタンさせる/.test(title))return y.st!=="x";
+  if(/スリープさせる/.test(title))return y.st==="a";
+  return true}
 // 現場のキャラを選ぶ（両者の現場から）
 async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
-  let cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title));
+  let cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title)&&stateOkFor(title,y));
   if(G.evtBy===p){const f=cs.filter(y=>isOpp(p,y)&&def(y)&&def(y).forceByEvt);if(f.length)cs=f} // 吞口重彦 B08087: 相手はイベントの効果で選べるなら必ず選ぶ
   if(!cs.length){log(`　（対象なし）`,"n");return null}
   const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1)});
