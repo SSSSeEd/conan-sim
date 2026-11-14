@@ -374,3 +374,9 @@ html.portrait #peek .pkc .card{width:min(52vw,210px);height:calc(min(52vw,210px)
 #setup .dprev{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
 #setup .dpc{text-align:center}
 #setup .dpc .meta{font-size:11px;margin-bottom:2px}
+#setup .pickgrid{display:flex;flex-wrap:wrap;gap:5px;max-height:52vh;overflow-y:auto;padding:4px;margin:6px 0;border:1px solid var(--line);border-radius:6px}
+#setup .pickgrid .card{width:64px;height:88px;border-radius:5px}
+#setup .pickgrid .card .nm{font-size:9px}#setup .pickgrid .card .st,#setup .pickgrid .card .tp{font-size:8px}#setup .pickgrid .card .lv{width:14px;height:14px;font-size:9px}
+#setup .pickgrid .card.picked{outline:3px solid #ffd77a;outline-offset:-1px}
+#setup .pickgrid .pickn{position:absolute;right:2px;bottom:2px;background:#ffd77a;color:#222;font-weight:700;font-size:13px;line-height:1;padding:2px 5px;border-radius:9px}
+#setup select{max-width:100%}

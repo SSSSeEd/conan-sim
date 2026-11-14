@@ -27,4 +27,11 @@ module.exports=[
   ["入力が空でも、候補がなくても止まらない（警告を返す）",w=>{
     const o=w.fillDeck({main:[]});assert.strictEqual(o.main.length,40);
     const o2=w.fillDeck({main:["B01001"]});assert.ok(o2.warns.length)}],
+  ["主力カード候補: 事件の色に収まる、環境デッキに出てくるレベル6以上のキャラだけ（MRを含み、重複IDなし）",w=>{
+    const DB=w.ev("DB");const kid=w.CARD_DB.find(c=>c.t==="事件"&&c.c==="青");const cs=w.fillCandidates(kid.n);
+    assert.ok(cs.length>5);assert.ok(cs.some(c=>c.lv===9),"MRが入る");
+    for(const c of cs){assert.strictEqual(c.t,"キャラ");assert.ok(c.lv>=6);assert.ok([...c.c].every(x=>"青".includes(x)),c.nm+" は青に収まらない")}
+    assert.strictEqual(new Set(cs.map(c=>c.i)).size,cs.length);
+    for(let k=1;k<cs.length;k++)assert.ok(cs[k-1].lv>=cs[k].lv,"レベルの高い順");
+    const multi=w.CARD_DB.find(c=>c.t==="事件"&&c.c.length>=2);assert.ok(w.fillCandidates(multi.n).length>0)}],
 ];
