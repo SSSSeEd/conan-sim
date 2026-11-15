@@ -6,13 +6,15 @@
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 //   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","tgt2"];
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose"];
 // 2026-11-12 SeEdの使い方の差から試す3案（既定は無効。AI_OFFから外すと有効）: early6=FILE6なら手札の前にアシストして解決編へ / mid=序盤〜中盤は推理より事件アクション / lose=相手が次のターンに解決しそうなら事件アクションで抵抗
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 function cpuGuard(o,atk,target,guards){
   const A=apOf(atk);
-  const strong=guards.filter(g=>apOf(g)>A).sort((a,b)=>apOf(a)-apOf(b));
+  const strong=guards.filter(g=>apOf(g)>A).sort((a,b)=>ai2(o,"sit2")?(C(a).lv||0)-(C(b).lv||0)||apOf(a)-apOf(b):apOf(a)-apOf(b)); // sit2: 価値の低いキャラでガード
+  if(ai2(o,"sit2")&&target!=="case"&&apOf(target)<=A){const lv=C(target).lv||0; // sit2: 守るかはカードの強さと手札の有無。Lv8以上は必ず守り、Lv5以下は手札があれば守らない
+    if(lv<=5&&target!==o.partner&&o.hand.length>0)return null;if(lv>=8)return strong[0]||null}
   if(ai2(o,"guard2")){ // SeEd: 序盤や不利にならない事件アクションは通す。守る価値のないキャラは守らない
     const p=opp(o);
     if(target==="case"){const gap=(p.ev.length+1)-(o.ev.length-1);if(G.turnNo<=4&&gap<2||gap<2&&!p.solved)return null;return strong[0]||null}
@@ -120,7 +122,7 @@ async function cpuTurn(p){
   if(ai2(p,"assist")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
     const lvOf=x=>x?(C(x).lv||0):-1;const now=best(false);
     p.file.push(p.partner);const after=best(false);p.file.pop();
-    if(plan.assist||ai2(p,"early6")&&p.file.length>=6||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
+    if(plan.assist||ai2(p,"sit2")&&(p.file.length>=6||p.hand.length>=5)||ai2(p,"early6")&&p.file.length>=6||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
   }
   let pick1=planned();
   if(pick1){await useFromHand(p,pick1);await step()}
@@ -129,6 +131,7 @@ async function cpuTurn(p){
   // ネクストヒントは何回でも可。FILEが減るので、FILEに余裕があるときだけ続ける
   for(let n=0;n<4&&!G.over&&!p.noHint&&plan.hint!==false;n++){
     const fc=fileCards(),got=p.hintN>0;
+    if(ai2(p,"sit2")&&p.file.length<=4)break; // sit2: FILE4ではほぼネクストヒントをしない
     if(ai2(p,"hint")){ // コンボ（ヒント後のFILEいっぱいの高レベルを使える）があるときだけ
       const after=p.file.length-1,top=[...p.file].reverse().find(x=>x!==p.partner);
       const combo=[...p.hand,top].some(x=>x&&canPlayColor(C(x),p)&&(C(x).t==="キャラ"||FX.eventAi(p,x))&&(C(x).lv||0)<=after&&(C(x).lv||0)>=Math.max(6,after-1));
@@ -157,6 +160,8 @@ async function cpuTurn(p){
           if(t){await declareAction(p,x,t);await step();break}}
         else if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");await step();break}}}}
   if(G.over)return;
+  // sit2: 相手にアクティブなミスリードが2体以上いるなら、先にパートナーで推理して使わせ、スリープしたところをアクションで倒す
+  if(ai2(p,"sit2")&&!resist&&p.pLoc==="area"&&p.partner.st==="a"&&!p.solved&&canAct(p.partner,p,"reason")&&o.field.filter(y=>y.st==="a"&&(staticKw(y,o).misread||0)>0).length>=2){await reason(p,p.partner);await step();if(G.over)return}
   // 3) キャラへのアクション（勝てる相手）
   for(;!resist;){
     const atks=p.field.filter(x=>!hold.has(x)&&canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
@@ -204,7 +209,7 @@ async function cpuTurn(p){
 }
 
 
-// ---- 対象選びの点数（2026-11-14 回答フォーム30問 → simulator/cpu-judgment-survey-2026-11-14.md）。tgt2 を AI_OFF から外すと有効 ----
+// ---- 対象選びの点数（2026-11-14 回答フォーム30問 → simulator/cpu-judgment-survey-2026-11-14.md）。tgt2（2026-11-15 から既定で有効。AI_OFF に "tgt2" を足すと旧の選び方） ----
 // how: "rm"=リムーブ / "bt"=デッキの下 / "st"=スタン。場にいる間に効く強いカード・アクティブなミスリードを最優先で消す。登場時のみは使用済みで優先度が下がる
 // スタンは宣言スリープ持ち・登場時のみ向き、デッキの下はカットイン／ヒラメキ／リムーブエリアから回収できるカードを避ける
 function tgtInfo(x){const c=C(x),f=c.f||"",L=f.split("\n");
