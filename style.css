@@ -380,3 +380,8 @@ html.portrait #peek .pkc .card{width:min(52vw,210px);height:calc(min(52vw,210px)
 #setup .pickgrid .card.picked{outline:3px solid #ffd77a;outline-offset:-1px}
 #setup .pickgrid .pickn{position:absolute;right:2px;bottom:2px;background:#ffd77a;color:#222;font-weight:700;font-size:13px;line-height:1;padding:2px 5px;border-radius:9px}
 #setup select{max-width:100%}
+#setup .casev{display:flex;gap:10px;align-items:flex-start;margin:6px 0}
+#setup .casev .card{flex:none}
+#setup .caset{flex:1;min-width:0;font-size:12px;line-height:1.5}
+#setup .caset .dn{font-weight:700;font-size:13px}
+#setup .caset .eff{white-space:pre-wrap;margin:4px 0;max-height:150px;overflow-y:auto}
