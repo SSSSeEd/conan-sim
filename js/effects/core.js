@@ -25,8 +25,9 @@ const partnerIs=(p,col)=>condOk("パートナー"+col,p);
 const faceDownSet=x=>(x.set||[]).filter(s=>!s.up);
 
 // AI用の評価: 相手のカードほど・レベルが高いほど優先
-const aiScoreTarget=(p,x)=>(isOpp(p,x)?1000:-1000)+lvOf(x)*10+apOf(x)/1000;
-const aiBestTargets=(p,n=1)=>cs=>cs.slice().sort((a,b)=>aiScoreTarget(p,b)-aiScoreTarget(p,a)).filter(x=>isOpp(p,x)).slice(0,n);
+const aiScoreTarget=(p,x,how)=>(isOpp(p,x)?1000:-1000)+(how&&window.aiTgtScore?aiTgtScore(p,x,how):lvOf(x)*10+apOf(x)/1000);
+const tgtHow=t=>/スタン/.test(t||"")?"st":/デッキの下/.test(t||"")?"bt":/リムーブ/.test(t||"")?"rm":null; // chooseChar の title から除去の種類を読む
+const aiBestTargets=(p,n=1,how)=>cs=>cs.slice().sort((a,b)=>aiScoreTarget(p,b,how)-aiScoreTarget(p,a,how)).filter(x=>isOpp(p,x)).slice(0,n);
 const aiCardValue=(p,x)=>{const c=C(x);let v=lvOf(x);if(c.ci)v+=2;if(c.t==="キャラ"&&lvOf(x)<=p.file.length+2)v+=3;if(!canPlayColor(c,p))v-=5;return v};
 
 async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true}={}){
@@ -68,12 +69,19 @@ function toDeckBottom(x){const p=ownerOf(x);const wasField=p.field.includes(x);
   detach(x);resetMods(x);p.deck.push(x);log(`　${p.name} の ${C(x).nm} をデッキの下へ`,"n")}
 function setTop(p,x){const c=popDeck(p);if(!c)return;x.set=x.set||[];x.set.push({c,up:false});log(`　${C(x).nm} にデッキの上から1枚を裏向きでセット`,"n");noteSetOn(ownerOf(x)||p,x)}
 
+// 「スリープさせる」「スタンさせる」と題した選択では、すでにその状態のキャラは選べない（スリープはアクティブのみ、スタンはスタン中を除く）
+function stateOkFor(title,y){
+  if(/セット/.test(title))return true; // 「セットしてスリープさせる」は、セットも効果なので状態は問わない
+  if(/スタン／スリープさせる/.test(title))return y.st!=="x";
+  if(/スタンさせる/.test(title))return y.st!=="x";
+  if(/スリープさせる/.test(title))return y.st==="a";
+  return true}
 // 現場のキャラを選ぶ（両者の現場から）
 async function chooseChar(p,title,filter=()=>true,{ai,min=0}={}){
-  let cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title));
+  let cs=allChars().filter(y=>filter(y)&&!immune(p,y)&&!FX.guardedFor(p,y,title)&&stateOkFor(title,y));
   if(G.evtBy===p){const f=cs.filter(y=>isOpp(p,y)&&def(y)&&def(y).forceByEvt);if(f.length)cs=f} // 吞口重彦 B08087: 相手はイベントの効果で選べるなら必ず選ぶ
   if(!cs.length){log(`　（対象なし）`,"n");return null}
-  const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1)});
+  const [x]=await pickCards(p,title,"",cs,{min,max:1,ai:ai||aiBestTargets(p,1,tgtHow(title))});
   if(x&&(FX.negateBySet(p,x)||await negateChosen(p,x)))return null;
   if(x&&G.fxSrc&&isMR(G.fxSrc)&&ownerOf(G.fxSrc)===ownerOf(x))x.mrPick=G.turnNo; // 自分のMRの能力によって選ばれた（毛利蘭 B08014）
   return x||null;
