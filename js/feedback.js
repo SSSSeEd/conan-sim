@@ -80,6 +80,52 @@ function toMarkdown(res){
   }
   return L.join("\n");
 }
-const API={analyze,toMarkdown,MIN_GAMES};
+// ===== 記録の圧縮（コピー用） =====
+// 長いログをコピーしやすくするため、人が読めない短い形にする。分析に使う acts・miss・デッキ・結果・メモはそのまま戻せる（unpack）。
+// deps.log を 0 にするとログなし（分析に要るものだけ。いちばん小さい）、数を渡すと最後のN行だけ。
+// 形式: 先頭行 "CS1"、2行目以降は JSON 1つ（配列）。カード名は辞書(N)の番号、acts は [ターン,席,種類番号,カードNo,対象No]、
+// ログはターンごとにまとめ、行頭の字下げは ^、辞書にあるカード名は §番号; に置き換える。
+const KINDS_OF=(K,k)=>{let i=K.indexOf(k);if(i<0){i=K.length;K.push(k)}return i};
+function packOne(r,{parse,nameOf,log}){
+  const N=[],ix=new Map(),id=t=>{if(!ix.has(t)){ix.set(t,N.length);N.push(t)}return ix.get(t)},K=[];
+  const decks=(r.deckLists||[]).map(t=>{const d=parse(t),c={};for(const n of d.main)c[n]=(c[n]||0)+1;
+    return [d.partner,d.caseN,...Object.entries(c).map(([n,k])=>k>1?n+"x"+k:n)].join(",")});
+  // ログに出てくるカード名: 両方のデッキのカード（長い名前から置き換える）
+  const cardNames=[...new Set((r.deckLists||[]).flatMap(t=>{const d=parse(t);return [d.partner,d.caseN,...d.main].map(nameOf)}).filter(x=>x&&x.length>=2))].sort((a,b)=>b.length-a.length);
+  const nameIx=new Map();cardNames.forEach((nm,i)=>nameIx.set(nm,i));
+  const esc=cardNames.length?new RegExp(cardNames.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|"),"g"):null;
+  const logs=[];let lastT=null;
+  const src=log===0?[]:typeof log==="number"?(r.log||[]).slice(-log):(r.log||[]); // log: 省略(0)・最後のN行(数)・全部(未指定)
+  for(const [t,msg] of src){let m=String(msg).replace(/^　+/,x=>"^".repeat(x.length));
+    if(esc)m=m.replace(esc,x=>"§"+nameIx.get(x)+";");
+    if(t!==lastT){logs.push([t]);lastT=t}logs[logs.length-1].push(m)}
+  const o={v:"cs1",s:r.start,n:r.names,c:(r.cpu||[]).map(x=>x?1:0),d:r.decks,f:r.first,w:r.winner,y:r.why,t:r.turns,
+    k:decks,
+    a:(r.acts||[]).map(a=>[a.t,a.who,KINDS_OF(K,a.kind),a.card?a.card.n:0,a.target?(a.target==="事件"?"事件":a.target.n):0]),
+    m:(r.miss||[]).map(m=>{const x={t:m.t,s:m.s?[m.s.file,m.s.ev,m.s.oEv,m.s.hand,m.s.field,m.s.oField]:0};
+      for(const key of ["play","stuck","reason","actChara","actCase"])if(m[key]&&m[key].length)x[key]=m[key].map(id);
+      if(m.hint)x.hint=1;if(m.assist)x.assist=1;return x}),
+    z:(r.final||[]).map(f=>[f.ev,f.file,f.field,f.hand,f.deck,f.solved?1:0]),
+    N,K,C:cardNames,l:logs};
+  if(r.feedback)o.b=r.feedback;
+  return o}
+function pack(records,deps){const a=(Array.isArray(records)?records:[records]).filter(r=>r&&r.deckLists);
+  return "CS1\n"+JSON.stringify(a.map(r=>packOne(r,deps)))}
+function unpackOne(o,{nameOf}={}){
+  const nm=n=>nameOf?nameOf(n):"";const card=n=>n?{n,nm:nm(n)}:null;
+  const deck=t=>{const [p,c,...rest]=t.split(",");return `パートナー ${p}\n事件 ${c}\n`+rest.map(x=>{const [n,k]=x.split("x");return `${n} x${k||1}`}).join("\n")};
+  const r={v:2,start:o.s,names:o.n,cpu:(o.c||[]).map(x=>!!x),decks:o.d,deckLists:(o.k||[]).map(deck),first:o.f,winner:o.w,why:o.y,turns:o.t,
+    acts:(o.a||[]).map(([t,who,k,c,tg])=>({t,who,kind:o.K[k],card:card(c),target:tg==="事件"?"事件":card(tg)})),
+    miss:(o.m||[]).map(m=>{const x={t:m.t};if(m.s)x.s={file:m.s[0],ev:m.s[1],oEv:m.s[2],hand:m.s[3],field:m.s[4],oField:m.s[5]};
+      for(const key of ["play","stuck","reason","actChara","actCase"])if(m[key])x[key]=m[key].map(i=>o.N[i]);
+      if(m.hint)x.hint=true;if(m.assist)x.assist=true;return x}),
+    final:(o.z||[]).map(f=>({ev:f[0],file:f[1],field:f[2],hand:f[3],deck:f[4],solved:!!f[5]})),
+    log:[]};
+  for(const g of o.l||[]){const t=g[0];for(const m of g.slice(1))r.log.push([t,m.replace(/^\^+/,x=>"　".repeat(x.length)).replace(/§(\d+);/g,(_,i)=>o.C[+i])])}
+  if(o.b)r.feedback=o.b;
+  return r}
+function unpack(text,deps){const t=String(text).trim();if(!t.startsWith("CS1"))throw new Error("圧縮形式ではありません");
+  return JSON.parse(t.slice(3)).map(o=>unpackOne(o,deps))}
+const API={analyze,toMarkdown,pack,unpack,MIN_GAMES};
 if(typeof module!=="undefined"&&module.exports)module.exports=API;else globalThis.Feedback=API;
 })();
