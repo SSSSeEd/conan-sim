@@ -27,6 +27,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       <div class="row"><input id="nm${i}" value="${esc(saved["nm"+i]||(i?"相手":"あなた"))}" size="10" aria-label="名前">
       ${i===1?`<label><input type="checkbox" id="cpu1" ${saved.cpu1===false?"":"checked"}> CPUが操作</label>`:`<label><input type="checkbox" id="cpu0"> CPUが操作（観戦）</label>`}</div>
       <div class="row"><select id="ps${i}" aria-label="デッキ一覧">${deckOptions(i,i===1?saved.cpu1!==false:false)}</select><button data-s="${i}">このデッキを使う</button></div>
+      <div class="row"><label title="全45デッキの総当たり（CPU同士）で勝率が上位${DECK_TOP_N}のデッキだけをデッキ一覧に出します。外すとすべて出します"><input type="checkbox" class="topOnly" ${deckTopOnly()?"checked":""}> 勝率上位${DECK_TOP_N}デッキだけ</label></div>
       <div class="row">
         <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button></div>
       <div class="row"><input id="sh${i}" placeholder="共有ID 例: X3zM3U7m" size="16"><button data-f="${i}">conan-tcg-appから読込</button></div>
@@ -66,6 +67,9 @@ function showSetup(){document.documentElement.classList.remove("spectate");
     const ta=document.getElementById("dk"+i);ta.oninput=()=>chk(i);chk(i);
     S.querySelector(`[data-s="${i}"]`).onclick=()=>{const d=deckByKey(document.getElementById("ps"+i).value);if(d){ta.value=d.text;chk(i)}};
     document.getElementById("ps"+i).onchange=()=>S.querySelector(`[data-s="${i}"]`).click();
+    S.querySelector(`#ps${i}`).closest(".box").querySelector(".topOnly").onchange=e=>{setDeckTopOnly(e.target.checked);
+      for(const j of [0,1]){const ps=document.getElementById("ps"+j),v=ps.value;ps.innerHTML=deckOptions(j,isCpu(j));if([...ps.options].some(o=>o.value===v))ps.value=v;
+        const c=S.querySelectorAll(".topOnly")[j];if(c)c.checked=e.target.checked}};
     document.getElementById("cpu"+i).onchange=()=>{const ps=document.getElementById("ps"+i),v=ps.value;ps.innerHTML=deckOptions(i,isCpu(i));
       if([...ps.options].some(o=>o.value===v))ps.value=v;chk(i)};
     S.querySelector(`[data-r="${i}"]`).onclick=()=>{ta.value=randomDeck(document.getElementById("rc"+i).value).text;chk(i)};
@@ -84,8 +88,10 @@ function showSetup(){document.documentElement.classList.remove("spectate");
 }
 // デッキ一覧。CPUが操作する席には、効果がすべて自動で処理されるデッキだけ出す
 function deckOptions(i,cpuOnly){
-  return deckGroups().map(([lab,g,a])=>{const o=a.map((d,k)=>[d,k]).filter(([d])=>!cpuOnly||cpuReady(parseDeckText(d.text)));
-    return o.length?`<optgroup label="${esc(lab)}">${o.map(([d,k])=>`<option value="${g}:${k}" ${g==="p"&&k===(i?1:0)?"selected":""}>${esc(d.name)}</option>`).join("")}</optgroup>`:""}).join("")}
+  const top=deckTopOnly(); // 勝率上位のデッキだけ（プリセット・環境デッキ。マイデッキは常に全部）。上位のときは勝率の高い順
+  return deckGroups().map(([lab,g,a])=>{let o=a.map((d,k)=>[d,k]).filter(([d])=>!cpuOnly||cpuReady(parseDeckText(d.text)));
+    if(top&&g!=="m"){o=o.filter(([d])=>{const r=deckRank(d);return r!==null&&r<DECK_TOP_N}).sort((x,y)=>DECK_WR[y[0].name]-DECK_WR[x[0].name])}
+    return o.length?`<optgroup label="${esc(lab)}${top&&g!=="m"?"（勝率上位"+DECK_TOP_N+"）":""}">${o.map(([d,k])=>`<option value="${g}:${k}" ${g==="p"&&k===(i?1:0)?"selected":""}>${esc(d.name)}${d.name in DECK_WR?`（勝率${DECK_WR[d.name]}%）`:""}</option>`).join("")}</optgroup>`:""}).join("")}
 // 途中の対戦（接続切れ・リロードで中断したもの）
 function saveLabel(s){const m=s.meta,d=new Date(s.at);
   return `${m.turnNo}ターン目（${m.turnName}の番）・${m.names[0]}（${m.decks[0]}） vs ${m.names[1]}（${m.decks[1]}）・${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}
