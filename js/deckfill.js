@@ -142,3 +142,20 @@ function fillDeck(seed,opts={}){
   return {partner,caseN,main,why,warns,colors:mainCols}}
 // デッキの一覧表示用（テキスト化は deckToText）
 function fillText(r){return deckToText({partner:r.partner,caseN:r.caseN,main:r.main})}
+
+// ---- デッキ補完画面（js/setup.js）用: 事件の色の主力カード候補 ----
+let _fillPool=null;
+function fillPoolInfo(){ // 環境デッキに出てくるカード（IDごと）の採用デッキ数・代表カードNo。1回だけ数える
+  if(_fillPool)return _fillPool;const used={},rep={};
+  const isP=n=>/P\d*$/.test(n);
+  for(const d of (window.ENV_DECKS&&ENV_DECKS.decks)||[]){const r=parseDeckText(d.text);
+    for(const n of new Set([...r.main,r.partner,r.caseN].filter(Boolean))){const c=DB[n];if(!c)continue;used[c.i]=(used[c.i]||0)+1}}
+  for(const c of window.CARD_DB){const r=rep[c.i];if(!r||(isP(r)&&!isP(c.n))||(isP(r)===isP(c.n)&&c.n.length<r.length))rep[c.i]=c.n}
+  return _fillPool={used,rep};
+}
+function fillCandidates(caseN){ // 事件の色に収まる、環境デッキに出てくるレベル6以上のキャラ（MRはレベル9）。レベルの高い順、同じなら採用の多い順
+  const {used,rep}=fillPoolInfo();const cols=(DB[caseN]&&DB[caseN].c)||"";
+  const inCols=c=>c&&[...c.c].every(x=>cols.includes(x));
+  return Object.keys(used).map(i=>DB[rep[i]]).filter(c=>c&&c.t==="キャラ"&&(c.lv||0)>=6&&inCols(c))
+    .sort((a,b)=>(b.lv-a.lv)||(used[b.i]-used[a.i])||a.n.localeCompare(b.n));
+}
