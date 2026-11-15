@@ -133,6 +133,7 @@ function renderFill(){
   B.innerHTML=`<b>デッキ補完</b>
    <div class="hint">① 事件を選ぶ → ② その色の主力カード（環境デッキに出てくるレベル6以上・MR）をタップして枚数を決める（タップするたびに 1→2→3→0枚）→ ③「40枚に補完」。残りは環境デッキの実績などから選びます。</div>
    <div class="row"><select id="fillCase" aria-label="事件">${[...new Set(cases.map(grp))].map(g=>`<optgroup label="${g}">${cases.filter(c=>grp(c)===g).map(c=>`<option value="${c.n}">${esc(c.nm)}（${esc(c.c)}）</option>`).join("")}</optgroup>`).join("")}</select></div>
+   <div class="casev" id="fillCaseView"></div>
    <div class="row"><select id="fillPartner" aria-label="パートナー"></select></div>
    <div class="dmsg" id="fillCnt"></div>
    <div class="pickgrid" id="fillGrid"></div>
@@ -155,9 +156,14 @@ function renderFill(){
       el.onclick=()=>{const c=counts(),mx=LIMIT1.includes(k.i)?1:3,n=(c[k.i]||0)+1;c[k.i]=n>mx?0:n;write(c);mark();info()};
       el.oncontextmenu=e=>{e.preventDefault();showPeek(x)};
       grid.appendChild(el);mark()}};
-  cs.onchange=()=>{const c=counts();partnerOpts();write(c);mkGrid()};
+  const caseView=()=>{const V=document.getElementById("fillCaseView"),c=DB[cs.value];V.innerHTML="";if(!c)return;
+    const x=inst(c.n),el=cardEl(x);el.onclick=()=>showPeek(x);
+    const t=document.createElement("div");t.className="caset";
+    t.innerHTML=`<div class="dn">${esc(c.nm)}</div><div class="meta">事件・${esc(c.c)}${c.df?"・"+esc(c.df):""}</div><div class="eff">${hl([c.dg,c.hr,c.ci,c.f].filter(Boolean).join("\n\n")||"効果なし")}</div><div class="meta">カードをタップで大きく表示</div>`;
+    V.appendChild(el);V.appendChild(t)};
+  cs.onchange=()=>{const c=counts();partnerOpts();write(c);mkGrid();caseView()};
   ps.onchange=()=>write(counts());
-  partnerOpts();write({});mkGrid();
+  partnerOpts();write({});mkGrid();caseView();
   document.getElementById("fillGo").onclick=()=>{const d=parseDeckText(ta.value);
     if(d.errors.length||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"主力カードを選んでください（15枚ほど）";return}
     const r=fillDeck(d,{onlyAuto:document.getElementById("fillAuto").checked});ta.value=fillText(r);mkGrid();
