@@ -19,9 +19,14 @@ function analyze(records,{parse,nameOf}){
     const d=parse(r.deckLists[seat]);const key=[d.partner,d.caseN,...[...d.main].sort()].join(",");
     let g=decks.get(key);
     if(!g){g={label:r.decks&&r.decks[seat]||"",copies:new Map(),games:0,wins:0,cards:new Map(),stuck:new Map(),skipped:new Map(),
-      turns:0,hintMiss:0,assistMiss:0,actCharaMiss:0,actCaseMiss:0,ownTurns:0,fb:[]};
+      turns:0,hintMiss:0,assistMiss:0,actCharaMiss:0,actCaseMiss:0,ownTurns:0,fb:[],opp:new Map()};
       for(const n of d.main)inc(g.copies,n);decks.set(key,g)}
     const won=r.winner===seat;g.games++;if(won)g.wins++;
+    // 相手デッキ別: 勝敗・終了ターン・3回目の自分のターンの始めの証拠差（相手−自分。プラスなら押されている）
+    const ol=(r.decks&&r.decks[1-seat])||"不明";
+    let o=g.opp.get(ol);if(!o){o={games:0,wins:0,tw:0,tl:0,gap:0,gapN:0};g.opp.set(ol,o)}
+    o.games++;if(won){o.wins++;o.tw+=r.turns||0}else o.tl+=r.turns||0;
+    const m3=(r.miss||[])[2];if(m3&&m3.s&&m3.s.oEv!=null){o.gap+=m3.s.oEv-m3.s.ev;o.gapN++}
     const played=new Set();
     for(const a of r.acts){if(a.who!==seat)continue;
       if((a.kind==="use"||a.kind==="hintUse")&&a.card)played.add(a.card.n)}
@@ -64,8 +69,18 @@ function analyze(records,{parse,nameOf}){
       if(g.actCaseMiss/T>=0.3)tips.push({kind:"actCase",text:`事件アクションできたのにしなかったターンが ${pct(g.actCaseMiss,T)}%。相手の証拠が多いときは優先して減らす`});
       if(g.actCharaMiss/T>=0.4)tips.push({kind:"actChara",text:`キャラでアクションできたのにしなかったターンが ${pct(g.actCharaMiss,T)}%（スリープさせたくない場面を除く）`});
     }
+    // 相手デッキ別の傾向（その相手と2戦以上のときだけ）
+    const opps=[...g.opp].map(([label,o])=>({label,games:o.games,wins:o.wins,rate:pct(o.wins,o.games),
+      avgWin:o.wins?Math.round(o.tw/o.wins*10)/10:null,avgLose:o.games>o.wins?Math.round(o.tl/(o.games-o.wins)*10)/10:null,
+      gap:o.gapN?Math.round(o.gap/o.gapN*10)/10:null})).sort((a,b)=>a.rate-b.rate||b.games-a.games);
+    const oppOk=opps.filter(o=>o.games>=2);
+    const weak=oppOk.filter(o=>o.rate<=34),strong=oppOk.filter(o=>o.rate>=75);
+    if(weak.length)tips.push({kind:"oppWeak",text:`苦手な相手: ${weak.map(o=>`${o.label}（${o.wins}勝${o.games-o.wins}敗${o.gap!=null&&o.gap>=1?`・3ターン目時点で証拠${o.gap}差を付けられがち`:""}${o.avgLose!=null?`・負けは平均${o.avgLose}ターンで決着`:""}）`).join("、")}。この相手用の入れ替え・先に打つ手を考える`});
+    if(strong.length)tips.push({kind:"oppStrong",text:`得意な相手: ${strong.map(o=>`${o.label}（${o.wins}勝${o.games-o.wins}敗）`).join("、")}`});
+    const late=oppOk.filter(o=>o.gap!=null&&o.gap>=1.5&&o.rate>34);
+    if(late.length)tips.push({kind:"oppGap",text:`序盤に押されても勝てている相手: ${late.map(o=>`${o.label}（3ターン目に証拠${o.gap}差）`).join("、")}。逆転の型はあるが、相手が速いと間に合わないので序盤の証拠も意識`});
     if(!tips.length)tips.push({kind:"none",text:g.games<MIN_GAMES?`試合数が少ない（${g.games}戦）。${MIN_GAMES}戦以上で提案が出ます`:"目立った傾向なし"});
-    out.push({label:g.label,games:g.games,wins:g.wins,turns:T,rows:rows.sort((a,b)=>a.rate-b.rate),tips,memo:g.fb});
+    out.push({label:g.label,games:g.games,wins:g.wins,turns:T,opps,rows:rows.sort((a,b)=>a.rate-b.rate),tips,memo:g.fb});
   }
   return out.sort((a,b)=>b.games-a.games);
 }
@@ -74,6 +89,9 @@ function toMarkdown(res){
   for(const d of res){
     L.push(`## ${d.label}（${d.games}戦 ${d.wins}勝 ${pct(d.wins,d.games)}%）`,"");
     L.push("### 提案",...d.tips.map(t=>`- ${t.text}`),"");
+    L.push("### 相手デッキ別","","| 相手 | 戦 | 勝率 | 勝ち平均T | 負け平均T | 3T目の証拠差(相手−自分) |","|---|---|---|---|---|---|");
+    for(const o of d.opps)L.push(`| ${o.label} | ${o.games} | ${o.wins}勝${o.games-o.wins}敗 (${o.rate}%) | ${o.avgWin??"-"} | ${o.avgLose??"-"} | ${o.gap??"-"} |`);
+    L.push("");
     L.push("### カード別 使用率（試合のうち一度でも出した割合）","","| カード | 枚数 | 使用率 | 使った時の勝率 | 使わない時の勝率 |","|---|---|---|---|---|");
     for(const r of d.rows)L.push(`| ${r.nm} | ${r.copies} | ${r.rate}% | ${r.playedG?r.wPlayed+"%":"-"} | ${r.notPlayedG?r.wNot+"%":"-"} |`);
     L.push("");

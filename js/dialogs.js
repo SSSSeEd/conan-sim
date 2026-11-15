@@ -88,6 +88,7 @@ function feedbackReport(records,srcLabel){
       <div class="frbody">${res.map(dk=>`<div class="frdeck"><div class="frh">${esc(dk.label)}<span>${dk.games}戦 ${dk.wins}勝（勝率${dk.games?Math.round(dk.wins/dk.games*100):0}%）</span></div>
         <ul class="frtips">${dk.tips.map(t=>`<li class="fr-${t.kind}">${hl(t.text)}</li>`).join("")}</ul>
         ${dk.memo&&dk.memo.length?`<div class="meta">自分のメモ: ${dk.memo.map(esc).join(" / ")}</div>`:""}
+        <details><summary>相手デッキ別の成績（${dk.opps.length}種）</summary><table class="frt"><tr><th>相手</th><th>戦績</th><th>勝ち平均T</th><th>負け平均T</th><th>3T目の証拠差</th></tr>${dk.opps.map(o=>`<tr><td>${esc(o.label)}</td><td>${o.wins}勝${o.games-o.wins}敗（${o.rate}%）</td><td>${o.avgWin??"-"}</td><td>${o.avgLose??"-"}</td><td>${o.gap??"-"}</td></tr>`).join("")}</table><div class="meta">3T目の証拠差＝3回目の自分のターンの始めの（相手の証拠−自分の証拠）。プラスは押されている</div></details>
         <details><summary>カード別の使用率（${dk.rows.length}種）</summary><table class="frt"><tr><th>カード</th><th>枚数</th><th>使用率</th><th>使った時の勝率</th><th>使わない時の勝率</th></tr>${dk.rows.map(r=>`<tr><td>${esc(r.nm)}</td><td>${r.copies}</td><td>${r.rate}%</td><td>${r.playedG?r.wPlayed+"%":"-"}</td><td>${r.notPlayedG?r.wNot+"%":"-"}</td></tr>`).join("")}</table></details></div>`).join("")}</div>
       <div class="opts"><button id="frCopy">Markdownでコピー</button>${close.replace('<div class="opts">','').replace('</div>','')}</div>`);
     m.querySelector("#frClose").onclick=()=>done();

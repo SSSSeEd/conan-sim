@@ -32,4 +32,13 @@ module.exports=[
     const t1=F.analyze(recs,deps),t2=F.analyze(back,deps);assert.deepStrictEqual(t2.map(d=>d.tips.map(t=>t.kind)),t1.map(d=>d.tips.map(t=>t.kind)));
     const noLog=F.pack(recs,{...deps,log:0});assert.ok(noLog.length<txt.length&&F.unpack(noLog,{})[0].log.length===0);
     assert.ok(txt.length<JSON.stringify(recs).length,"圧縮のほうが短い")}],
+  ["フィードバック: 相手デッキ別の戦績と、苦手・得意な相手の提案を出す",async w=>{
+    const mk=(opp,win,gap)=>({...rec(win),decks:["テスト",opp],miss:[{t:2,s:{ev:0,oEv:0}},{t:4,s:{ev:0,oEv:0}},{t:6,s:{ev:0,oEv:gap}}],turns:win?10:12});
+    const recs=[mk("速攻",0,3),mk("速攻",0,2),mk("速攻",1,2),mk("遅い",1,0),mk("遅い",1,0)];
+    const [d]=F.analyze(recs,{parse:t=>w.parseDeckText(t),nameOf:n=>n});
+    const o=d.opps.find(x=>x.label==="速攻");
+    assert.strictEqual(o.games,3);assert.strictEqual(o.wins,1);assert.strictEqual(o.gap,2.3);assert.strictEqual(o.avgWin,10);assert.strictEqual(o.avgLose,12);
+    assert.ok(d.tips.some(t=>t.kind==="oppWeak"&&t.text.includes("速攻")),"苦手");
+    assert.ok(d.tips.some(t=>t.kind==="oppStrong"&&t.text.includes("遅い")),"得意");
+    assert.ok(F.toMarkdown([d]).includes("| 速攻 | 3 |"))}],
 ];
