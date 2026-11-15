@@ -21,4 +21,15 @@ module.exports=[
     const recs=[1,1,1,0].map(x=>rec(x));
     const a=w.Feedback.analyze(recs,{parse:t=>w.parseDeckText(t),nameOf:n=>n});
     assert.strictEqual(a[0].games,4);assert.strictEqual(a[0].tips.length,F.analyze(recs,{parse:t=>w.parseDeckText(t),nameOf:n=>n})[0].tips.length)}],
+  ["圧縮コピー: pack→unpack で分析に使う中身（デッキ・行動・できたのにしなかったこと・結果・ログ）が戻り、元より小さい",async w=>{
+    const deps={parse:t=>w.parseDeckText(t),nameOf:n=>n};
+    const log=[[1,"ターン開始"],[1,"　B06066 を登場"],[2,"　　B03046 をスリープ"]];
+    const recs=[1,1,1,0].map(x=>({...rec(x),log,names:["あ","い"],first:0,turns:5,why:"x",start:"2026-11-15T00:00:00Z"}));
+    const txt=F.pack(recs,deps);assert.ok(txt.startsWith("CS1"));
+    const back=F.unpack(txt,{nameOf:n=>n});assert.strictEqual(back.length,4);
+    assert.deepStrictEqual(back[0].log,log);assert.strictEqual(back[0].acts[0].card.n,"B06066");assert.deepStrictEqual(back[0].miss[0].stuck,["B"]);
+    assert.strictEqual(back[0].deckLists[0].split("\n").length,4);
+    const t1=F.analyze(recs,deps),t2=F.analyze(back,deps);assert.deepStrictEqual(t2.map(d=>d.tips.map(t=>t.kind)),t1.map(d=>d.tips.map(t=>t.kind)));
+    const noLog=F.pack(recs,{...deps,log:0});assert.ok(noLog.length<txt.length&&F.unpack(noLog,{})[0].log.length===0);
+    assert.ok(txt.length<JSON.stringify(recs).length,"圧縮のほうが短い")}],
 ];

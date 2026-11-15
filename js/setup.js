@@ -214,16 +214,19 @@ function renderRecords(){
    <div class="hint">対戦が終わるたびに、行動・その時に選べた選択肢・ログを自動で保存します（最新${REC_MAX}件）。「記録からフィードバック」で使われなかったカードや使い残しなどの傾向が見られます（書き出したJSONを読み込んでも同じです）。</div>
    <div class="reclist">${all.slice().reverse().slice(0,20).map((r,i)=>{const me=r.cpu[0]?null:0;const res=me===null?`${esc(r.names[r.winner])} 勝利`:r.winner===me?"勝ち":"負け";
      return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span>${r.feedback&&(r.feedback.app||r.feedback.cpu)?" ✎":""} ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
-   <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>`;
+   <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>
+   <div class="row"><button id="recCp" ${all.length?"":"disabled"}>全記録を圧縮コピー（ログなし）</button></div>
+   <div class="hint">ログが長くてコピーできないときは、対戦記録を開いて「圧縮コピー」を使ってください（人には読めない短い形です）。</div>`;
   B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
     const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;
     const fbt=r.feedback&&(r.feedback.app||r.feedback.cpu)?`【フィードバック】\n${r.feedback.app?"改善点: "+r.feedback.app+"\n":""}${r.feedback.cpu?"CPUへ: "+r.feedback.cpu+"\n":""}\n`:"";
-    ask("対戦記録",sum+fbt+r.log.map(([t,m])=>m).join("\n"),[{label:"フィードバックを書く",value:"fb"},{label:"閉じる",value:0,primary:true}]).then(async v=>{if(v==="fb"){await feedbackPage(r);renderRecords()}})});
+    ask("対戦記録",sum+fbt+r.log.map(([t,m])=>m).join("\n"),[{label:"圧縮コピー",value:"cp"},{label:"圧縮コピー（ログなし）",value:"cp0"},{label:"フィードバックを書く",value:"fb"},{label:"閉じる",value:0,primary:true}]).then(async v=>{if(v==="fb"){await feedbackPage(r);renderRecords()}else if(v==="cp")copyPacked(r);else if(v==="cp0")copyPacked(r,{log:0})})});
   const ex=document.getElementById("recExp");if(ex)ex.onclick=async()=>{const blob=new Blob([JSON.stringify(all,null,1)],{type:"application/json"});
     const name=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;
     try{const f=new File([blob],name,{type:"application/json"}); // スマホは共有シートで保存
       if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia("(pointer:coarse)").matches){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`conan-sim-records-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove()};
+  const cp=document.getElementById("recCp");if(cp)cp.onclick=()=>copyPacked(all,{log:0});
   const fb=document.getElementById("recFb");if(fb){fb.disabled=!all.length;fb.onclick=()=>feedbackReport(all,"この端末の記録")}
   const ri=document.getElementById("recImp");if(ri)ri.onclick=()=>feedbackImport();
   const cl=document.getElementById("recClr");if(cl)cl.onclick=async()=>{if(await ask("対戦記録を全部消しますか？","元に戻せません。",[{label:"消す",value:true},{label:"やめる",value:false,primary:true}])){try{localStorage.removeItem(REC_KEY)}catch(e){}renderRecords()}};
