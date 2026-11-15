@@ -182,6 +182,8 @@ async function cpuTurn(p){
   let actors=p.field.filter(x=>x.st==="a"&&!hold.has(x)).sort((a,b)=>lpOf(b)-lpOf(a));
   if(ai2(p,"rsnw"))actors.sort((a,b)=>(C(a).lv||0)-(C(b).lv||0)||lpOf(b)-lpOf(a)); // SeEd: 弱いキャラから動かし、強いキャラを起こして残す
   const oppNear=o.solved&&o.ev.length>=o.level-2; // 相手が次のターンに勝ちそう
+  // wary（弱い警戒）: 解決編でなくても、迅速・突撃などで証拠を1つ余計に取られて、現場のLP+1で勝たれる形なら、自分の証拠を貯めるより相手の証拠を削る（事件アクション）。ネクストヒントを増やすなどはしない
+  const wary=ai2(p,"wary")&&!resist&&o.ev.length>0&&o.ev.length+oppPot+1>=o.level;
   let left=actors.length;
   for(const x of actors){
     if(G.over)return;
@@ -190,7 +192,7 @@ async function cpuTurn(p){
       const late=p.ev.length>=p.level-2;
       const threat=o.field.some(y=>y.st!=="x"&&apOf(y)>=apOf(x));
       if(!late&&threat&&(strongChar(x)||G.turnNo<=4)){continue}}
-    if(o.ev.length>0&&canAct(x,p,"case")&&(resist||ai2(p,"end2")&&oppNear||ai2(p,"mid")&&p.ev.length<p.level-3||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
+    if(o.ev.length>0&&canAct(x,p,"case")&&(resist||wary||ai2(p,"end2")&&oppNear||ai2(p,"mid")&&p.ev.length<p.level-3||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
     if(lpOf(x)>=1&&canAct(x,p,"reason")){await reason(p,x);left--;await step();continue}
     if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");left--;await step()}
   }
