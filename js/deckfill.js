@@ -26,6 +26,8 @@ function fillPool(refs){
     const cur=best[c.i];if(!cur||(!rep[c.i]&&/P$/.test(cur.n)&&!/P$/.test(c.n)))best[c.i]=c}
   for(const [i,n] of Object.entries(rep))best[i]=DB[n];
   return best}
+// 犯人（特徴［犯人］）のカードは犯人デッキでしか使われないので、補完の候補に出さない（入力に犯人がいるときだけ、犯人デッキとして候補に残す）
+const isCulprit=c=>!!c&&(c.ct||"").split(",").includes("犯人");
 function fillTraits(c){return c.ct?c.ct.split(","):[]}
 // 効果文の条件: 【パートナー白】 【事件青】 など。条件の色が今のパートナー/事件と合わないと、その効果は使えない
 function fillConds(c){const t=[c.f,c.hr,c.ci].filter(Boolean).join("\n");const o={p:[],k:[],bond:[]};let m;
@@ -37,6 +39,7 @@ function fillSim(a,b){ // 2つの {ID:枚数} の似かた（共通の枚数 / �
   return s/Math.max(1,Math.min(ta,tb))}
 function fillDeck(seed,opts={}){
   const refs=fillRefs(opts),pool=fillPool(refs),onlyAuto=opts.onlyAuto!==false;
+  if(!(seed.main||[]).some(n=>isCulprit(DB[n])))for(const i of Object.keys(pool))if(isCulprit(pool[i]))delete pool[i];
   const exclude=new Set(opts.exclude||[]),bias=opts.bias||{},pairBias=opts.pairBias||{};
   const warns=[],why=[];
   const auto=c=>!window.FX||!FX.automated||FX.automated({n:c.n});
@@ -156,6 +159,6 @@ function fillPoolInfo(){ // 環境デッキに出てくるカード（IDごと�
 function fillCandidates(caseN){ // 事件の色に収まる、環境デッキに出てくるレベル6以上のキャラ（MRはレベル9）。レベルの高い順、同じなら採用の多い順
   const {used,rep}=fillPoolInfo();const cols=(DB[caseN]&&DB[caseN].c)||"";
   const inCols=c=>c&&[...c.c].every(x=>cols.includes(x));
-  return Object.keys(used).map(i=>DB[rep[i]]).filter(c=>c&&c.t==="キャラ"&&(c.lv||0)>=6&&inCols(c))
+  return Object.keys(used).map(i=>DB[rep[i]]).filter(c=>c&&c.t==="キャラ"&&(c.lv||0)>=6&&inCols(c)&&!isCulprit(c))
     .sort((a,b)=>(b.lv-a.lv)||(used[b.i]-used[a.i])||a.n.localeCompare(b.n));
 }

@@ -34,4 +34,14 @@ module.exports=[
     assert.strictEqual(new Set(cs.map(c=>c.i)).size,cs.length);
     for(let k=1;k<cs.length;k++)assert.ok(cs[k-1].lv>=cs[k].lv,"レベルの高い順");
     const multi=w.CARD_DB.find(c=>c.t==="事件"&&c.c.length>=2);assert.ok(w.fillCandidates(multi.n).length>0)}],
+  ["犯人（特徴［犯人］）のカードは、入力に犯人がいなければ補完にも主力候補にも出ない。入力に犯人がいる犯人デッキでは補える",w=>{
+    const DB=w.ev("DB"),cul=n=>(DB[n].ct||"").split(",").includes("犯人");
+    for(const name of ["黒試し（RVVutYH1）","白単キッド","黄単警視庁","赤単赤井家"]){
+      const d=[...w.ev("PRESETS"),...w.ENV_DECKS.decks].find(x=>x.name===name);if(!d)continue;
+      const r=w.parseDeckText(d.text),seed=r.main.filter(n=>!cul(n)).slice(0,15);
+      const o=w.fillDeck({partner:r.partner,caseN:r.caseN,main:seed});assert.ok(!o.main.some(cul),name+" の補完に犯人が入った")}
+    const k=w.CARD_DB.find(c=>c.t==="事件"&&c.c==="黒");assert.ok(!w.fillCandidates(k.n).some(c=>cul(c.n)));
+    const cd=w.ENV_DECKS.decks.map(x=>w.parseDeckText(x.text)).find(r=>r.main.some(cul));
+    if(cd){const o=w.fillDeck({partner:cd.partner,caseN:cd.caseN,main:cd.main.filter(cul).slice(0,3).concat(cd.main.filter(n=>!cul(n)).slice(0,12))});
+      assert.strictEqual(w.validateDeck({partner:o.partner,caseN:o.caseN,main:o.main}).length,0)}}],
 ];

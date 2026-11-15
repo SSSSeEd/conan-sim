@@ -139,6 +139,10 @@ function renderFill(){
    <div class="pickgrid" id="fillGrid"></div>
    <div class="row"><button class="primary" id="fillGo">40枚に補完</button><label title="外すと、効果が未自動化のカードも候補に入れる"><input type="checkbox" id="fillAuto" checked> 自動化済みだけ</label></div>
    <div class="dmsg" id="fillMsg"></div>
+   <b style="font-size:13px">デッキの中身（＋－で枚数を変えられます）</b>
+   <div class="dlist" id="fillList"></div>
+   <div class="row"><input id="fillAdd" placeholder="カード名で探して追加（例: 毛利蘭）" style="flex:1;min-width:0"></div>
+   <div class="addres" id="fillAddRes"></div>
    <div class="row"><button id="fillReg">マイデッキに登録</button><button id="fillSet0">あなたのデッキにセット</button><button id="fillSet1">相手のデッキにセット</button></div>
    <details><summary class="hint">リストで確認・編集（カードNoを直接書くこともできます）</summary><textarea id="fillTx" spellcheck="false" aria-label="補完するデッキリスト"></textarea></details>`;
   const ta=document.getElementById("fillTx"),m=document.getElementById("fillMsg"),cs=document.getElementById("fillCase"),ps=document.getElementById("fillPartner"),grid=document.getElementById("fillGrid"),cnt=document.getElementById("fillCnt");
@@ -148,14 +152,36 @@ function renderFill(){
   const counts=()=>{const d=parseDeckText(ta.value),c={};for(const n of d.main)if(DB[n])c[DB[n].i]=(c[DB[n].i]||0)+1;return c};
   const total=c=>Object.values(c).reduce((a,b)=>a+b,0);
   const write=c=>{const L=[];if(ps.value)L.push("パートナー "+ps.value);L.push("事件 "+cs.value);
-    for(const i in c)if(c[i]>0)L.push(`${rep[i]||i} x${c[i]}`);ta.value=L.join("\n")};
-  const mkGrid=()=>{const cand=fillCandidates(cs.value);grid.innerHTML="";
-    const info=()=>cnt.textContent=`主力カード候補 ${cand.length}枚（レベルの高い順）・選択中 ${total(counts())}枚`;info();
+    for(const i in c)if(c[i]>0)L.push(`${rep[i]||i} x${c[i]}`);ta.value=L.join("\n");refreshAll()};
+  let marks=[],infoFn=()=>{};
+  const refreshAll=()=>{marks.forEach(f=>f());infoFn();renderList()};
+  const mkGrid=()=>{const cand=fillCandidates(cs.value);grid.innerHTML="";marks=[];
+    const info=infoFn=()=>cnt.textContent=`主力カード候補 ${cand.length}枚（レベルの高い順）・デッキ ${total(counts())}枚`;info();
     for(const k of cand){const x=inst(k.n),el=cardEl(x);
       const mark=()=>{const n=counts()[k.i]||0;el.classList.toggle("picked",n>0);let t=el.querySelector(".pickn");if(!t){t=document.createElement("span");t.className="pickn";el.appendChild(t)}t.textContent=n?`×${n}`:"";t.hidden=!n};
-      el.onclick=()=>{const c=counts(),mx=LIMIT1.includes(k.i)?1:3,n=(c[k.i]||0)+1;c[k.i]=n>mx?0:n;write(c);mark();info()};
+      el.onclick=()=>{const c=counts(),mx=LIMIT1.includes(k.i)?1:3,n=(c[k.i]||0)+1;c[k.i]=n>mx?0:n;write(c)};
       el.oncontextmenu=e=>{e.preventDefault();showPeek(x)};
-      grid.appendChild(el);mark()}};
+      marks.push(mark);grid.appendChild(el);mark()}};
+  // デッキの中身（枚数の増減・追加）。元のデータは上のテキスト欄で、ここを操作するとテキストも書き換わる
+  const lvKey=i=>{const c=DB[rep[i]||i];return c?(c.t==="キャラ"?c.lv||0:-1):-1};
+  function renderList(){const L=document.getElementById("fillList");if(!L)return;const c=counts();
+    const ids=Object.keys(c).filter(i=>c[i]>0).sort((a,b)=>lvKey(b)-lvKey(a)||(DB[rep[a]||a]||{nm:""}).nm.localeCompare((DB[rep[b]||b]||{nm:""}).nm));
+    const d=parseDeckText(ta.value);
+    L.innerHTML=`<div class="meta">${d.partner?esc(C({n:d.partner}).nm):"パートナー未定"} / ${esc(C({n:cs.value}).nm)} ・ ${total(c)}枚</div>`+(ids.length?"":'<div class="meta">まだありません</div>');
+    for(const i of ids){const k=DB[rep[i]||i];if(!k)continue;const mx=LIMIT1.includes(i)?1:3;
+      const r=document.createElement("div");r.className="drow";
+      r.innerHTML=`<span class="lvb">${k.t==="キャラ"?k.lv:"E"}</span><span class="nmx">${esc(k.nm)}</span><button class="dm">－</button><b class="n">${c[i]}</b><button class="dp" ${c[i]>=mx?"disabled":""}>＋</button>`;
+      r.querySelector(".nmx").onclick=()=>showPeek(inst(k.n));
+      r.querySelector(".dm").onclick=()=>{const q=counts();q[i]=Math.max(0,(q[i]||0)-1);write(q)};
+      r.querySelector(".dp").onclick=()=>{const q=counts();q[i]=Math.min(mx,(q[i]||0)+1);write(q)};
+      L.appendChild(r)}}
+  const addIn=document.getElementById("fillAdd"),addRes=document.getElementById("fillAddRes");
+  addIn.oninput=()=>{const q=addIn.value.trim();addRes.innerHTML="";if(!q)return;
+    const seen=new Set(),hit=[];for(const k of window.CARD_DB){if(k.t!=="キャラ"&&k.t!=="イベント")continue;if(BANNED.includes(k.i)||seen.has(k.i)||!k.nm.includes(q))continue;seen.add(k.i);hit.push(DB[rep[k.i]||k.n]||k)}
+    hit.sort((a,b)=>(b.t==="キャラ"?b.lv||0:-1)-(a.t==="キャラ"?a.lv||0:-1));
+    for(const k of hit.slice(0,12)){const b=document.createElement("button");b.textContent=`${k.t==="キャラ"?"Lv"+k.lv:"イベント"} ${k.nm}（${k.c}）${isCulprit(k)?"・犯人":""}`;
+      b.onclick=()=>{const c=counts(),mx=LIMIT1.includes(k.i)?1:3;c[k.i]=Math.min(mx,(c[k.i]||0)+1);write(c)};addRes.appendChild(b)}
+    if(hit.length>12){const t=document.createElement("div");t.className="meta";t.textContent=`ほか${hit.length-12}件。名前をもう少し入力してください`;addRes.appendChild(t)}};
   const caseView=()=>{const V=document.getElementById("fillCaseView"),c=DB[cs.value];V.innerHTML="";if(!c)return;
     const x=inst(c.n),el=cardEl(x);el.onclick=()=>showPeek(x);
     const t=document.createElement("div");t.className="caset";
@@ -163,10 +189,13 @@ function renderFill(){
     V.appendChild(el);V.appendChild(t)};
   cs.onchange=()=>{const c=counts();partnerOpts();write(c);mkGrid();caseView()};
   ps.onchange=()=>write(counts());
+  ta.oninput=()=>refreshAll();
   partnerOpts();write({});mkGrid();caseView();
   document.getElementById("fillGo").onclick=()=>{const d=parseDeckText(ta.value);
     if(d.errors.length||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"主力カードを選んでください（15枚ほど）";return}
-    const r=fillDeck(d,{onlyAuto:document.getElementById("fillAuto").checked});ta.value=fillText(r);mkGrid();
+    const r=fillDeck(d,{onlyAuto:document.getElementById("fillAuto").checked});ta.value=fillText(r);
+    if(r.partner&&![...ps.options].some(o=>o.value===r.partner))ps.insertAdjacentHTML("beforeend",`<option value="${r.partner}">パートナー: ${esc(C({n:r.partner}).nm)}（${esc(C({n:r.partner}).c)}）</option>`);
+    if(r.partner)ps.value=r.partner;refreshAll();
     const w=validateDeck({partner:r.partner,caseN:r.caseN,main:r.main});
     m.className=w.length?"dmsg bad":"dmsg good";
     m.textContent=[...w,...r.warns,`補った${r.main.length-d.main.length}枚: `+r.why.map(x=>`${C({n:x.n}).nm}×${x.k}（${x.why}）`).join("、")].join("\n")};
