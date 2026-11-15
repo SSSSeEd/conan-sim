@@ -82,6 +82,14 @@ const MY_KEY="conan-sim-mydecks";
 function loadMyDecks(){try{return JSON.parse(localStorage.getItem(MY_KEY)||"[]")}catch(e){return []}}
 function saveMyDecks(a){try{localStorage.setItem(MY_KEY,JSON.stringify(a))}catch(e){}}
 function shareIdOf(s){s=(s||"").trim();const m=s.match(/(?:deck\/|share_id=|deck=|d_code=)([A-Za-z0-9_-]{4,})/);return m?m[1]:s.replace(/[^A-Za-z0-9_-]/g,"")}
+// 全45デッキの総当たり（CPU同士・探索あり・990組み合わせ×30戦、2026-11-12。simulator/matchup-all45-2026-11-12.md）での各デッキの勝率(%)。
+// 対戦タブのデッキ選択で、勝率の高い上位だけを出すのに使う。作り直し: node tools/gen_winrate.js 総当たり結果.jsonl（誤差は1組み合わせ±18%程度で、隣同士の順位差は誤差内）
+const DECK_WR={"白黄キッド":68.7,"青単新一蘭":66.1,"赤黒赤井ジン":63.4,"青黒灰原シェリー":63,"黄単警察学校組":61.7,"赤単FBI":61.5,"赤白ワンショット":61.1,"黒単キャンティコルン":60.8,"緑白平次キッド":60.5,"白単キッド":60.1,"黄単佐藤高木":59.8,"青単少年探偵団":59.5,"黒青灰原シェリー":58.5,"青緑新一平次":58.5,"緑単YAIBA":57.7,"白単赤魔術":57.3,"赤黄赤井安室":55.8,"黄単警視庁":55,"黒単バーボンライ":52.7,"白青工藤家":52,"黒単ジンウォッカ":49.5,"白単YAIBA":48.3,"白単優作有希子":48.3,"赤単赤井家FBI":48,"青黒新一蘭":47.2,"青単サッカー":46.8,"赤単ハンドレス":46.6,"青単SOS":46.6,"緑単平次和葉ミッドレンジ":46.3,"白単ビッグジュエル":45.5,"黄単婚活":45.4,"白（X3zM3U7m）":45.1,"黄単長野県警":44.8,"赤単赤井家":44.4,"青単シャッフルロマンス":44.2,"黄単松田ミッドレンジ":43.8,"緑単警察":41.4,"緑単平次和葉":41.1,"緑単紅葉伊織":40.1,"青単SOSアグロ":39.2,"黒試し（RVVutYH1）":38.1,"サッカー4（hlxo2zIa）":34.7,"黄単疾風":33.6,"青単SOSアグロ（sgsSBbDE）":28.8,"緑単光本アグロ":18.8};
+const DECK_TOP_N=15; // 上位15デッキ（45デッキの上位3分の1。勝率57.7%以上）
+function deckTopOnly(){try{return localStorage.getItem("conan-sim-decktop")!=="all"}catch(e){return true}}
+function setDeckTopOnly(v){try{localStorage.setItem("conan-sim-decktop",v?"top":"all")}catch(e){}}
+// 勝率の順位（0が一番高い）。表にないデッキ（マイデッキなど）は null
+function deckRank(d){if(!(d.name in DECK_WR))return null;return Object.keys(DECK_WR).filter(n=>DECK_WR[n]>DECK_WR[d.name]).length}
 function deckGroups(){return [["マイデッキ","m",loadMyDecks()],["プリセット","p",PRESETS],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]]]}
 // 効果の自動化率: 効果文のあるカード（枚数で数える。パートナー・事件も1枚）のうち自動で処理されるもの。CPUは100%のデッキだけ使う
 function autoRate(d){let all=0,ok=0;const ng=[];

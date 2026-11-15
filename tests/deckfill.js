@@ -44,4 +44,11 @@ module.exports=[
     const cd=w.ENV_DECKS.decks.map(x=>w.parseDeckText(x.text)).find(r=>r.main.some(cul));
     if(cd){const o=w.fillDeck({partner:cd.partner,caseN:cd.caseN,main:cd.main.filter(cul).slice(0,3).concat(cd.main.filter(n=>!cul(n)).slice(0,12))});
       assert.strictEqual(w.validateDeck({partner:o.partner,caseN:o.caseN,main:o.main}).length,0)}}],
+  ["デッキ選択: 勝率表が全デッキ名と一致し、上位15デッキは勝率の高い順に並ぶ。表にないデッキ（マイデッキ）は順位なし",w=>{
+    const wr=w.ev("DECK_WR"),all=[...w.ev("PRESETS"),...w.ENV_DECKS.decks];
+    for(const d of all)assert.ok(wr[d.name]>0,d.name+" の勝率がない");
+    assert.strictEqual(Object.keys(wr).length,all.length);
+    const top=all.filter(d=>w.deckRank(d)<w.ev("DECK_TOP_N"));assert.strictEqual(top.length,w.ev("DECK_TOP_N"));
+    const min=Math.min(...top.map(d=>wr[d.name]));for(const d of all)if(!top.includes(d))assert.ok(wr[d.name]<=min);
+    assert.strictEqual(w.deckRank({name:"自作デッキ"}),null)}],
 ];
