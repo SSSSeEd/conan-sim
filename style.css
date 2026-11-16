@@ -393,3 +393,4 @@ html.portrait #peek .pkc .card{width:min(52vw,210px);height:calc(min(52vw,210px)
 #setup .drow .n{width:18px;text-align:center}
 #setup .addres{display:flex;flex-direction:column;gap:4px;margin:4px 0}
 #setup .addres button{text-align:left}
+#topbar .tb-doubt{padding:2px 6px;font-size:11px;min-width:0;opacity:.75}

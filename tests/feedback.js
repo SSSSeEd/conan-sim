@@ -4,7 +4,7 @@ const F=require("../tools/feedback.js");
 const D="パートナー B01042\n事件 B05024\nB06066 x3\nB03046 x3";
 const rec=(win,usedB)=>({decks:["テスト"],cpu:[false,true],deckLists:[D,D],winner:win?0:1,
   acts:[{who:0,kind:"use",card:{n:"B06066",nm:"A"}},...(usedB?[{who:0,kind:"use",card:{n:"B03046",nm:"B"}}]:[])],
-  miss:[{t:2,stuck:["B"],hint:true},{t:4,stuck:["B"]}]});
+  miss:[{t:2,stuck:["B"],hint:true,hand:["A","B"],fld:["A"],ofld:["B"],doubt:true},{t:4,stuck:["B"]}]});
 module.exports=[
   ["フィードバック: 一度も使わなかったカードと、手札で腐るカードを提案する",async w=>{
     const recs=[1,1,1,0].map(x=>rec(x));
@@ -28,6 +28,7 @@ module.exports=[
     const txt=F.pack(recs,deps);assert.ok(txt.startsWith("CS1"));
     const back=F.unpack(txt,{nameOf:n=>n});assert.strictEqual(back.length,4);
     assert.deepStrictEqual(back[0].log,log);assert.strictEqual(back[0].acts[0].card.n,"B06066");assert.deepStrictEqual(back[0].miss[0].stuck,["B"]);
+    assert.deepStrictEqual(back[0].miss[0].hand,["A","B"]);assert.deepStrictEqual(back[0].miss[0].fld,["A"]);assert.strictEqual(back[0].miss[0].doubt,true);assert.deepStrictEqual(back[0].miss[0].ofld,["B"]);
     assert.strictEqual(back[0].deckLists[0].split("\n").length,4);
     const t1=F.analyze(recs,deps),t2=F.analyze(back,deps);assert.deepStrictEqual(t2.map(d=>d.tips.map(t=>t.kind)),t1.map(d=>d.tips.map(t=>t.kind)));
     const noLog=F.pack(recs,{...deps,log:0});assert.ok(noLog.length<txt.length&&F.unpack(noLog,{})[0].log.length===0);
