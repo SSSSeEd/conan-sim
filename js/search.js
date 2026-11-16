@@ -34,8 +34,14 @@ function turnPlans(p){
   }
   if(!(ai2(p,"assist2")&&G.turnNo<=2&&base.length>1))base.push({play:"none"});
   // 事件・キャラの宣言能力が使えるなら、手札を使う前に能力を使う組み合わせも試す（事件の能力でリムーブエリアから手札に加えたカードを同じ手番で使うため）
-  const abNow=[...p.field,p.caseC,...p.hand,...areaCards(p)].some(x=>FX.abilities(p,x).some(ab=>ab.ok&&!ab.noAi&&(!ab.aiCan||ab.aiCan(p,x))));
-  const all=abNow?base.flatMap(pl=>[pl,{...pl,abFirst:true}]):base;
+  // ab2: 能力の使うかどうかも探索する。ab:"none"=能力を使わない、ab:"force"=CPUの目安（aiCan）が「使わない」でも使える能力は全部使う
+  const abs=[...p.field,p.caseC,...p.hand,...areaCards(p)].flatMap(x=>FX.abilities(p,x).filter(ab=>ab.ok&&!ab.noAi).map(ab=>[x,ab]));
+  const abNow=abs.some(([x,ab])=>!ab.aiCan||ab.aiCan(p,x));
+  const abSkipped=abs.some(([x,ab])=>ab.aiCan&&!ab.aiCan(p,x));
+  let all=abNow?base.flatMap(pl=>[pl,{...pl,abFirst:true}]):base;
+  if(ai2(p,"ab2")&&abs.length){
+    all=[...all,...base.map(pl=>({...pl,ab:"none"}))];
+    if(abSkipped)all=[...all,...base.flatMap(pl=>[{...pl,ab:"force"},{...pl,ab:"force",abFirst:true}])]}
   return all.flatMap(pl=>[pl,{...pl,hint:false}]);
 }
 // 盤面をコピーして1つの組み合わせを試す。終わったら元の盤面に戻す
@@ -57,7 +63,7 @@ async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
 function recSearch(p,tried,best){
   if(!G.rec)return;
-  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
   (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
 }
 // アクションの出し方（plan.act）。突撃・迅速で出たばかりでもアクションできるキャラ（x.fresh）の動かし方を変えて試す
