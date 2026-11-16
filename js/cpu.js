@@ -119,9 +119,14 @@ async function cpuTurn(p){
   // SeEd: 「烏丸蓮耶の影」「小さくなった名探偵」のようにFILEの枚数で出せるレベルが決まるイベントも、先にアシストしてから使う
   const fileEv=x=>!!x&&C(x).t==="イベント"&&/手札から自分のFILEエリアの枚数以下のレベル/.test(C(x).f||"");
   const planned=()=>plan.play==="none"?null:plan.play?p.hand.find(x=>x.n===plan.play&&!playableReason(p,x,false))||best(false):best(false);
-  // hold9: FILE7以上になるアシストは解決編に入ってしまい、以後アシストできない。まだ出せない重い（Lv8以上）カードが手札にあり、FILEが近い間は、その前にアシストして解決編に入るのを控える（SeEd: Lv9を出してから解決編へ）
+  // hold9: FILE7以上になるアシストで解決編に入る（以後もアシストはできるが、CPUは従来は解決編後にアシストしなかった）。まだ出せない重い（Lv8以上）カードが手札にあり、FILEが近い間は、その前にアシストして解決編に入るのを控える（SeEd: Lv9を出してから解決編へ）
+  // asolv: 解決編に入った後もアシストできる（FILEが9未満の間）。SeEd: 解決編でもパートナーは推理よりアシストを優先する。無駄なアシスト（FILE9以上）なら推理
+  // asolvの「無駄なアシスト」: アシストしたあとに最も点数が高いカードが、アシストなしでも出せるなら無駄。ただしFILE数を参照する効果のカードはアシストの価値あり（SeEd）
+  const fileRef=x=>!!x&&/FILE/.test(C(x).f||"");
+  const assistUseful=()=>{p.file.push(p.partner);const after=best(false);p.file.pop();return !!after&&(!!playableReason(p,after,false)||fileRef(after))};
+  const canAs=()=>!p.solved||ai2(p,"asolv")&&p.file.length<9&&(!ai2(p,"asolv2")||assistUseful());
   const hold9=()=>ai2(p,"hold9")&&!p.solved&&p.file.length+1>=7&&p.hand.some(x=>{const l=C(x).lv||0;return l>=8&&l>p.file.length+1&&l-p.file.length<=3});
-  if(ai2(p,"assist")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand&&!hold9()){
+  if(ai2(p,"assist")&&canAs()&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand&&!hold9()){
     const lvOf=x=>x?(C(x).lv||0):-1;const now=best(false);
     p.file.push(p.partner);const after=best(false);p.file.pop();
     if(plan.assist||ai2(p,"sit2")&&(p.file.length>=6||p.hand.length>=5)||ai2(p,"early6")&&p.file.length>=6||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
@@ -203,6 +208,7 @@ async function cpuTurn(p){
   if(p.pLoc==="area"&&p.partner.st==="a"){
     if(!p.solved&&p.file.length>=6&&!hold9())await assist(p);
     else if(p.solved&&p.ev.length>=p.level&&!FX.noSolve(p))solve(p);
+    else if(p.solved&&canAs()&&!(p.ev.length>=p.level))await assist(p);
     else await reason(p,p.partner);
     await step();
   }

@@ -24,10 +24,14 @@ function turnPlans(p){
   for(const x of p.hand){
     if(seen.has(x.n)||playableReason(p,x,false)||!ok(x))continue;
     seen.add(x.n);base.push({play:x.n})}
-  if(ai2(p,"assist2")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
+  if(ai2(p,"assist2")&&(!p.solved||ai2(p,"asolv")&&p.file.length<9)&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
     p.file.push(p.partner);
     for(const x of p.hand){if(seen.has(x.n)||playableReason(p,x,false)||!ok(x))continue;seen.add(x.n);base.push({play:x.n,assist:1})}
-    p.file.pop()}
+    p.file.pop()
+    // fileplan: すでに出せるが、効果がFILE数を参照するカードは、アシストしてから出すほうが良いかもしれないので、その手も試す（SeEd）
+    if(ai2(p,"fileplan"))for(const x of p.hand){if(playableReason(p,x,false)||!ok(x)||!/FILE/.test(C(x).f||""))continue;
+      if(!base.some(b=>b.play===x.n&&b.assist))base.push({play:x.n,assist:1})}
+  }
   if(!(ai2(p,"assist2")&&G.turnNo<=2&&base.length>1))base.push({play:"none"});
   // 事件・キャラの宣言能力が使えるなら、手札を使う前に能力を使う組み合わせも試す（事件の能力でリムーブエリアから手札に加えたカードを同じ手番で使うため）
   const abNow=[...p.field,p.caseC,...p.hand,...areaCards(p)].some(x=>FX.abilities(p,x).some(ab=>ab.ok&&!ab.noAi&&(!ab.aiCan||ab.aiCan(p,x))));
