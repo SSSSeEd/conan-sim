@@ -97,7 +97,8 @@ function recAct(p,kind,x,target){
 // ターンのはじめに選べたこと（beginTurn から）
 function recTurnStart(p){
   if(!G||!G.rec||p.cpu)return;
-  G.rec._start={t:G.turnNo,o:recOptions(p),stuck:p.hand.filter(x=>playableReason(p,x,false)).map(x=>C(x).nm),s:recState(p)};
+  G.rec._start={t:G.turnNo,o:recOptions(p),stuck:p.hand.filter(x=>playableReason(p,x,false)).map(x=>C(x).nm),s:recState(p),h:p.hand.map(x=>C(x).nm)};
+  G.rec._doubt=false;
 }
 function recMiss(p){
   const st=G.rec._start;if(!st||st.t!==G.turnNo)return;
@@ -105,7 +106,9 @@ function recMiss(p){
   const o=recOptions(p),s=st.s;
   const m={t:G.turnNo,s:{file:s.file,ev:s.ev,oEv:s.oEv,hand:s.hand,field:s.field.length,oField:s.oField.length},
     play:st.o.hand.filter(nm=>!used.includes(nm)),stuck:st.stuck,reason:o.reason,actChara:o.targets.length?o.actChara:[],actCase:o.actCase,
-    hint:!did.some(a=>a.kind==="hint")&&st.o.hint,assist:o.assist&&!p.solved};
+    hint:!did.some(a=>a.kind==="hint")&&st.o.hint,assist:o.assist&&!p.solved,
+    hand:st.h,fld:s.field,ofld:s.oField,doubt:!!G.rec._doubt};
+  G.rec._doubt=false; // 手番の始めの手札・自分の現場・相手の現場のカード名（SeEdとCPUの違いを場面ごとに比べるため）
   for(const k of Object.keys(m))if(Array.isArray(m[k])&&!m[k].length||m[k]===false)delete m[k];
   (G.rec.miss=G.rec.miss||[]).push(m);delete G.rec._start;
 }

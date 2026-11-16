@@ -121,8 +121,8 @@ function packOne(r,{parse,nameOf,log}){
     k:decks,
     a:(r.acts||[]).map(a=>[a.t,a.who,KINDS_OF(K,a.kind),a.card?a.card.n:0,a.target?(a.target==="事件"?"事件":a.target.n):0]),
     m:(r.miss||[]).map(m=>{const x={t:m.t,s:m.s?[m.s.file,m.s.ev,m.s.oEv,m.s.hand,m.s.field,m.s.oField]:0};
-      for(const key of ["play","stuck","reason","actChara","actCase"])if(m[key]&&m[key].length)x[key]=m[key].map(id);
-      if(m.hint)x.hint=1;if(m.assist)x.assist=1;return x}),
+      for(const key of ["play","stuck","reason","actChara","actCase","hand","fld","ofld"])if(m[key]&&m[key].length)x[key]=m[key].map(id);
+      if(m.hint)x.hint=1;if(m.assist)x.assist=1;if(m.doubt)x.doubt=1;return x}),
     z:(r.final||[]).map(f=>[f.ev,f.file,f.field,f.hand,f.deck,f.solved?1:0]),
     N,K,C:cardNames,l:logs};
   if(r.feedback)o.b=r.feedback;
@@ -135,8 +135,8 @@ function unpackOne(o,{nameOf}={}){
   const r={v:2,start:o.s,names:o.n,cpu:(o.c||[]).map(x=>!!x),decks:o.d,deckLists:(o.k||[]).map(deck),first:o.f,winner:o.w,why:o.y,turns:o.t,
     acts:(o.a||[]).map(([t,who,k,c,tg])=>({t,who,kind:o.K[k],card:card(c),target:tg==="事件"?"事件":card(tg)})),
     miss:(o.m||[]).map(m=>{const x={t:m.t};if(m.s)x.s={file:m.s[0],ev:m.s[1],oEv:m.s[2],hand:m.s[3],field:m.s[4],oField:m.s[5]};
-      for(const key of ["play","stuck","reason","actChara","actCase"])if(m[key])x[key]=m[key].map(i=>o.N[i]);
-      if(m.hint)x.hint=true;if(m.assist)x.assist=true;return x}),
+      for(const key of ["play","stuck","reason","actChara","actCase","hand","fld","ofld"])if(m[key])x[key]=m[key].map(i=>o.N[i]);
+      if(m.hint)x.hint=true;if(m.assist)x.assist=true;if(m.doubt)x.doubt=true;return x}),
     final:(o.z||[]).map(f=>({ev:f[0],file:f[1],field:f[2],hand:f[3],deck:f[4],solved:!!f[5]})),
     log:[]};
   for(const g of o.l||[]){const t=g[0];for(const m of g.slice(1))r.log.push([t,m.replace(/^\^+/,x=>"　".repeat(x.length)).replace(/§(\d+);/g,(_,i)=>o.C[+i])])}

@@ -154,6 +154,7 @@ function render(){
   b("ログ",()=>{R.classList.toggle("logopen");R.classList.remove("menuopen");const L=document.getElementById("log");L.scrollTop=L.scrollHeight},{cls:"tb-only"});
   b("≡",()=>{R.classList.toggle("menuopen");R.classList.remove("logopen")},{cls:"tb-only"});
   b("↶ 戻す",undo,{cls:"tb-undo",disabled:!human||!G.undo.length});
+  if(G.rec&&!p.cpu)b(G.rec._doubt?"迷 ✓":"迷",()=>{G.rec._doubt=!G.rec._doubt;render()},{cls:"tb-doubt",disabled:!human});
   b("ネクストヒント",()=>act(()=>nextHint(p)),{cls:"fab tb-hint",disabled:!human||p.noHint||!p.file.some(x=>x!==p.partner)});
   b("ターン終了",()=>{if(G.ui.mode)G.ui.mode=null;endTurn()},{primary:true,cls:"fab tb-end",disabled:!human});
   if(G.cfg.cpu){b(G.showOppHand?"相手の手札を隠す":"相手の手札を見る",()=>{G.showOppHand=!G.showOppHand;render()},{cls:"tb-extra"})}
