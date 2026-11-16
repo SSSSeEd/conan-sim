@@ -88,9 +88,9 @@ function recOptions(p){ // その場で選べた行動
 }
 function recState(p){const o=opp(p);return {file:p.file.length,ev:p.ev.length,level:p.level,solved:p.solved,hand:p.hand.length,deck:p.deck.length,
   field:p.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oField:o.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oEv:o.ev.length,oFile:o.file.length}}
-// 記録は人の席だけ。やった行動と、ターンごとの「できたのにやらなかったこと」（rec.miss）を残す（1試合数KB）
+// 記録は両方の席（who=席番号。CPUの行動も残す。人の分だけ見るときは who で絞る）。やった行動と、ターンごとの「できたのにやらなかったこと」（rec.miss）を残す（1試合数KB）
 function recAct(p,kind,x,target){
-  if(!G||!G.rec||G.over||p.cpu)return;
+  if(!G||!G.rec||G.over)return;
   G.rec.acts.push({t:G.turnNo,who:p.idx,kind,card:cardRef(x),target:target==="case"?"事件":cardRef(target)});
   if(kind==="end")recMiss(p);
 }
