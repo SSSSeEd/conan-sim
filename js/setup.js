@@ -28,8 +28,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
       ${i===1?`<label><input type="checkbox" id="cpu1" ${saved.cpu1===false?"":"checked"}> CPUが操作</label>`:`<label><input type="checkbox" id="cpu0"> CPUが操作（観戦）</label>`}</div>
       <div class="row"><select id="ps${i}" aria-label="デッキ一覧">${deckOptions(i,i===1?saved.cpu1!==false:false)}</select><button data-s="${i}">このデッキを使う</button></div>
       <div class="row"><label title="全45デッキの総当たり（CPU同士）で勝率が上位${DECK_TOP_N}のデッキだけをデッキ一覧に出します。外すとすべて出します"><input type="checkbox" class="topOnly" ${deckTopOnly()?"checked":""}> 勝率上位${DECK_TOP_N}デッキだけ</label></div>
-      <div class="row">
-        <select id="rc${i}" aria-label="ランダム構築の色">${["青","赤","黄","緑","白","黒"].map(c=>`<option>${c}</option>`).join("")}</select><button data-r="${i}">ランダム構築</button></div>
+      <div class="row"><button data-r="${i}" title="勝率上位${DECK_TOP_N}デッキの中からランダムに選びます">上位からランダム</button></div>
       <div class="row"><input id="sh${i}" placeholder="共有ID 例: X3zM3U7m" size="16"><button data-f="${i}">conan-tcg-appから読込</button></div>
       <div class="dprev" id="dpv${i}"></div>
       <textarea id="dk${i}" hidden spellcheck="false" aria-label="デッキリスト">${esc(saved["dk"+i]||PRESETS[i?1:0].text)}</textarea>
@@ -72,7 +71,8 @@ function showSetup(){document.documentElement.classList.remove("spectate");
         const c=S.querySelectorAll(".topOnly")[j];if(c)c.checked=e.target.checked}};
     document.getElementById("cpu"+i).onchange=()=>{const ps=document.getElementById("ps"+i),v=ps.value;ps.innerHTML=deckOptions(i,isCpu(i));
       if([...ps.options].some(o=>o.value===v))ps.value=v;chk(i)};
-    S.querySelector(`[data-r="${i}"]`).onclick=()=>{ta.value=randomDeck(document.getElementById("rc"+i).value).text;chk(i)};
+    S.querySelector(`[data-r="${i}"]`).onclick=()=>{const c=[];for(const [,g,arr] of deckGroups())if(g!=="m")arr.forEach((d,k)=>{const r=deckRank(d);if(r!==null&&r<DECK_TOP_N&&(!isCpu(i)||cpuReady(parseDeckText(d.text))))c.push(g+":"+k)});
+      if(!c.length)return;const ps=document.getElementById("ps"+i),v=c[Math.floor(Math.random()*c.length)];if(![...ps.options].some(o=>o.value===v))ps.innerHTML=deckOptions(i,isCpu(i));ps.value=v;ps.onchange()};
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=shareIdOf(document.getElementById("sh"+i).value);const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
   }
