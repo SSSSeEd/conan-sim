@@ -97,7 +97,7 @@ async function cpuTurn(p){
       let used=false;
       for(const x of [...p.field,p.caseC,...p.hand,...areaCards(p)]){
         for(const ab of FX.abilities(p,x)){
-          if(!ab.ok||ab.noAi)continue;{const def=(!ab.aiCan||!!ab.aiCan(p,x))&&!comboSkip(p,x);if(!(G.sim&&G.sim.explore?explore(p,"能力",[false,true],+def,o=>`${o?"使う":"使わない"}: ${C(x).nm}(${x.n}) ${ab.label}`):def))continue}
+          if(!ab.ok||ab.noAi)continue;{const def=plan.ab==="none"?false:(plan.ab==="force"||!ab.aiCan||!!ab.aiCan(p,x))&&!comboSkip(p,x);if(!(G.sim&&G.sim.explore?explore(p,"能力",[false,true],+def,o=>`${o?"使う":"使わない"}: ${C(x).nm}(${x.n}) ${ab.label}`):def))continue}
           G.ui.act={a:x,t:null};await FX.useAbility(p,x,ab);await step();used=true;break}
         if(used||G.over)break}
       if(!used||G.over)break}
