@@ -119,7 +119,9 @@ async function cpuTurn(p){
   // SeEd: 「烏丸蓮耶の影」「小さくなった名探偵」のようにFILEの枚数で出せるレベルが決まるイベントも、先にアシストしてから使う
   const fileEv=x=>!!x&&C(x).t==="イベント"&&/手札から自分のFILEエリアの枚数以下のレベル/.test(C(x).f||"");
   const planned=()=>plan.play==="none"?null:plan.play?p.hand.find(x=>x.n===plan.play&&!playableReason(p,x,false))||best(false):best(false);
-  if(ai2(p,"assist")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
+  // hold9: FILE7以上になるアシストは解決編に入ってしまい、以後アシストできない。まだ出せない重い（Lv8以上）カードが手札にあり、FILEが近い間は、その前にアシストして解決編に入るのを控える（SeEd: Lv9を出してから解決編へ）
+  const hold9=()=>ai2(p,"hold9")&&!p.solved&&p.file.length+1>=7&&p.hand.some(x=>{const l=C(x).lv||0;return l>=8&&l>p.file.length+1&&l-p.file.length<=3});
+  if(ai2(p,"assist")&&!p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand&&!hold9()){
     const lvOf=x=>x?(C(x).lv||0):-1;const now=best(false);
     p.file.push(p.partner);const after=best(false);p.file.pop();
     if(plan.assist||ai2(p,"sit2")&&(p.file.length>=6||p.hand.length>=5)||ai2(p,"early6")&&p.file.length>=6||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
@@ -199,7 +201,7 @@ async function cpuTurn(p){
   if(G.over)return;
   // 5) パートナー
   if(p.pLoc==="area"&&p.partner.st==="a"){
-    if(!p.solved&&p.file.length>=6)await assist(p);
+    if(!p.solved&&p.file.length>=6&&!hold9())await assist(p);
     else if(p.solved&&p.ev.length>=p.level&&!FX.noSolve(p))solve(p);
     else await reason(p,p.partner);
     await step();
