@@ -30,15 +30,15 @@ const tgtHow=t=>/スタン/.test(t||"")?"st":/デッキの下/.test(t||"")?"bt":
 const aiBestTargets=(p,n=1,how)=>cs=>cs.slice().sort((a,b)=>aiScoreTarget(p,b,how)-aiScoreTarget(p,a,how)).filter(x=>isOpp(p,x)).slice(0,n);
 const aiCardValue=(p,x)=>{const c=C(x);let v=lvOf(x);if(c.ci)v+=2;if(c.t==="キャラ"&&lvOf(x)<=p.file.length+2)v+=3;if(!canPlayColor(c,p))v-=5;return v};
 
-async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true}={}){
+async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true,can=null}={}){
   if(!cards.length)return [];
   if(p.cpu){
-    let r=ai?ai(cards):cards.slice(0,max);
+    let r=ai?ai(can?cards.filter(can):cards):cards.filter(y=>!can||can(y)).slice(0,max);
     r=r.slice(0,max);
     if(r.length<min)r=cards.slice(0,min);
     return r;
   }
-  return await chooseCards(`${p.name}: ${title}`,body,cards,{min,max,faceUp,okLabel:"決定"});
+  return await chooseCards(`${p.name}: ${title}`,body,cards,{min,max,faceUp,can,okLabel:"決定"});
 }
 async function yes(p,title,body,aiVal=true){
   if(p.cpu){const v=!!(typeof aiVal==="function"?aiVal():aiVal);
