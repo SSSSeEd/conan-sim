@@ -22,7 +22,7 @@ B10045 x3
 D03005 x3
 B04040 x3`;
 const OPP=["青単新一蘭","黄単佐藤高木","黒単ジンウォッカ","赤黒赤井ジン","黄単松田ミッドレンジ","青単少年探偵団"];
-(async()=>{const w=H.load({seed:SEED,init:{AI_OFF:[]}});const D=[...w.ev("PRESETS"),...w.ENV_DECKS.decks],AI_OFF0=w.ev("AI_OFF0");
+(async()=>{const w=H.load({seed:SEED,init:{AI_OFF:[],...(process.env.RB?{RUSH_BONUS:+process.env.RB}:{})}});const D=[...w.ev("PRESETS"),...w.ENV_DECKS.decks],AI_OFF0=w.ev("AI_OFF0");
   const res={F,SEED,aW:0,bW:0,draw:0,kidA:0,kidB:0,kidGames:0,errs:0};
   const kid=w.parseDeckText(KIDTXT);
   for(let i=0;i<N;i++){

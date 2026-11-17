@@ -80,7 +80,9 @@ async function chooseTurnPlan(p){
     const v=await rollout(p,plans[0]);if(!ROLL_RUSH)return null;best=plans[0];bv=v;tried.push([best,v])}
   else for(const pl of plans){const v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
   if(ROLL_RUSH&&!(G.cfg.noAct&&G.cfg.noAct[p.idx])){const b0=best;
-    for(const act of ACT_MODES){const pl={...b0,act},v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
+    for(const act of ACT_MODES){const pl={...b0,act},v=await rollout(p,pl);tried.push([pl,v]);
+      // rushb: 突撃・迅速で出たばかりのキャラを動かす手に加点する（SeEd: 突撃を付けても動かさないのは「付けること」で満足している。付けたなら動かす）
+      const vv=act!=="stay"&&ai2(p,"rushb")?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
   recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;
