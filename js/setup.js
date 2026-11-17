@@ -126,7 +126,9 @@ function renderMyDecks(){
   B.querySelectorAll("[data-myren]").forEach(b=>b.onclick=async()=>{const a=loadMyDecks(),k=+b.dataset.myren;
     const nm=await askText("デッキの名前を変更","新しい名前を入力してください。",a[k].name);if(nm===null)return;
     a[k].name=nm;saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`名前を変更しました: ${nm}`});
-  B.querySelectorAll("[data-mydel]").forEach(b=>b.onclick=()=>{const a=loadMyDecks();a.splice(+b.dataset.mydel,1);saveMyDecks(a);showSetup()});
+  B.querySelectorAll("[data-mydel]").forEach(b=>b.onclick=async()=>{const a=loadMyDecks(),k=+b.dataset.mydel;if(!a[k])return;
+    const ok=await ask("デッキを削除","「"+a[k].name+"」を削除します。元に戻せません。よろしいですか？",[{label:"削除する",value:true,primary:true},{label:"キャンセル",value:false}]);if(ok!==true)return;
+    const nm=a[k].name;a.splice(k,1);saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`削除しました: ${nm}`});
 }
 // デッキ補完（デッキタブ）。事件を選ぶと、その色の主力カード（環境デッキに出てくるレベル6以上・MR）が並ぶので、タップして枚数を選ぶ。
 // 選んだカードを元に「40枚に補完」。結果はマイデッキに登録、または対戦タブのデッキ欄にセットできる。通信は不要（収録カードの中だけで動く）
