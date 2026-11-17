@@ -88,9 +88,9 @@ function recOptions(p){ // その場で選べた行動
 }
 function recState(p){const o=opp(p);return {file:p.file.length,ev:p.ev.length,level:p.level,solved:p.solved,hand:p.hand.length,deck:p.deck.length,
   field:p.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oField:o.field.map(x=>C(x).nm+(x.st==="a"?"":x.st==="s"?"(S)":"(X)")),oEv:o.ev.length,oFile:o.file.length}}
-// 記録は人の席だけ。やった行動と、ターンごとの「できたのにやらなかったこと」（rec.miss）を残す（1試合数KB）
+// 記録は両方の席（who=席番号。CPUの行動も残す。人の分だけ見るときは who で絞る）。やった行動と、ターンごとの「できたのにやらなかったこと」（rec.miss）を残す（1試合数KB）
 function recAct(p,kind,x,target){
-  if(!G||!G.rec||G.over||p.cpu)return;
+  if(!G||!G.rec||G.over)return;
   G.rec.acts.push({t:G.turnNo,who:p.idx,kind,card:cardRef(x),target:target==="case"?"事件":cardRef(target)});
   if(kind==="end")recMiss(p);
 }
@@ -351,8 +351,9 @@ async function reason(p,x){
   const mis=o.field.filter(y=>y.st==="a"&&staticKw(y,o).misread>0);
   if(mis.length){
     let use;
-    if(o.cpu)use=mis.slice(0,Math.max(0,lp));
-    else use=await chooseCards(`${o.name}: ミスリード`,`${C(x).nm} の推理（LP${lp}）に対し、ミスリードするキャラを選べます（スリープします）。`,mis,{min:0,max:mis.length,okLabel:"ミスリード"});
+    // ミスリードは1回の推理に対して1枚まで（SeEdの指摘 2026-11-14）
+    if(o.cpu)use=lp>0?[mis.slice().sort((a,b)=>staticKw(b,o).misread-staticKw(a,o).misread)[0]]:[];
+    else use=await chooseCards(`${o.name}: ミスリード`,`${C(x).nm} の推理（LP${lp}）に対し、ミスリードするキャラを1枚まで選べます（スリープします）。`,mis,{min:0,max:1,okLabel:"ミスリード"});
     for(const y of use){y.st="s";const v=staticKw(y,o).misread;lp-=v;log(`${o.name} の ${C(y).nm} がミスリード${v}（LP${lp}）`);
       render();await cutin(y,"ミスリード！",`${o.name} の ${C(y).nm}：${C(x).nm} の推理 LP−${v}（残りLP${Math.max(0,lp)}）`,{kind:"mis"});await FX.onMisread(o,y)}
   }
