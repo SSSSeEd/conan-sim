@@ -3,6 +3,10 @@ const assert=require("assert");
 const {board}=require("./rules.js");
 const R="B01019"; // 効果文なし（カットインだけ）のキャラ Lv2
 module.exports=[
+  ["pickCards の can: 全カードを見せても CPU は対象外（can が false）を選ばない（バーボン B03111 の手札公開）",async w=>{
+    const G=board(w,{p0:{hand:[R,"B01019"]}});const [a,b]=G.P[0].hand;
+    const r=await w.ev("pickCards")(G.P[0],"t","",[a,b],{min:1,max:1,can:y=>y===b,ai:c=>c.slice(0,1)});
+    assert.deepStrictEqual(r,[b])}],
   ["赤井秀一 B04046: 自分のターン中は相手のキャラがレベル－1",async w=>{
     const G=board(w,{p0:{field:["B04046"]},p1:{field:[R]}});const [y]=G.P[1].field;
     assert.strictEqual(w.ev("lvOf")(y),1);G.turn=1;assert.strictEqual(w.ev("lvOf")(y),2)}],

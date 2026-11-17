@@ -34,8 +34,8 @@ DEF["1142"]={ // ジン B10087
 DEF["0360"]={ // バーボン B03111
   enter:async(p,x)=>{if(!partnerIs(p,"黒"))return;const o=opp(p);
     log(`　${o.name} は手札を公開: ${o.hand.map(y=>C(y).nm).join("、")||"なし"}`);
-    const cs=o.hand.filter(y=>lvOf(y)<=7);if(!cs.length)return;
-    const [y]=await pickCards(p,"相手の手札からリムーブさせるカード（レベル7以下）","",cs,{min:0,max:1,ai:c=>c.slice().sort((a,b)=>aiCardValue(o,b)-aiCardValue(o,a)).slice(0,1)});
+    if(!o.hand.some(y=>lvOf(y)<=7))return;
+    const [y]=await pickCards(p,"相手の手札（全公開）からリムーブさせるカード（レベル7以下）","公開された手札から、レベル7以下のカードを1枚まで選びます。",o.hand.slice(),{min:0,max:1,can:y=>lvOf(y)<=7,ai:c=>c.slice().sort((a,b)=>aiCardValue(o,b)-aiCardValue(o,a)).slice(0,1)});
     if(y){detach(y);o.rm.push(y);log(`　${o.name} の手札の ${C(y).nm} をリムーブ`)}}};
 DEF["0721"]={ // カッ
   event:async(p,x)=>{if(!partnerIs(p,"黒")||!p.solved){log("　条件（パートナー黒・解決編）を満たさないので効果なし","n");return}
