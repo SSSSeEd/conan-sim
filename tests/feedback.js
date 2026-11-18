@@ -33,6 +33,19 @@ module.exports=[
     const t1=F.analyze(recs,deps),t2=F.analyze(back,deps);assert.deepStrictEqual(t2.map(d=>d.tips.map(t=>t.kind)),t1.map(d=>d.tips.map(t=>t.kind)));
     const noLog=F.pack(recs,{...deps,log:0});assert.ok(noLog.length<txt.length&&F.unpack(noLog,{})[0].log.length===0);
     assert.ok(txt.length<JSON.stringify(recs).length,"圧縮のほうが短い")}],
+  ["圧縮コピーCS2: 10戦ずつに分割し、つなげても一部だけでも戻せる（足りない番号が分かる）。圧縮でCS1より短い",async w=>{
+    const deps={parse:t=>w.parseDeckText(t),nameOf:n=>n};
+    const log=[[1,"ターン開始"],[1,"　B06066 を登場"],[2,"　　B03046 をスリープ"]];
+    const recs=Array.from({length:25},(_,i)=>({...rec(i%2),log,names:["あ","い"],first:0,turns:5,why:"x",start:"2026-11-15T00:00:00Z"}));
+    const ch=await F.packChunks(recs,deps,{per:10});assert.strictEqual(ch.length,3);assert.ok(ch[0].startsWith("CS2 1/3 "));
+    const all=await F.unpackAny(ch.join("\n\n"),{nameOf:n=>n});assert.strictEqual(all.records.length,25);assert.deepStrictEqual(all.missing,[]);
+    assert.deepStrictEqual(all.records[0].log,log);assert.strictEqual(all.records[24].winner,recs[24].winner);
+    const part=await F.unpackAny(ch[2]+"\n\n"+ch[0],{nameOf:n=>n});assert.strictEqual(part.records.length,15);assert.deepStrictEqual(part.missing,[2]);
+    assert.strictEqual((await F.unpackAny(F.pack(recs,deps),{nameOf:n=>n})).records.length,25);
+    assert.ok(ch.join("").length<F.pack(recs,deps).length,"CS2のほうが短い");
+    const big=await F.packChunks(recs,deps,{per:25,maxLen:300});assert.ok(big.length>1,"長すぎるチャンクは自動で割る");
+    assert.strictEqual((await F.unpackAny(big.join("\n"),{nameOf:n=>n})).records.length,25);
+    await assert.rejects(()=>F.unpackAny("abc",{}))}],
   ["フィードバック: 相手デッキ別の戦績と、苦手・得意な相手の提案を出す",async w=>{
     const mk=(opp,win,gap)=>({...rec(win),decks:["テスト",opp],miss:[{t:2,s:{ev:0,oEv:0}},{t:4,s:{ev:0,oEv:0}},{t:6,s:{ev:0,oEv:gap}}],turns:win?10:12});
     const recs=[mk("速攻",0,3),mk("速攻",0,2),mk("速攻",1,2),mk("遅い",1,0),mk("遅い",1,0)];

@@ -69,9 +69,22 @@ function orderCards(title,cards,{body,okLabel="この順番で戻す",keepLabel=
 // ===== 記録の圧縮コピー（長いログがコピーできないとき） =====
 // 人には読めない短い形（js/feedback.js の pack）。ログなし=分析に要るものだけ。貼り付けて読み込み画面に入れれば元に戻る
 async function copyPacked(recs,{log}={}){
-  const txt=Feedback.pack(recs,{parse:t=>parseDeckText(t),nameOf:n=>(DB[n]||{}).nm||n,log});
-  try{await navigator.clipboard.writeText(txt);toast(`圧縮してコピーしました（${txt.length}文字）`)}
-  catch(e){await ask("コピーできませんでした","下の内容を選んでコピーしてください。\n\n"+txt,[{label:"OK",value:1,primary:true}])}}
+  const list=Array.isArray(recs)?recs:[recs];
+  let chunks;try{chunks=await Feedback.packChunks(list,{parse:t=>parseDeckText(t),nameOf:n=>(DB[n]||{}).nm||n,log},{per:10})}catch(e){console.warn(e);toast("圧縮できませんでした");return}
+  if(!chunks.length){toast("圧縮できる記録がありません");return}
+  const all=chunks.join("\n\n"),name=`conan-sim-packed-${new Date().toISOString().slice(0,10)}`;
+  const save=async()=>{const blob=new Blob([all],{type:"text/plain"}),f=new File([blob],name+".txt",{type:"text/plain"});
+    try{if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia("(pointer:coarse)").matches){await navigator.share({files:[f],title:f.name});return}}catch(e){if(e&&e.name==="AbortError")return}
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=f.name;document.body.appendChild(a);a.click();a.remove()};
+  return modal((m,done)=>{
+    m.insertAdjacentHTML("beforeend",`<div class="mt">圧縮コピー（${list.length}戦・${chunks.length}分割）</div>
+      <div class="mb" style="font-size:12px;color:var(--ink-dim)">1つずつコピーして順に貼るか、テキストファイルで保存して渡してください（全部入りの1ファイル）。人には読めない形です。</div><div class="opts" id="cpL"></div>
+      <div class="opts"><button id="cpSave">テキストファイルで保存（全${chunks.length}分割）</button><button class="primary" id="cpClose">閉じる</button></div>`);
+    const L=m.querySelector("#cpL");
+    chunks.forEach((c,i)=>{const b=document.createElement("button");b.textContent=`${i+1}/${chunks.length} をコピー（${c.length}文字）`;
+      b.onclick=async()=>{try{await navigator.clipboard.writeText(c);b.textContent=`✓ ${i+1}/${chunks.length} コピー済み`}catch(e){b.textContent="コピーできません（ファイル保存を使ってください）"}};L.appendChild(b)});
+    m.querySelector("#cpSave").onclick=save;m.querySelector("#cpClose").onclick=()=>done();
+  })}
 // ===== 対戦記録（JSON）を取り込んで、アプリ内でフィードバックを見る =====
 // 記録JSON v2（アプリの「全記録を書き出す」）の配列または1試合分。分析は js/feedback.js（tools/feedback.js と共通）
 function feedbackReport(records,srcLabel){
@@ -99,14 +112,14 @@ function feedbackReport(records,srcLabel){
 function feedbackImport(){
   return modal((m,done)=>{
     m.insertAdjacentHTML("beforeend",`<div class="mt">記録JSONを読み込む</div>
-      <div class="mb" style="font-size:12px;color:var(--ink-dim)">「全記録を書き出す（JSON）」で保存したファイルを選ぶか、中身を貼り付けてください。</div>
-      <input type="file" id="fiFile" accept=".json,application/json">
+      <div class="mb" style="font-size:12px;color:var(--ink-dim)">「全記録を書き出す（JSON）」で保存したファイルや、圧縮コピーのテキストファイルを選ぶか、中身を貼り付けてください（圧縮コピーは何個つなげて貼ってもOK）。</div>
+      <input type="file" id="fiFile" accept=".json,.txt,application/json,text/plain">
       <textarea id="fiText" rows="5" placeholder="ここにJSONを貼り付け" style="width:100%;box-sizing:border-box;margin-top:6px;font-size:12px"></textarea>
       <div class="dmsg" id="fiMsg"></div>
       <div class="opts"><button class="primary" id="fiGo">フィードバックを見る</button><button id="fiClose">閉じる</button></div>`);
     const msg=t=>{const e=m.querySelector("#fiMsg");e.className="dmsg bad";e.textContent=t};
     const run=async(txt,label)=>{let j;
-      if(txt.trim().startsWith("CS1")){try{j=Feedback.unpack(txt,{nameOf:n=>(DB[n]||{}).nm||n})}catch(e){msg("圧縮コピーとして読めませんでした");return}}
+      if(/^\s*CS[12]/.test(txt)){try{const u=await Feedback.unpackAny(txt,{nameOf:n=>(DB[n]||{}).nm||n});j=u.records;if(u.missing.length)label=(label||"")+`（${u.total}分割のうち ${u.missing.join("・")} が足りません）`}catch(e){msg("圧縮コピーとして読めませんでした");return}}
       else try{j=JSON.parse(txt)}catch(e){msg("JSONとして読めませんでした");return}
       const a=(Array.isArray(j)?j:[j]).filter(r=>r&&r.deckLists&&r.acts);
       if(!a.length){msg("対戦記録が見つかりません（記録JSON v2 の配列、または1試合分が必要です）");return}
