@@ -7,6 +7,8 @@
 - 画面は下部タブ（対戦／デッキ／記録／フィードバック）。「デッキ」タブにマイデッキ登録（名前変更つき）とデッキ補完（事件を選ぶ→主力カードをタップ→40枚に補完。DECKFILL.md）がある。対戦タブのデッキ欄は事件・パートナー・主力カードの表示（コード欄は hidden で残している）。
 - 効果の対象選び: `chooseChar`（js/effects/core.js）の題名に「スリープさせる」「スタンさせる」「リムーブする」があると、すでにその状態のキャラや効かない相手を候補から外す。新しく書くときは題名をその形にする。
 
+- 圧縮コピーはCS2（10戦ずつに分割+deflate+base64url）。アプリはチャンクごとのコピーとテキスト保存。分析側の復元は `node tools/feedback.js --unpack 圧縮.txt 出力.json`（js/feedback.js の packChunks / unpackAny）。CS1も読める。
+
 ## 次にやること（SeEd の指示待ち）
 - デッキ補完の精度の調整（補完したデッキをCPU同士で回して勝率で比べる。DECKFILL.md の「今後」）。
 - 対戦記録からのフィードバック（js/feedback.js）の改善、CPUの強化（js/cpu.js。コンボ探索は tools/combo_lab.js・combo_gate.js、採用表は js/combo_table.js）。

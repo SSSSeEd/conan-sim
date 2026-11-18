@@ -223,7 +223,7 @@ function renderRecords(){
    <div class="reclist">${all.slice().reverse().slice(0,20).map((r,i)=>{const me=r.cpu[0]?null:0;const res=me===null?`${esc(r.names[r.winner])} 勝利`:r.winner===me?"勝ち":"負け";
      return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span>${r.feedback&&(r.feedback.app||r.feedback.cpu)?" ✎":""} ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
    <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>
-   <div class="row"><button id="recCp" ${all.length?"":"disabled"}>全記録を圧縮コピー（ログなし）</button></div>
+   <div class="row"><button id="recCp" ${all.length?"":"disabled"}>全記録を圧縮コピー（ログなし・10戦ずつ）</button></div>
    <div class="hint">ログが長くてコピーできないときは、対戦記録を開いて「圧縮コピー」を使ってください（人には読めない短い形です）。</div>`;
   B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
     const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;

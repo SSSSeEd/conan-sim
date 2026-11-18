@@ -144,6 +144,50 @@ function unpackOne(o,{nameOf}={}){
   return r}
 function unpack(text,deps){const t=String(text).trim();if(!t.startsWith("CS1"))throw new Error("圧縮形式ではありません");
   return JSON.parse(t.slice(3)).map(o=>unpackOne(o,deps))}
-const API={analyze,toMarkdown,pack,unpack,MIN_GAMES};
+// ===== 圧縮コピー v2（CS2）: 分割 + 頻度符号（deflate = LZ77 + ハフマン符号） =====
+// CS1 の JSON を deflate で圧縮して base64url にしたものを、数戦ずつの「チャンク」に分けて出す。
+// 頻出するカード番号・ログの決まり文句ほど短い符号になる（ハフマン符号）ので、平均符号長が下がる。
+// チャンク = "CS2 <番号>/<総数> <ID> <z|j>\n<本文>"。z=deflate-raw+base64url、j=圧縮できない環境用の素の JSON（base64url）。
+// チャンクは単独で読めるので、全部を貼っても、一部だけ貼ってもよい（足りない分は missing で返す）。
+const B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+function b64enc(u8){let s="";for(let i=0;i<u8.length;i+=3){const a=u8[i],b=u8[i+1],c=u8[i+2],n=(a<<16)|((b||0)<<8)|(c||0);
+  s+=B64[n>>18&63]+B64[n>>12&63]+(i+1<u8.length?B64[n>>6&63]:"")+(i+2<u8.length?B64[n&63]:"")}return s}
+function b64dec(s){const m=new Map([...B64].map((c,i)=>[c,i]));s=s.replace(/\s+/g,"");const o=[];
+  for(let i=0;i<s.length;i+=4){const q=[...s.slice(i,i+4)].map(c=>{if(!m.has(c))throw new Error("壊れたデータです");return m.get(c)});
+    const n=(q[0]<<18)|(q[1]<<12)|((q[2]||0)<<6)|(q[3]||0);o.push(n>>16&255);if(q.length>2)o.push(n>>8&255);if(q.length>3)o.push(n&255)}return Uint8Array.from(o)}
+async function streamAll(ts,u8){const r=new Response(new Blob([u8]).stream().pipeThrough(ts));return new Uint8Array(await r.arrayBuffer())}
+async function deflate(u8){
+  if(typeof CompressionStream!=="undefined")return streamAll(new CompressionStream("deflate-raw"),u8);
+  if(typeof require!=="undefined"){const z=require("zlib");return new Uint8Array(z.deflateRawSync(u8,{level:9}))}
+  return null}
+async function inflate(u8){
+  if(typeof DecompressionStream!=="undefined")return streamAll(new DecompressionStream("deflate-raw"),u8);
+  if(typeof require!=="undefined"){const z=require("zlib");return new Uint8Array(z.inflateRawSync(u8))}
+  throw new Error("この環境では展開できません")}
+const utf8=s=>new TextEncoder().encode(s),unutf8=u=>new TextDecoder().decode(u);
+// records をチャンクの配列(文字列)にする。per=1チャンクあたりの試合数(既定10)、maxLen=1チャンクの最大文字数(超えたら半分に割る)
+async function packChunks(records,deps,{per=10,maxLen=12000}={}){
+  const a=(Array.isArray(records)?records:[records]).filter(r=>r&&r.deckLists);if(!a.length)return [];
+  const id=Math.random().toString(36).slice(2,6),parts=[];
+  const enc=async g=>{const raw=utf8(JSON.stringify(g.map(r=>packOne(r,deps))));const z=await deflate(raw);
+    const mode=z?"z":"j",body=b64enc(z||raw);
+    if(body.length>maxLen&&g.length>1){const h=Math.ceil(g.length/2);await enc(g.slice(0,h));await enc(g.slice(h));return}
+    parts.push([mode,body])};
+  for(let i=0;i<a.length;i+=per)await enc(a.slice(i,i+per));
+  return parts.map(([mode,body],i)=>`CS2 ${i+1}/${parts.length} ${id} ${mode}\n${body}`)}
+// CS1・CS2（チャンクを何個つなげて貼ってもよい）をまとめて戻す。返り値 {records, missing:[足りない番号], total, chunks}
+async function unpackAny(text,deps){const t=String(text).trim();
+  if(t.startsWith("CS1"))return {records:unpack(t,deps),missing:[],total:1,chunks:1};
+  const ch=t.split(/(?=^CS2 \d+\/\d+ )/m).map(x=>x.trim()).filter(Boolean);
+  if(!ch.length||!ch.every(x=>x.startsWith("CS2 ")))throw new Error("圧縮形式ではありません");
+  const got=new Map();let total=0;const out=[];
+  for(const c of ch){const nl=c.indexOf("\n");const [,pos,id,mode]=/^CS2 (\d+\/\d+) (\S+) ([zj])/.exec(c.slice(0,nl<0?c.length:nl))||[];
+    if(!pos||nl<0)throw new Error("チャンクの見出しが読めません");const [i,n]=pos.split("/").map(Number);
+    const key=id+":"+i;if(got.has(key))continue;got.set(key,1);total=Math.max(total,n);
+    const raw=b64dec(c.slice(nl+1));const js=unutf8(mode==="z"?await inflate(raw):raw);
+    out.push([i,...JSON.parse(js).map(o=>unpackOne(o,deps))])}
+  out.sort((x,y)=>x[0]-y[0]);const have=new Set(out.map(x=>x[0]));
+  return {records:out.flatMap(x=>x.slice(1)),missing:Array.from({length:total},(_,i)=>i+1).filter(i=>!have.has(i)),total,chunks:out.length}}
+const API={analyze,toMarkdown,pack,unpack,packChunks,unpackAny,MIN_GAMES};
 if(typeof module!=="undefined"&&module.exports)module.exports=API;else globalThis.Feedback=API;
 })();
