@@ -107,7 +107,7 @@ function renderMyDecks(){
    <div class="row"><button id="myLast" title="対戦タブで最後に「対戦開始」したときの、あなたのデッキを登録します">最後に使ったデッキを登録</button></div>
    <div class="dmsg" id="myMsg"></div>
    <div class="reclist">${my.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-mypre="${k}">プリセットに追加</button><button data-myren="${k}">名前を変更</button><button data-mydel="${k}">削除</button></div>`).join("")}</div>
-   ${up.length?`<div class="hint">端末のプリセット（${up.length}個。コード側のプリセットとは別）</div><div class="reclist">${up.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-upredel="${k}">プリセットから外す</button></div>`).join("")}</div>`:""}`;
+   ${up.length?`<div class="hint">端末のプリセット（${up.length}個。コード側のプリセットとは別）。総当たりの検証に使うときは「コピー」して Claude に貼ってください。</div><div class="row"><button id="upreCopy">端末プリセットをコピー</button></div><div class="reclist">${up.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-upredel="${k}">プリセットから外す</button></div>`).join("")}</div>`:""}`;
   document.getElementById("myAdd").onclick=async()=>{const id=shareIdOf(document.getElementById("myUrl").value);const m=document.getElementById("myMsg");
     if(!id){m.className="dmsg bad";m.textContent="リンクを貼ってください";return}
     m.className="dmsg";m.textContent="読込中…";
@@ -129,6 +129,9 @@ function renderMyDecks(){
     const same=[...PRESETS,...((window.ENV_DECKS&&ENV_DECKS.decks)||[]),...loadUserPresets()].find(x=>x.name===d.name||key(x.text)===key(d.text));
     if(same){m.className="dmsg bad";m.textContent=`すでにあります: ${same.name}`;return}
     const a=loadUserPresets();a.push({name:d.name,text:d.text});saveUserPresets(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`プリセットに追加しました: ${d.name}`});
+  const uc=document.getElementById("upreCopy");if(uc)uc.onclick=async()=>{const m=document.getElementById("myMsg");
+    try{await navigator.clipboard.writeText(JSON.stringify(loadUserPresets()));m.className="dmsg good";m.textContent="コピーしました（Claude に貼ってください）"}
+    catch(e){m.className="dmsg bad";m.textContent="コピーできませんでした"}};
   B.querySelectorAll("[data-upredel]").forEach(b=>b.onclick=async()=>{const a=loadUserPresets(),k=+b.dataset.upredel;if(!a[k])return;
     const ok=await ask("プリセットから外す","「"+a[k].name+"」を端末のプリセットから外します（マイデッキには残ります）。よろしいですか？",[{label:"外す",value:true,primary:true},{label:"キャンセル",value:false}]);if(ok!==true)return;
     const nm=a[k].name;a.splice(k,1);saveUserPresets(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`プリセットから外しました: ${nm}`});
