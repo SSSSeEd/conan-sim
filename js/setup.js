@@ -100,13 +100,14 @@ function resumeBox(){const s=loadSave();if(!s)return "";
    <div class="row"><button class="primary" id="resume">続きから</button><button id="resumeDel">消す</button></div>
    <div class="hint">新しく対戦を始めると、この対戦は消えます。</div></div>`}
 function renderMyDecks(){
-  const B=document.getElementById("myBox");if(!B)return;const my=loadMyDecks();
+  const B=document.getElementById("myBox");if(!B)return;const my=loadMyDecks(),up=loadUserPresets();
   B.innerHTML=`<b>デッキ登録（マイデッキ ${my.length}個）</b>
    <div class="hint">conan-tcg-app のデッキ共有リンク・公式デッキレシピのリンク（またはID）を貼って「登録」すると、上のデッキ一覧の「マイデッキ」に追加されます。端末に保存されます。</div>
    <div class="row"><input id="myUrl" placeholder="共有リンク または ID" style="flex:1;min-width:0"><button id="myAdd" class="primary">登録</button></div>
    <div class="row"><button id="myLast" title="対戦タブで最後に「対戦開始」したときの、あなたのデッキを登録します">最後に使ったデッキを登録</button></div>
    <div class="dmsg" id="myMsg"></div>
-   <div class="reclist">${my.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-myren="${k}">名前を変更</button><button data-mydel="${k}">削除</button></div>`).join("")}</div>`;
+   <div class="reclist">${my.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-mypre="${k}">プリセットに追加</button><button data-myren="${k}">名前を変更</button><button data-mydel="${k}">削除</button></div>`).join("")}</div>
+   ${up.length?`<div class="hint">端末のプリセット（${up.length}個。コード側のプリセットとは別）</div><div class="reclist">${up.map((d,k)=>`<div class="row" style="gap:6px"><span style="flex:1;font-size:12px">${esc(d.name)}</span><button data-upredel="${k}">プリセットから外す</button></div>`).join("")}</div>`:""}`;
   document.getElementById("myAdd").onclick=async()=>{const id=shareIdOf(document.getElementById("myUrl").value);const m=document.getElementById("myMsg");
     if(!id){m.className="dmsg bad";m.textContent="リンクを貼ってください";return}
     m.className="dmsg";m.textContent="読込中…";
@@ -123,6 +124,14 @@ function renderMyDecks(){
     const nm=await askText("最後に使ったデッキを登録","デッキの名前を入力してください。",hit?hit.name:`${C({n:d.partner}).nm}のデッキ`);
     if(nm===null)return;
     const a=loadMyDecks();a.push({name:nm,text:deckToText(d)});saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`登録しました: ${nm}`};
+  B.querySelectorAll("[data-mypre]").forEach(b=>b.onclick=()=>{const d=loadMyDecks()[+b.dataset.mypre];if(!d)return;const m=document.getElementById("myMsg");
+    const key=t=>deckToText(parseDeckText(t));
+    const same=[...PRESETS,...((window.ENV_DECKS&&ENV_DECKS.decks)||[]),...loadUserPresets()].find(x=>x.name===d.name||key(x.text)===key(d.text));
+    if(same){m.className="dmsg bad";m.textContent=`すでにあります: ${same.name}`;return}
+    const a=loadUserPresets();a.push({name:d.name,text:d.text});saveUserPresets(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`プリセットに追加しました: ${d.name}`});
+  B.querySelectorAll("[data-upredel]").forEach(b=>b.onclick=async()=>{const a=loadUserPresets(),k=+b.dataset.upredel;if(!a[k])return;
+    const ok=await ask("プリセットから外す","「"+a[k].name+"」を端末のプリセットから外します（マイデッキには残ります）。よろしいですか？",[{label:"外す",value:true,primary:true},{label:"キャンセル",value:false}]);if(ok!==true)return;
+    const nm=a[k].name;a.splice(k,1);saveUserPresets(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`プリセットから外しました: ${nm}`});
   B.querySelectorAll("[data-myren]").forEach(b=>b.onclick=async()=>{const a=loadMyDecks(),k=+b.dataset.myren;
     const nm=await askText("デッキの名前を変更","新しい名前を入力してください。",a[k].name);if(nm===null)return;
     a[k].name=nm;saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`名前を変更しました: ${nm}`});
