@@ -81,6 +81,10 @@ function deckToText(d){
 const MY_KEY="conan-sim-mydecks";
 function loadMyDecks(){try{return JSON.parse(localStorage.getItem(MY_KEY)||"[]")}catch(e){return []}}
 function saveMyDecks(a){try{localStorage.setItem(MY_KEY,JSON.stringify(a))}catch(e){}}
+// 端末だけのプリセット（マイデッキの「プリセットに追加」で入る。コード側の PRESETS とは別に端末へ保存）。末尾に足すので既存プリセットの番号は変わらない
+const UPRE_KEY="conan-sim-userpresets";
+function loadUserPresets(){try{return JSON.parse(localStorage.getItem(UPRE_KEY)||"[]")}catch(e){return []}}
+function saveUserPresets(a){try{localStorage.setItem(UPRE_KEY,JSON.stringify(a))}catch(e){}}
 function shareIdOf(s){s=(s||"").trim();const m=s.match(/(?:deck\/|share_id=|deck=|d_code=)([A-Za-z0-9_-]{4,})/);return m?m[1]:s.replace(/[^A-Za-z0-9_-]/g,"")}
 // 全47デッキの総当たり（CPU同士・探索あり・1081組み合わせ×30戦、2026-11-20。simulator/matchup-all45-2026-11-20.md）での各デッキの勝率(%)。
 // 対戦タブのデッキ選択で、勝率の高い上位だけを出すのに使う。作り直し: node tools/gen_winrate.js 総当たり結果.jsonl（誤差は1組み合わせ±18%程度で、隣同士の順位差は誤差内）
@@ -90,7 +94,7 @@ function deckTopOnly(){try{return localStorage.getItem("conan-sim-decktop")!=="a
 function setDeckTopOnly(v){try{localStorage.setItem("conan-sim-decktop",v?"top":"all")}catch(e){}}
 // 勝率の順位（0が一番高い）。表にないデッキ（マイデッキなど）は null
 function deckRank(d){if(!(d.name in DECK_WR))return null;return Object.keys(DECK_WR).filter(n=>DECK_WR[n]>DECK_WR[d.name]).length}
-function deckGroups(){return [["マイデッキ","m",loadMyDecks()],["プリセット","p",PRESETS],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]]]}
+function deckGroups(){return [["マイデッキ","m",loadMyDecks()],["プリセット","p",[...PRESETS,...loadUserPresets()]],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]]]}
 // 効果の自動化率: 効果文のあるカード（枚数で数える。パートナー・事件も1枚）のうち自動で処理されるもの。CPUは100%のデッキだけ使う
 function autoRate(d){let all=0,ok=0;const ng=[];
   for(const id of [...d.main,d.partner,d.caseN]){const c=DB[id];if(!c||!(c.f||c.hr||c.ci))continue;
