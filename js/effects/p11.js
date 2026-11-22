@@ -53,6 +53,7 @@ DEF["1197"]={ // 怪盗キッド B11031
   abilities:[
     {label:"手札を1枚リムーブ: アクティブにしてAP－2000、キャラを1枚スリープ",turn1:true,
       can:(p,x)=>condOk("事件探偵VS怪盗",p)&&evTot(p)>=5&&p.hand.length>=1,
+      why:p=>!condOk("事件探偵VS怪盗",p)?`自分の事件が［探偵VS怪盗］でない（${C(p.caseC).nm}）`:evTot(p)<5?`お互いの証拠が合わせて${evTot(p)}つ（自分${p.ev.length}・相手${opp(p).ev.length}）。5つ以上必要`:!p.hand.length?"手札がない":"",
       run:async(p,x)=>{await discard(p,1);activateC(x);apTurn(x,-2000);const t=await chooseChar(p,"スリープさせるキャラ",y=>y.st==="a"&&y!==x);if(t)sleepC(t);return true},
       aiCan:(p,x)=>x.st==="s"&&p.hand.length>=2},
     {label:"スリープ: 相手のスリープ状態のキャラとコンタクト",can:(p,x)=>x.st==="a"&&!x.fresh&&opp(p).field.some(y=>y.st==="s"),
