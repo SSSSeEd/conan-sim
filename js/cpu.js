@@ -54,6 +54,7 @@ function cpuContact0(q,mine,theirs,cuts,tp){
     const next=o.field.some(y=>y!==theirs&&y.st!=="a"&&apOf(y)<=apOf(mine))||o.ev.length>0;
     if(bb&&next)return {x:bb,how:"cut"}}
   if(need<=0)return comboCut(q,mine,tp,cuts);
+  {const dc=deckCpu(q),x=dc&&dc.cut&&dc.cut(q,mine,theirs,cuts,tp);if(x)return {x,how:"cut"}} // デッキ専用CPU: 条件が揃った除去カットインなど
   // ジン B01098: 自分のターンに負けそうなら、自分よりレベルの高い相手のキャラと相打ちにする
   if(q===tp){const gin=cuts.find(x=>idOf(x)==="0086");if(gin&&lvOf(theirs)>=Math.max(6,lvOf(mine)))return {x:gin,how:"cut"}}
   // 守る（倒す）価値があるときだけカットインを切る
@@ -64,6 +65,9 @@ function cpuContact0(q,mine,theirs,cuts,tp){
   if(c.length)return {x:c[0].x,how:"cut"};
   return comboCut(q,mine,tp,cuts);
 }
+// デッキ専用CPU（js/deckcpu/*.js の DECK_CPU）。席ごとに初回だけデッキを判定し、使うカードの優先度に加点する。aiOff に "deck" で無効
+function deckCpu(p){if(!window.DECK_CPU||!ai2(p,"deck"))return null;if(p.deckCpu===undefined){p.deckCpu="";for(const k in DECK_CPU)if(DECK_CPU[k].detect(p)){p.deckCpu=k;break}}return p.deckCpu?DECK_CPU[p.deckCpu]:null} // 関数は探索の複製でコピーできないので、名前だけ持つ
+const deckPlay=(p,x)=>{const d=deckCpu(p);return d&&d.play?d.play(p,x):0};
 // SeEd の基準: レベル → 登場時の効果 → 除去 → ドロー。現場5体なら強いカードだけ入れ替える
 function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
   const rm=/リムーブする|デッキの下|スタン/.test(f);
@@ -71,7 +75,7 @@ function score2(p,x){const c=C(x),f=c.f||"";let v=(c.lv||0)*10;
   if(c.t==="キャラ"){if(/【登場時】/.test(f)&&FX.has(x,"enter"))v+=/【登場時】[^\n]*(リムーブ|スタン)/.test(f)?12:8;
     if(/引く|ドロー/.test(f))v+=3;
     if(p.field.length>=fieldMax(p)){const lo=Math.min(...p.field.map(y=>C(y).lv||0));if(!((c.lv||0)>=6||(c.lv||0)>=lo+3))return -999}}
-  return v}
+  return v+deckPlay(p,x)}
 // コンボ表（js/combo_table.js）: 手番のはじめに、parts がそろっていて行動が使えるコンボを1つ返す（表の先頭に近いものほど優先）
 function comboNow(p){
   for(const e of COMBO2){
@@ -113,7 +117,7 @@ async function cpuTurn(p){
       if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
       if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.has(x,"enter"))v+=25;
       if(c.t==="キャラ"&&p.field.length>=fieldMax(p))v-=30;
-      return v};
+      return v+deckPlay(p,x)};
     return cs.sort((a,b)=>score(b)-score(a))[0]||null};
   // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする
   // SeEd: 「烏丸蓮耶の影」「小さくなった名探偵」のようにFILEの枚数で出せるレベルが決まるイベントも、先にアシストしてから使う
