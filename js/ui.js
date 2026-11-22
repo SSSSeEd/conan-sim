@@ -73,7 +73,7 @@ function buildActs(box,x,p,z){
       if(z==="partner"){btn2(box,"アシスト",()=>assist(p),{disabled:x.st!=="a"});btn2(box,FX.eraseEvidence(p)?"証拠隠滅（相手の敗北）":"事件解決",()=>solve(p),{disabled:x.st!=="a"||!p.solved,primary:p.solved&&p.ev.length>=p.level})}
     }
     if(z==="field"||z==="case"||z==="pa"||z==="ev"||z==="file"){
-      for(const a of FX.abilities(p,x))btn2(box,`能力: ${a.label}${a.turn1?"（ターン1）":""}`,()=>FX.useAbility(p,x,a),{disabled:!a.ok});
+      for(const a of FX.abilities(p,x)){const why=!a.ok&&a.why&&a.why(p,x);btn2(box,`能力: ${a.label}${a.turn1?"（ターン1）":""}${why?`［使えない理由: ${why}］`:""}`,()=>FX.useAbility(p,x,a),{disabled:!a.ok})}
     }
   }
   if(FX.automated(x))box.insertAdjacentHTML("beforeend",'<div class="meta" style="flex-basis:100%">このカードの効果は自動で処理されます。</div>');
