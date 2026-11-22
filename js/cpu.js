@@ -87,7 +87,7 @@ async function cpuTurn(p){
   const cb=ai2(p,"combo2")?comboNow(p):null; // コンボ表にあるコンボが組めているなら、探索せずにその行動をする
   const plan=(cb?{play:cb.e.act.kind==="hand"?cb.x.n:undefined}:G.sim?(G.sim.planFor===p.idx?G.sim.plan:null):(searchOn(p)?await chooseTurnPlan(p):null))||{};
   if(G!==g0)return;
-  if(cb){if(!G.sim){G.comboFired=(G.comboFired||0)+1;if(G.rec)(G.rec.combo=G.rec.combo||[]).push({t:G.turnNo,who:p.idx,how:cb.e.how||cb.e.act.n})}
+  if(cb){if(!G.sim){G.comboFired=(G.comboFired||0)+1;if(G.rec)(G.rec.combo=G.rec.combo||[]).push({t:G.turnNo,who:p.idx,how:cb.e.how||cb.e.act.n});dl("combo",{who:p.idx,how:cb.e.how||cb.e.act.n})}
     if(cb.ab){G.ui.act={a:cb.x,t:null};await FX.useAbility(p,cb.x,cb.ab);await step();if(G.over)return}}
   if(!G.sim&&window.FIND_COMBOS&&(G.cfg.findFor==null||G.cfg.findFor===p.idx)){await findCombos(p);if(G!==g0)return}
   const o=opp(p);

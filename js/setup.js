@@ -228,7 +228,7 @@ function renderFill(){
 }
 function renderRecords(){
   const B=document.getElementById("recBox");if(!B)return;
-  const all=loadRecords();
+  const all=loadRecords(),dls=dlLoad();
   const fmt=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`};
   B.innerHTML=`<b>対戦記録（${all.length}件・端末に保存）</b>
    <div class="hint">対戦が終わるたびに、行動・その時に選べた選択肢・ログを自動で保存します（最新${REC_MAX}件）。「記録からフィードバック」で使われなかったカードや使い残しなどの傾向が見られます（書き出したJSONを読み込んでも同じです）。</div>
@@ -236,7 +236,11 @@ function renderRecords(){
      return `<button class="rec" data-i="${all.length-1-i}"><span class="${me===null?"":r.winner===me?"rw":"rl"}">${res}</span>${r.feedback&&(r.feedback.app||r.feedback.cpu)?" ✎":""} ${fmt(r.start)}・${r.turns}T・${esc(r.decks[0])} vs ${esc(r.decks[1])}</button>`}).join("")||'<div class="meta">まだありません</div>'}</div>
    <div class="row"><button id="recExp" ${all.length?"":"disabled"}>全記録を書き出す（JSON）</button><button id="recClr" ${all.length?"":"disabled"}>全部消す</button></div>
    <div class="row"><button id="recCp" ${all.length?"":"disabled"}>全記録を圧縮コピー（ログなし・10戦ずつ）</button></div>
-   <div class="hint">ログが長くてコピーできないときは、対戦記録を開いて「圧縮コピー」を使ってください（人には読めない短い形です）。</div>`;
+   <div class="hint">ログが長くてコピーできないときは、対戦記録を開いて「圧縮コピー」を使ってください（人には読めない短い形です）。</div>
+   <hr><b>詳しい対戦ログ（直近${DLOG_MAX}戦だけ・端末に保存）</b>
+   <div class="hint">CPUと対戦して1ターンごとの考えをメモし、終わったらここのログを貼って人との違いを分析する用です。通常のログに、両者の手札の中身・ドローで引いたカード・選択場面の候補と選んだ札・ガードとカットインの判断材料・探索の点数が入ります。${DLOG_MAX}戦を超えると古いものから自動で消えます。圧縮コピーとは別です。</div>
+   <div class="reclist">${dls.slice().reverse().map((r,i)=>`<button class="drec" data-d="${dls.length-1-i}">${fmt(r.start)}・${r.turns}T・${esc(r.names[0])} vs ${esc(r.names[1])}（${esc(r.decks[0])} / ${esc(r.decks[1])}）・${esc(r.names[r.winner]??"未決着")} 勝利</button>`).join("")||'<div class="meta">まだありません（対戦が終わると残ります）</div>'}</div>`;
+  B.querySelectorAll("[data-d]").forEach(e=>e.onclick=()=>dlogMenu(dls[+e.dataset.d]));
   B.querySelectorAll(".rec").forEach(e=>e.onclick=()=>{const r=all[+e.dataset.i];
     const sum=`${r.names[0]}（${r.decks[0]}） vs ${r.names[1]}（${r.decks[1]}）\n先攻: ${r.names[r.first]}／${r.turns}ターン／${r.names[r.winner]} の勝利（${r.why}）\n記録した行動: ${r.acts.length}回\n\n`;
     const fbt=r.feedback&&(r.feedback.app||r.feedback.cpu)?`【フィードバック】\n${r.feedback.app?"改善点: "+r.feedback.app+"\n":""}${r.feedback.cpu?"CPUへ: "+r.feedback.cpu+"\n":""}\n`:"";

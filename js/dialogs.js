@@ -68,6 +68,18 @@ function orderCards(title,cards,{body,okLabel="この順番で戻す",keepLabel=
 
 // ===== 記録の圧縮コピー（長いログがコピーできないとき） =====
 // 人には読めない短い形（js/feedback.js の pack）。ログなし=分析に要るものだけ。貼り付けて読み込み画面に入れれば元に戻る
+// 詳しい対戦ログ（dlog.js）のコピー・保存。圧縮はしない（そのまま貼って読める形）
+async function dlogCopy(r){const t=dlText(r);let ok=false;try{await navigator.clipboard.writeText(t);ok=true}catch(e){}
+  if(ok)toast(`詳しいログをコピーしました（${Math.round(t.length/1000)}KB）`);
+  else await ask("コピーできませんでした","下の内容を選んでコピーするか、保存を使ってください。\n\n"+t.slice(0,20000),[{label:"OK",value:1,primary:true}])}
+async function dlogFile(r,kind){const json=kind==="json",body=json?JSON.stringify(r,null,1):dlText(r),type=json?"application/json":"text/plain";
+  const name=`conan-sim-detail-${r.start.slice(0,16).replace(/[-:T]/g,"")}.${json?"json":"txt"}`;
+  const blob=new Blob([body],{type});
+  try{const f=new File([blob],name,{type});if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia("(pointer:coarse)").matches){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove()}
+async function dlogMenu(r){const v=await ask("詳しい対戦ログ",`${r.names[0]} vs ${r.names[1]}（${r.decks[0]} / ${r.decks[1]}）${r.turns}ターン\n通常のログに、手札の中身・ドロー・選択の候補と選んだ札・ガード/カットインの判断材料・探索の点数を足したものです。`,
+  [{label:"コピー（テキスト）",value:"cp",primary:true},{label:"テキストで保存",value:"txt"},{label:"JSONで保存",value:"json"},{label:"閉じる",value:0}]);
+  if(v==="cp")await dlogCopy(r);else if(v==="txt"||v==="json")await dlogFile(r,v)}
 async function copyPacked(recs,{log}={}){
   const list=Array.isArray(recs)?recs:[recs];
   let chunks;try{chunks=await Feedback.packChunks(list,{parse:t=>parseDeckText(t),nameOf:n=>(DB[n]||{}).nm||n,log},{per:10})}catch(e){console.warn(e);toast("圧縮できませんでした");return}

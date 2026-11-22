@@ -36,14 +36,19 @@ async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true,can=null
     let r=ai?ai(can?cards.filter(can):cards):cards.filter(y=>!can||can(y)).slice(0,max);
     r=r.slice(0,max);
     if(r.length<min)r=cards.slice(0,min);
+    dl("pick",{who:p.idx,cpu:true,title,min,max,cands:dlCards(can?cards.filter(can):cards),chose:dlCards(r)});
     return r;
   }
-  return await chooseCards(`${p.name}: ${title}`,body,cards,{min,max,faceUp,can,okLabel:"決定"});
+  const hr=await chooseCards(`${p.name}: ${title}`,body,cards,{min,max,faceUp,can,okLabel:"決定"});
+  dl("pick",{who:p.idx,cpu:false,title,min,max,cands:dlCards(can?cards.filter(can):cards),chose:dlCards(hr)});
+  return hr;
 }
 async function yes(p,title,body,aiVal=true){
   if(p.cpu){const v=!!(typeof aiVal==="function"?aiVal():aiVal);
-    return G.sim&&G.sim.explore?!!explore(p,"はい/いいえ",[false,true],+v,o=>`${o?"はい":"いいえ"}: ${title}／${String(body).slice(0,40)}`):v}
-  return await ask(`${p.name}: ${title}`,body,[{label:"はい",value:true,primary:true},{label:"いいえ",value:false}]);
+    const r=G.sim&&G.sim.explore?!!explore(p,"はい/いいえ",[false,true],+v,o=>`${o?"はい":"いいえ"}: ${title}／${String(body).slice(0,40)}`):v;
+    dl("yes",{who:p.idx,cpu:true,title,body:String(body||"").slice(0,60),v:r});return r}
+  const hv=await ask(`${p.name}: ${title}`,body,[{label:"はい",value:true,primary:true},{label:"いいえ",value:false}]);
+  dl("yes",{who:p.idx,cpu:false,title,body:String(body||"").slice(0,60),v:!!hv});return hv;
 }
 // 手札を1枚リムーブ（choosePlayer が選ぶ）
 async function discard(p,n=1,title="手札をリムーブ",chooser=p,filter=null){

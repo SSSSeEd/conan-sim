@@ -9,7 +9,8 @@ function checkDeck(p){ // デッキ0枚で即リフレッシュ
   else gainEvidence(opp(p),1);
 }
 function popDeck(p){if(G.over)return null;const x=p.deck.shift();checkDeck(p);return x}
-function draw(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.hand.push(x)}}}
+function draw(p,n=1){const got=[];for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.hand.push(x);got.push(x)}}
+  if(got.length)dl("draw",{who:p.idx,cards:dlCards(got),tag:G.turnNo===0?"初手・マリガン":""})}
 function gainEvidence(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.ev.push(x)}}}
 function toFile(p,n=1){for(let i=0;i<n;i++){const x=popDeck(p);if(x){x.st="a";p.file.push(x)}}}
 function resetMods(x){x.lockBy=null;x.trA=null;x.trD=null;x.tmpAb=null;x.negT=0;x.apM=0;x.apT=0;x.apC=0;x.apA=0;x.lvT=0;x.lpM=0;x.lpT=0;x.kw=[];x.nmT=null;x.viaAb=false;x.fresh=false;x.st="a";x.tauntT=0;x.bondAll=0}
@@ -118,6 +119,7 @@ function saveRecord(w,why){
   const r=G.rec;delete r._start;r.end=new Date().toISOString();r.winner=w.idx;r.why=why;r.turns=G.turnNo;
   r.final=G.P.map(p=>({ev:p.ev.length,file:p.file.length,field:p.field.length,hand:p.hand.length,deck:p.deck.length,solved:p.solved}));
   if(window.SIM_FAST&&!window.SIM_SAVE)return;
+  dlSave(G.P[w.idx],why);
   try{const all=loadRecords();all.push(r);while(all.length>REC_MAX)all.shift();localStorage.setItem(REC_KEY,JSON.stringify(all))}catch(e){}
 }
 
@@ -125,13 +127,13 @@ function saveRecord(w,why){
 function pushUndo(){
   if(!G||G.over||cur().cpu)return;
   try{G.undo.push({s:structuredClone({P:G.P,turn:G.turn,turnNo:G.turnNo,queue:G.queue,phase:G.phase}),uid:UID,
-    logN:logCount(),recL:G.rec.log.length,recA:G.rec.acts.length});
+    logN:logCount(),recL:G.rec.log.length,recA:G.rec.acts.length,dl:(G.dlog||[]).length});
     if(G.undo.length>30)G.undo.shift()}catch(e){console.warn(e)}
 }
 function undo(){
   if(!G||G.busy||!G.undo.length||cur().cpu||G.over)return;
   const u=G.undo.pop();Object.assign(G,u.s);UID=u.uid;
-  G.rec.log.length=u.recL;G.rec.acts.length=u.recA;if(G.logC)G.logC.length=u.recL;
+  G.rec.log.length=u.recL;G.rec.acts.length=u.recA;if(G.dlog&&u.dl!=null)G.dlog.length=u.dl;if(G.logC)G.logC.length=u.recL;
   G.ui.mode=null;G.ui.act=null;
   uiUndo(u.logN);saveGame();
 }
@@ -158,7 +160,7 @@ function unpackRefs(root){const ids=[];
   return f(root)}
 function snapshotGame(){
   return {v:1,at:new Date().toISOString(),uid:UID,meta:{turnNo:G.turnNo,turnName:cur().name,names:G.P.map(p=>p.name),decks:G.rec.decks},
-    g:packRefs({cfg:G.cfg,P:G.P,turn:G.turn,turnNo:G.turnNo,first:G.first,queue:G.queue,phase:G.phase,rec:G.rec,logC:G.logC||[],showOppHand:G.showOppHand})}
+    g:packRefs({cfg:G.cfg,P:G.P,turn:G.turn,turnNo:G.turnNo,first:G.first,queue:G.queue,phase:G.phase,rec:G.rec,dlog:G.dlog||[],logC:G.logC||[],showOppHand:G.showOppHand})}
 }
 function saveGame(){
   if(!G||G.sim||G.over||G.busy||G.ending||G.contact||G.phase!=="main"||window.SIM_FAST&&!window.SIM_SAVE)return;
@@ -184,6 +186,7 @@ async function startGame(cfg){
   G.first=cfg.first==="rand"?Math.floor(Math.random()*2):+cfg.first;
   G.rec={v:2,start:new Date().toISOString(),names:[...cfg.names],cpu:[!!cfg.cpu0,!!cfg.cpu],decks:cfg.decks.map(deckLabel),
     deckLists:cfg.decks.map(deckToText),first:G.first,log:[],acts:[]};
+  dlStart();
   G.turn=G.first;
   for(const p of G.P)p.level=caseLevel(p,p.idx===G.first);
   log(`先攻: ${G.P[G.first].name}`,"t");
@@ -214,6 +217,7 @@ async function mulligan(p){
     const tag=x=>x===P.k1?`${P.fs?1:2}ターン目に使える`:x===P.k2?`次のターンに使える`:null;
     const msg=P.k1&&P.k2?"1ターン目・2ターン目とも手札を使えます。":!P.k1?`⚠ 最初のターンに使えるカード（レベル${P.L1}以下）がありません。初手パスはかなり不利です。`:`⚠ 2回目のターンに使えるカード（レベル${P.L2}以下）がもう1枚ありません。`;
     back=await chooseCards(`${p.name}: マリガン（${P.fs?"先攻":"後攻"}）`,`【${P.fs?"先攻":"後攻"}】${p.name} は${P.fs?"先攻":"後攻"}です（${G.P[G.first].name} が先攻）。事件レベル ${p.level}。\nFILEは最初のターン${P.L1}枚、次のターン${P.L2}枚。${msg}\nデッキに戻すカードを選んでください（何枚でも、1回まで）。`,p.hand,{min:0,max:5,okLabel:"戻して引き直す",tag})}
+  dl("mull",{who:p.idx,hand:dlCards(p.hand),back:dlCards(back)});
   if(back.length){for(const x of back)detach(x);p.deck.push(...back);shuffle(p.deck);draw(p,back.length);log(`${p.name} はマリガンで${back.length}枚引き直した`)}
   else log(`${p.name} はマリガンしない`);
   render();
@@ -232,7 +236,7 @@ function beginTurn(){
   const firstTurn=G.turnNo===1;
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
-  G.phase="main";recTurnStart(p);render();saveGame();
+  G.phase="main";recTurnStart(p);dlTurnStart();render();saveGame();
   const go=()=>FX.mainStart(p).then(()=>{if(p.cpu)return cpuTurn(p)}); // 自分のメインフェイズ開始時の効果（沖矢昴 B05072・勝又力 B05075）
   // メインフェイズ開始時: 相手が効果でパートナーエリアに移したキャラを、持ち主が登場させるか決める
   const q=opp(p);
@@ -241,7 +245,7 @@ function beginTurn(){
 }
 async function endTurn(){
   if(G.over||G.ending)return;
-  const p=cur();recAct(p,"end",null);G.ending=true;
+  const p=cur();recAct(p,"end",null);dlTurnEnd();G.ending=true;
   await FX.endTurn(p);await runQueue();G.ending=false;
   if(G.over)return;
   const ends=[...p.field,...opp(p).field].filter(x=>/ターン終了時/.test(C(x).f||"")&&!FX.automated(x));
@@ -393,6 +397,7 @@ async function declareAction(p,x,target){ // target: inst or "case"
     else if(o.cpu)guard=cpuGuard(o,x,target,guards);
     else{const g=await chooseCards(`${o.name}: ガード`,`${C(x).nm}（AP${apOf(x)}）が${kind==="case"?"事件":C(target).nm+"（AP"+apOf(target)+"）"}にアクション。アクティブなキャラをスリープしてガードできます。`,guards,{min:0,max:1,okLabel:"ガード"});guard=g[0]||null}
   }
+  if(guards.length)dl("guard",{who:o.idx,cpu:!!o.cpu,atk:C(x).nm,apAtk:apOf(x),target:kind==="case"?"事件":`${C(target).nm}(AP${apOf(target)})`,cands:guards.map(y=>`${C(y).nm}(AP${apOf(y)}${y.st==="s"?",S":""})`),chose:guard?`${C(guard).nm}(AP${apOf(guard)})`:"",hand:dlCards(o.hand),oHand:p.hand.length,oField:p.field.length,ev:o.ev.length,oEv:p.ev.length});
   if(guard){if(guard.st==="a")guard.st="s";log(`${o.name} の ${C(guard).nm}（AP${apOf(guard)}）がガード`);await FX.onGuarded(p,x,guard,kind==="case"?null:target);
     {render();await cutin(guard,`${o.name}: ガード`,`${C(guard).nm}（AP${apOf(guard)}）`,{who:o})}await contact(p,x,guard)}
   else if(kind==="chara")await contact(p,x,target);
@@ -462,6 +467,8 @@ async function contactRight(q,ct,tp){
       if(cuts.includes(x)&&dis.includes(x)){choice={x,how:await ask("どちらで使う？","",[{label:"カットイン",value:"cut",primary:true},{label:"変装",value:"dis"}])}}
       else choice={x,how:cuts.includes(x)?"cut":"dis"}}
   }
+  dl("contact",{who:q.idx,cpu:!!q.cpu,mine:`${C(mine).nm}(AP${apOf(mine)})`,theirs:`${C(theirs).nm}(AP${apOf(theirs)})`,tp:q===tp,need:q===tp?apOf(theirs)-apOf(mine):apOf(theirs)-apOf(mine)+1,
+    cuts:cuts.map(x=>`${dlCard(x)}${cutinAp(x,q)!=null?"AP+"+cutinAp(x,q):"AP外効果"}`),dis:dlCards(dis),chose:choice?`${dlCard(choice.x)}(${choice.how==="cut"?"カットイン":"変装"})`:"",hand:dlCards(q.hand),oHand:opp(q).hand.length,oRm:opp(q).rm.length});
   if(!choice){log(`${q.name} はパス`,"n");return false}
   const x=choice.x;G.cutNeg=false;await FX.onOppCutDis(q,ct,choice); // 服部平蔵 B02030: カットインの効果を無効にする（G.cutNeg）
   {render();await cutin(x,`${q.name}: ${choice.how==="cut"?"カットイン":"変装"}`,choice.how==="cut"?((C(x).ci||"").split("\n")[0]||`AP＋${FX.grantedCutin(q,x)}`):`${C(mine).nm} → ${C(x).nm}`,{who:q})}

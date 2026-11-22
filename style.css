@@ -236,7 +236,7 @@ html.lr .side.active-turn .pname .ord{background:var(--manila);color:var(--manil
 /* ===== スマホ縦（ポケポケ風） ===== */
 #topbar .tb-only{display:none}
 .reclist{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin:6px 0}
-.reclist .rec{text-align:left;font-size:12px}
+.reclist .rec,.reclist .drec{text-align:left;font-size:12px}
 .frbody{max-height:60vh;overflow:auto;margin:6px 0}
 .frdeck{border:1px solid var(--line,#445);border-radius:8px;padding:8px;margin-bottom:8px}
 .frh{font-weight:bold;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.frh span{color:var(--manila);font-weight:normal;font-size:12px}
