@@ -47,7 +47,7 @@ function turnPlans(p){
 // 盤面をコピーして1つの組み合わせを試す。終わったら元の盤面に戻す
 async function rollout(p,plan){
   const real=G;
-  const g=structuredClone({...real,rec:null,undo:[],ui:{mode:null}});
+  const g=structuredClone({...real,rec:null,dlog:null,undo:[],ui:{mode:null}});
   g.sim={plan,planFor:p.idx,next:null,stage:0};for(const q of g.P)q.cpu=true;
   // 相手の手札は見えないので、相手の手札とデッキを混ぜて配り直す（同じ枚数）
   const o=g.P[1-p.idx],pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length);
@@ -65,6 +65,7 @@ function recSearch(p,tried,best){
   if(!G.rec)return;
   const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
   (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
+  dl("search",{who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
 }
 // アクションの出し方（plan.act）。突撃・迅速で出たばかりでもアクションできるキャラ（x.fresh）の動かし方を変えて試す
 //   chara: キャラへのアクションを優先（倒せる相手なら価値を問わず）、無ければ事件 / case: 事件へのアクションを優先 / stay: アクションしない（起こしたまま）
@@ -106,7 +107,7 @@ async function simFrom(base,p,explore){
   return {v,devs:g.sim.devs};
 }
 async function findCombos(p,M=12){
-  const base=structuredClone({...G,rec:null,undo:[],ui:{mode:null}});for(const q of base.P)q.cpu=true;
+  const base=structuredClone({...G,rec:null,dlog:null,undo:[],ui:{mode:null}});for(const q of base.P)q.cpu=true;
   const o=base.P[1-p.idx],pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length);
   const d0=await simFrom(base,p,0);if(d0.v==null)return;
   const T=window.COMBOS=window.COMBOS||{};

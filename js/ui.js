@@ -260,6 +260,6 @@ function uiUndo(logN){
   render();toast("一手戻しました");
 }
 function showEndMenu(p,why){ // 対戦が終わったときのメニュー
-  const endMenu=()=>ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"フィードバックを書く",value:"fb",primary:true},{label:"もう一度（同じデッキ）",value:"again"},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(async v=>{
-    if(v==="fb"){await feedbackPage(G.rec);endMenu()}else if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()});
+  const endMenu=()=>ask("ゲーム終了",`${p.name} の勝利\n${why}`,[{label:"フィードバックを書く",value:"fb",primary:true},{label:"詳しいログをコピー",value:"dl"},{label:"もう一度（同じデッキ）",value:"again"},{label:"デッキ選択に戻る",value:"setup"},{label:"盤面を見る",value:"view"}]).then(async v=>{
+    if(v==="fb"){await feedbackPage(G.rec);endMenu()}else if(v==="dl"){const r=dlLoad().find(x=>x.start===G.rec.start);if(r)await dlogMenu(r);else toast("詳しいログがありません");endMenu()}else if(v==="again")startGame(G.cfg);else if(v==="setup")showSetup()});
   endMenu()}
