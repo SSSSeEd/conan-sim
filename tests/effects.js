@@ -303,6 +303,10 @@ module.exports=[
     const mr4=w.inst("B11030");p.pa.length=0;p.field.push(mr4);G.turn=1;w.detach(mr4);p.hand.push(mr4);await w.runQueue();assert.ok(p.pa.includes(mr4)&&!p.hand.includes(mr4),"離れ方は問わない（手札に戻る場合も）");
     G.turn=0;p.pa.length=0;p.field.push(mr4);p.pa.length=0;w.detach(mr4);p.hand.push(mr4);await w.runQueue();assert.ok(p.hand.includes(mr4),"自分ターンは移らない");G.turn=1;p.hand.pop();p.pa.push(mr2);
     const mr3=w.inst("B11030");p.field.push(mr3);w.mrReplace(p,mr3);assert.ok(!p.pa.includes(mr2)&&p.rm.includes(mr2),"現場にMRが出たらパートナーエリアのMRもリムーブ")}],
+  ["MRが相手ターン中にデッキの下・デッキの上・手札へ移されても、現場を離れた扱いでパートナーエリアへ（自分のターンは移らない）",async w=>{
+    for(const [nm,mv,zone] of [["デッキの下",x=>w.ev("toDeckBottom")(x),"deck"],["デッキの上",x=>w.ev("toDeckTop")(x),"deck"],["手札",x=>w.ev("toHandFromField")(x),"hand"]])
+      for(const turn of [1,0]){const G=board(w,{p0:{field:["B11030"]},p1:{field:[R]}});G.turn=turn;const p=G.P[0],x=p.field[0];G.fxBy=G.P[1];mv(x);await w.runQueue();
+        if(turn===1)assert.ok(p.pa.includes(x)&&!p[zone].includes(x),nm+": 相手ターンはパートナーエリアへ");else assert.ok(!p.pa.includes(x)&&p[zone].includes(x),nm+": 自分ターンは行き先に残る")}}],
   ["レベル4(P11): 少年探偵団（吉田歩美・小嶋元太・円谷光彦）はFILE5で突撃、歩美は変装でスリープのLv7以下をリムーブして1枚引く、元太・光彦はカットインでコンタクト中のキャラをリムーブして1枚引く",async w=>{
     const G=board(w,{p0:{field:["B11007","B11008","B11009"],file:[R,R,R,R,R],deck:[R,R,R,R,R]},p1:{field:["B11002",R,R]}});
     const p=G.P[0],[ay,ge,mi]=p.field,D=w.ev("DEF"),[big,sm,sm2]=G.P[1].field;G.turn=0;
