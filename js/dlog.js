@@ -54,3 +54,51 @@ function dlSave(w,why){
   const all=dlLoad().filter(x=>x.start!==rec.start);all.push(rec);while(all.length>DLOG_MAX)all.shift();
   for(;;){try{localStorage.setItem(DLOG_KEY,JSON.stringify(all));return}catch(e){if(all.length<=1)return;all.shift()}} // 容量が足りなければ古いものからさらに外す
 }
+
+// ================= 短縮版（分析用）=================
+// SeEd は読まず、Claude が読む前提。情報は削らず長さだけ短くする（tests/dlog.js が短縮版を読み戻して元のイベントと一致することを確認する）。
+// (1) カード名を「#番号」の辞書にまとめる (2) 盤面（手札・現場・枚数）は前回の同プレイヤーの記録からの差分だけ
+// (3) 同じカードは「#3x2」と枚数でまとめる (4) キーを短くし、凡例を先頭に1回だけ書く。通常ログの行はそのまま残す。
+const DLS=" ¦ ";
+function dlCompact(r){
+  const names=r.names,ev=r.ev||[],dict=new Map();
+  const reg=s=>{if(!dict.has(s))dict.set(s,dict.size+1);return "#"+dict.get(s)};
+  const cnt=a=>(a&&a.length)?(()=>{const m=new Map();for(const s of a)m.set(s,(m.get(s)||0)+1);return [...m].map(([s,n])=>reg(s)+(n>1?"x"+n:"")).join(" ")})():"-";
+  const tail=s=>{const m=/^(.*?)(\(AP[^()]*\))$/.exec(s)||/^(.*\(Lv\d+\))(.*)$/.exec(s);return m?reg(m[1])+m[2]:reg(s)}; // 名(AP1000,S) / 名(Lv4)AP+2000 の後ろ側はそのまま
+  const fld=s=>{const m=/^(.*?)(\([SX]\))?AP(\d+)$/.exec(s);return m?reg(m[1])+(m[2]||"")+":"+m[3]:reg(s)};
+  const diff=(cur,prev,f)=>{const m=new Map();for(const s of prev)m.set(s,(m.get(s)||0)-1);for(const s of cur)m.set(s,(m.get(s)||0)+1);
+    const add=[],del=[];for(const [s,n] of m){for(let i=0;i<n;i++)add.push(s);for(let i=0;i<-n;i++)del.push(s)}
+    return [...add.map(x=>"+"+f(x)),...del.map(x=>"-"+f(x))].join(" ")};
+  const last={};
+  const snap=b=>{const o=last[b.who];last[b.who]=b;const L=[];
+    if(!o){L.push("手 "+cnt(b.hand),"場 "+(b.field.length?b.field.map(fld).join(" "):"-"))}
+    else{const h=diff(b.hand,o.hand,reg),f=diff(b.field,o.field,fld);if(h)L.push("手 "+h);if(f)L.push("場 "+f)}
+    const sc=(k,pr,v)=>{if(!o||o[pr]!==b[pr])L.push(k+" "+v)};
+    sc("file","file",b.file);sc("ev","ev",b.ev);sc("lv","level",b.level);sc("solved","solved",b.solved?1:0);sc("rm","rm",b.rm);sc("deck","deck",b.deck);sc("pt","partner",b.partner);
+    return L.length?"P"+b.who+" "+L.join(DLS):""};
+  const body=[];const out=l=>{if(l)body.push(l)};
+  const P=i=>"P"+i,star=e=>e.cpu?"*":"";
+  const fmt=e=>{switch(e.k){
+    case"turnStart":case"turnEnd":{const s=e.b.map(snap).filter(Boolean);return (e.k==="turnStart"?"[始]":"[終]")+(s.length?"\n"+s.join("\n"):"")}
+    case"draw":return `引 ${P(e.who)} ${cnt(e.cards)}${e.tag?DLS+e.tag:""}`;
+    case"mull":return `マリガン ${P(e.who)} 手 ${cnt(e.hand)} 戻 ${cnt(e.back)}`;
+    case"pick":return `選 ${P(e.who)}${star(e)}${DLS}${e.title}${DLS}${e.min}-${e.max}${DLS}${cnt(e.cands)}${DLS}${cnt(e.chose)}`;
+    case"yes":return `諾否 ${P(e.who)}${star(e)}${DLS}${e.title}${DLS}${e.body||""}${DLS}${e.v?1:0}`;
+    case"guard":return `ガード ${P(e.who)}${star(e)}${DLS}${reg(e.atk)}${DLS}${e.apAtk}${DLS}${e.target==="事件"?"事件":tail(e.target)}${DLS}${e.cands.map(tail).join(" ")||"-"}${DLS}${e.chose?tail(e.chose):"-"}${DLS}${cnt(e.hand)}${DLS}${e.oHand} ${e.oField} ${e.ev} ${e.oEv}`;
+    case"contact":return `接触 ${P(e.who)}${star(e)}${DLS}${e.tp?1:0}${DLS}${tail(e.mine)}${DLS}${tail(e.theirs)}${DLS}${e.need}${DLS}${e.cuts.map(tail).join(" ")||"-"}${DLS}${e.dis.map(reg).join(" ")||"-"}${DLS}${e.chose?tail(e.chose.replace(/\((カットイン|変装)\)$/,""))+(/変装\)$/.test(e.chose)?"(変装)":"(カ)"):"-"}${DLS}${cnt(e.hand)}${DLS}${e.oHand} ${e.oRm}`;
+    case"search":return `探索 ${P(e.who)}${DLS}${e.pick}${DLS}${e.plans.map(x=>x[1]+" "+x[0]).join(DLS)}`;
+    case"combo":return `コンボ表 ${P(e.who)}${DLS}${e.how}`;
+    default:return "? "+JSON.stringify(e)}};
+  let j=0;
+  r.log.forEach(([t,m],i)=>{while(j<ev.length&&ev[j].li<=i)out(fmt(ev[j++]));out(m)});
+  while(j<ev.length)out(fmt(ev[j++]));
+  const head=[`# 詳しい対戦ログ(短縮) ${r.start} ～ ${r.end||""}`,
+    `P0=${names[0]}${r.cpu[0]?"(CPU)":""}（${r.decks[0]}） P1=${names[1]}${r.cpu[1]?"(CPU)":""}（${r.decks[1]}）／先攻 P${r.first}／${r.turns}ターン／${r.winner==null?"未決着":"P"+r.winner+" 勝利（"+(r.why||"")+"）"}`,
+    "凡例: #n=カード辞書（下）。詳細行は通常ログの間に差し込み、区切りは「 ¦ 」。*=CPUの判断。xN=同名N枚。(S)=スリープ (X)=スタン。",
+    "[始][終]=手番の始め/終わりの盤面。前回の同プレイヤーの記録からの差分だけ（+増 -減、手=手札 場=現場 #n:AP、file=FILE枚数 ev=証拠 lv=事件レベル solved=解決編 rm=リムーブエリア deck=デッキ枚数 pt=パートナー）。最初だけ全部。",
+    "引 P=ドロー ¦ マリガン=手札→戻した札 ¦ 選=選択: 題¦最小-最大枚¦候補¦選んだ札 ¦ 諾否=題¦本文¦1はい0いいえ",
+    "ガード=P¦攻撃キャラ¦攻撃AP¦対象¦ガード候補¦選んだ1体¦手札¦相手の手札枚数 相手の現場数 自証拠 相手証拠 ¦ 接触=P¦自分の番か¦自分のキャラ¦相手のキャラ¦勝つのに要るAP差¦カットイン候補(AP+)¦変装候補¦選んだ札(カ=カットイン)¦手札¦相手の手札枚数 相手のリムーブエリア枚数",
+    "探索=P¦採用案¦全案の「点数 案」 ¦ コンボ表=P¦内容",
+    ...(r.deckLists||[]).map((t,i)=>`P${i}デッキ: ${t.replace(/\n/g," / ")}`),"カード辞書:"];
+  const d=[...dict].map(([s,i])=>`#${i}=${s}`);
+  return [...head,...d,"## ログ",...body].join("\n")}
