@@ -57,6 +57,7 @@ DEF["1197"]={ // 怪盗キッド B11031
       run:async(p,x)=>{await discard(p,1);activateC(x);apTurn(x,-2000);const t=await chooseChar(p,"スリープさせるキャラ",y=>y.st==="a"&&y!==x);if(t)sleepC(t);return true},
       aiCan:(p,x)=>x.st==="s"&&p.hand.length>=2},
     {label:"スリープ: 相手のスリープ状態のキャラとコンタクト",can:(p,x)=>x.st==="a"&&!x.fresh&&opp(p).field.some(y=>y.st==="s"),
+      why:(p,x)=>x.st!=="a"?"このキャラがアクティブでない（スリープのコストを払えない）":x.fresh?"このターンに登場したばかりで、スリープのコストを払えない":!opp(p).field.some(y=>y.st==="s")?"相手の現場にスリープ状態のキャラがいない":"",
       run:async(p,x)=>{const t=await chooseChar(p,"コンタクトする相手のキャラ（スリープ状態）",y=>isOpp(p,y)&&y.st==="s");if(!t)return false;
         sleepCost(x);log(`　${C(x).nm} と ${C(t).nm} のコンタクトが発生`);await contact(p,x,t);return true},
       aiCan:(p,x)=>opp(p).field.some(y=>y.st==="s"&&apOf(y)<=apOf(x))}]};

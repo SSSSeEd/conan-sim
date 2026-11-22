@@ -217,7 +217,9 @@ module.exports=[
     p.caseC=w.inst("B11098");assert.ok(a.can(p,x),"探偵VS怪盗で証拠が合わせて5つなら宣言できる（相手の証拠も数える）");
     p.ev.pop();assert.ok(!a.can(p,x),"証拠が合わせて4つなら宣言できない");assert.ok(/合わせて4つ/.test(a.why(p,x)),"使えない理由を表示する");p.ev.push(R);
     x.st="s";assert.ok(w.FX.abilities(p,x).find(b=>b.key==="ab0").ok,"スリープ状態でも宣言できる（アクティブにする）");
-    await a.run(p,x);assert.strictEqual(x.st,"a");assert.strictEqual(G.P[1].field[0].st,"s")}],
+    await a.run(p,x);assert.strictEqual(x.st,"a");assert.strictEqual(G.P[1].field[0].st,"s");
+    const b=w.ev("DEF")["1197"].abilities[1];G.P[1].field[0].st="a";assert.ok(!b.can(p,x)&&/スリープ状態のキャラがいない/.test(b.why(p,x)));
+    G.P[1].field[0].st="s";x.fresh=true;assert.ok(!b.can(p,x)&&/登場したばかり/.test(b.why(p,x)));x.fresh=false;assert.ok(b.can(p,x))}],
   ["服部平次＆ジョディ B11096: 登場時にAP8000以下をリムーブ。APが4000以上低い相手を指定したら手札1枚で証拠を得る",async w=>{
     const G=board(w,{p0:{field:["B11096","B11039"],hand:[R,R,R]},p1:{field:[R]}});const p=G.P[0],[x,y]=p.field;
     await w.FX.enter(p,x);assert.strictEqual(G.P[1].field.length,0);G.P[1].field.push(w.inst("B01019"));
