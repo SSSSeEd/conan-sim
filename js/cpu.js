@@ -6,7 +6,7 @@
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 //   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose"];
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","threat2"];
 // 2026-11-12 SeEdの使い方の差から試す3案（既定は無効。AI_OFFから外すと有効）: early6=FILE6なら手札の前にアシストして解決編へ / mid=序盤〜中盤は推理より事件アクション / lose=相手が次のターンに解決しそうなら事件アクションで抵抗
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
@@ -79,6 +79,24 @@ function comboNow(p){
     if(e.act.kind==="hand"){const x=p.hand.find(x=>x.n===e.act.n);if(x&&!playableReason(p,x,false))return {e,x}}
     else{const x=p.field.find(x=>x.n===e.act.n);const ab=x&&FX.abilities(p,x).find(a=>a.label===e.act.label);if(ab&&ab.ok)return {e,x,ab}}}
   return null}
+// 脅威の見積り（threat2）: 相手 o が次の手番で増やせる証拠の最大量と、その手番で勝てるか。
+// 従来の oppPot は「いまアクティブなキャラのLP」だけだった。実際は、①スリープ中のキャラも相手の手番の始めに起き上がる（スタン状態は起きない）
+// ②FILEにいるパートナーも手番の始めに戻る ③キャラは推理の代わりに事件アクション（自分の証拠がある限り＋1）もできる ④手札の登場時「証拠を得る」効果、を数える。
+// 設計: notes/cpu-defense-design-2026-11-23.md
+function threatNext(me,o){
+  const parts=[];let g=0;
+  const add=(y,nm)=>{const v=Math.max(lpOf(y),me.ev.length>0?1:0);if(v>0){g+=v;parts.push(nm+"+"+v)}};
+  for(const y of o.field)if(y.st!=="x")add(y,C(y).nm);
+  if(o.partner&&o.partner.st!=="x"&&(o.pLoc==="area"||o.pLoc==="file"))add(o.partner,"パートナー");
+  const fileNext=o.file.length+2; // 手番の始めのオートフェイズでFILEに2枚
+  const ent=o.hand.filter(x=>C(x).t==="キャラ"&&(C(x).lv||0)<=fileNext+1).map(x=>{const m=/【登場時】[^\n]*証拠を(\d)つ得/.exec(C(x).f||"");return m?+m[1]:0}).filter(v=>v>0).sort((a,b)=>b-a).slice(0,2);
+  for(const v of ent){g+=v;parts.push("登場時+"+v)}
+  const guards=me.field.filter(y=>y.st==="a").length;
+  const mis=me.field.reduce((a,y)=>a+(y.st==="a"?(staticKw(y,me).misread||0):0),0);
+  const gMin=Math.max(0,g-guards-mis);
+  const near=o.solved||fileNext>=7;
+  return {gainMax:g,gainMin:gMin,need:o.ev.length+g-o.level+1,lethal:near&&o.ev.length+g>=o.level,parts};
+}
 async function cpuTurn(p){
   const g0=G; // 途中で新しい対戦が始まったら、古いCPUの手番はそこで止める
   const step=async ms=>{if(G!==g0)await new Promise(()=>{});if(G.sim)return;if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8*pace())};
@@ -153,7 +171,9 @@ async function cpuTurn(p){
   if(G.over)return;
   // 相手が事件を解決編にしていて、次のターンに解決しそうなら、キャラへのアクションをやめて全員で相手の事件にアクションし、証拠を減らして抵抗する
   const oppPot=o.field.reduce((a,y)=>a+(y.st==="a"?lpOf(y):0),0)+(o.pLoc==="area"&&o.partner.st==="a"?lpOf(o.partner):0);
-  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0||ai2(p,"lose")&&o.solved&&o.ev.length>0&&o.ev.length+oppPot>=o.level;
+  const thr=ai2(p,"threat2")?threatNext(p,o):null; // threat2: スリープ中のキャラ・パートナー・事件アクション・登場時の効果まで数えた脅威。resist/wary の判定に使う
+  if(thr&&!G.sim)dl("threat",{who:p.idx,gainMax:thr.gainMax,gainMin:thr.gainMin,need:thr.need,lethal:thr.lethal,parts:thr.parts});
+  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0||ai2(p,"lose")&&o.solved&&o.ev.length>0&&o.ev.length+oppPot>=o.level||!!thr&&thr.lethal&&o.ev.length>0;
   // 2.8) 出たばかりでもアクションできるキャラ（突撃・迅速）。探索（plan.act）で動かし方を選ぶ。stay は動かさず起こしておく
   const hold=new Set();
   {const rushers=()=>p.field.filter(x=>x.fresh&&x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case"))).sort((a,b)=>apOf(b)-apOf(a));
@@ -190,7 +210,7 @@ async function cpuTurn(p){
   if(ai2(p,"rsnw"))actors.sort((a,b)=>(C(a).lv||0)-(C(b).lv||0)||lpOf(b)-lpOf(a)); // SeEd: 弱いキャラから動かし、強いキャラを起こして残す
   const oppNear=o.solved&&o.ev.length>=o.level-2; // 相手が次のターンに勝ちそう
   // wary（弱い警戒）: 解決編でなくても、迅速・突撃などで証拠を1つ余計に取られて、現場のLP+1で勝たれる形なら、自分の証拠を貯めるより相手の証拠を削る（事件アクション）。ネクストヒントを増やすなどはしない
-  const wary=ai2(p,"wary")&&!resist&&o.ev.length>0&&o.ev.length+oppPot+1>=o.level;
+  const wary=ai2(p,"wary")&&!resist&&o.ev.length>0&&(thr?o.ev.length+thr.gainMax>=o.level:o.ev.length+oppPot+1>=o.level);
   let left=actors.length;
   for(const x of actors){
     if(G.over)return;

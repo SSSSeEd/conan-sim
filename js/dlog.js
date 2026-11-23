@@ -31,6 +31,7 @@ function dlFmt(e,names){
     case"guard":L.push(`【ガード判断${e.cpu?"(CPU)":""}】${w(e.who)}: ${e.atk}(AP${e.apAtk})が${e.target}にアクション。ガード候補[${e.cands.join(", ")}] → ${e.chose||"ガードしない"}\n　手札${e.hand.length}[${e.hand.join(", ")}]／相手の手札${e.oHand}枚・相手の現場${e.oField}体・自分の証拠${e.ev}/相手の証拠${e.oEv}`);break;
     case"contact":L.push(`【コンタクト中の判断${e.cpu?"(CPU)":""}】${w(e.who)}: 自分 ${e.mine} / 相手 ${e.theirs}（${e.tp?"自分のターン":"相手のターン"}、勝つのに必要なAP差 ${e.need}）\n　カットイン候補[${e.cuts.join(", ")||"なし"}] 変装候補[${e.dis.join(", ")||"なし"}] → ${e.chose||"パス"}\n　手札${e.hand.length}[${e.hand.join(", ")}]／相手の手札${e.oHand}枚・相手のリムーブエリア${e.oRm}枚`);break;
     case"search":L.push(`【探索の点数】${w(e.who)}: 採用→${e.pick}\n${e.plans.map(([l,v])=>`　${v}　${l}`).join("\n")}`);break;
+    case"threat":L.push(`【脅威の見積り】${w(e.who)}: 相手の次手番の最大獲得${e.gainMax}（防御で減らして${e.gainMin}）／必要な削減${e.need}／${e.lethal?"相手が勝てる":"勝てない"}［${(e.parts||[]).join(", ")}］`);break;
     case"combo":L.push(`【コンボ表】${w(e.who)}: ${e.how}`);break;
     default:L.push(`【${e.k}】${JSON.stringify(e)}`)}
   return L.join("\n").split("\n").map(s=>"　　"+s).join("\n")}
