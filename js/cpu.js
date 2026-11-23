@@ -6,9 +6,10 @@
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 //   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","threat2","def2","annoy"];
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","def2","annoy"];
 // 2026-11-12 SeEdの使い方の差から試す3案（既定は無効。AI_OFFから外すと有効）: early6=FILE6なら手札の前にアシストして解決編へ / mid=序盤〜中盤は推理より事件アクション / lose=相手が次のターンに解決しそうなら事件アクションで抵抗
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
+const HARASS_RE=/相手は手札を\d枚[^。\n]*リムーブ|相手の現場にいる[^。\n]*手札に移す/; // 手札を減らす／キャラを手札に戻す
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 function cpuGuard(o,atk,target,guards){
   const A=apOf(atk);
@@ -95,7 +96,7 @@ function threatNext(me,o){
   const mis=me.field.reduce((a,y)=>a+(y.st==="a"?(staticKw(y,me).misread||0):0),0);
   const gMin=Math.max(0,g-guards-mis);
   const near=o.solved||fileNext>=7;
-  return {gainMax:g,gainMin:gMin,need:o.ev.length+g-o.level+1,lethal:near&&o.ev.length+g>=o.level,parts};
+  return {gainMax:g,gainMin:gMin,need:o.ev.length+g-o.level+1,lethal:near&&o.ev.length+g>=o.level,lethalMin:near&&o.ev.length+gMin>=o.level,parts};
 }
 async function cpuTurn(p){
   const g0=G; // 途中で新しい対戦が始まったら、古いCPUの手番はそこで止める
@@ -143,6 +144,7 @@ async function cpuTurn(p){
       if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
       if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.has(x,"enter"))v+=25;
       if(c.t==="キャラ"&&p.field.length>=fieldMax(p))v-=30;
+      if(ai2(p,"annoy")&&HARASS_RE.test(c.f||""))v+=35; // annoy: 相手の手札を減らす・キャラを手札に戻す効果を持つカードを優先（SeEd: 嫌がらせ）
       return v};
     return cs.sort((a,b)=>score(b)-score(a))[0]||null};
   // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする
@@ -185,7 +187,7 @@ async function cpuTurn(p){
   const oppPot=o.field.reduce((a,y)=>a+(y.st==="a"?lpOf(y):0),0)+(o.pLoc==="area"&&o.partner.st==="a"?lpOf(o.partner):0);
   const thr=ai2(p,"threat2")?threatNext(p,o):null; // threat2: スリープ中のキャラ・パートナー・事件アクション・登場時の効果まで数えた脅威。resist/wary の判定に使う
   if(thr&&!G.sim)dl("threat",{who:p.idx,gainMax:thr.gainMax,gainMin:thr.gainMin,need:thr.need,lethal:thr.lethal,parts:thr.parts});
-  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0||ai2(p,"lose")&&o.solved&&o.ev.length>0&&o.ev.length+oppPot>=o.level||!!thr&&thr.lethal&&o.ev.length>0;
+  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0||ai2(p,"lose")&&o.solved&&o.ev.length>0&&o.ev.length+oppPot>=o.level||!!thr&&thr.lethalMin&&o.ev.length>0; // 防御（ガード役・ミスリード）で減らしても相手が勝てるときだけ抵抗（最大値だと終盤は常に危険になり、攻めが止まった）
   // 2.8) 出たばかりでもアクションできるキャラ（突撃・迅速）。探索（plan.act）で動かし方を選ぶ。stay は動かさず起こしておく
   const hold=new Set();
   {const rushers=()=>p.field.filter(x=>x.fresh&&x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case"))).sort((a,b)=>apOf(b)-apOf(a));
