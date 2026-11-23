@@ -32,6 +32,7 @@ function dlFmt(e,names){
     case"contact":L.push(`【コンタクト中の判断${e.cpu?"(CPU)":""}】${w(e.who)}: 自分 ${e.mine} / 相手 ${e.theirs}（${e.tp?"自分のターン":"相手のターン"}、勝つのに必要なAP差 ${e.need}）\n　カットイン候補[${e.cuts.join(", ")||"なし"}] 変装候補[${e.dis.join(", ")||"なし"}] → ${e.chose||"パス"}\n　手札${e.hand.length}[${e.hand.join(", ")}]／相手の手札${e.oHand}枚・相手のリムーブエリア${e.oRm}枚`);break;
     case"search":L.push(`【探索の点数】${w(e.who)}: 採用→${e.pick}\n${e.plans.map(([l,v])=>`　${v}　${l}`).join("\n")}`);break;
     case"threat":L.push(`【脅威の見積り】${w(e.who)}: 相手の次手番の最大獲得${e.gainMax}（防御で減らして${e.gainMin}）／必要な削減${e.need}／${e.lethal?"相手が勝てる":"勝てない"}［${(e.parts||[]).join(", ")}］`);break;
+    case"fin":L.push(`【勝ち切り】${w(e.who)}: 推理だけで事件レベルに届く（あと証拠${e.need}、相手のミスリード${e.mis}）${e.swift?"。迅速の "+e.swift+" を先に出す":""}`);break;
     case"combo":L.push(`【コンボ表】${w(e.who)}: ${e.how}`);break;
     default:L.push(`【${e.k}】${JSON.stringify(e)}`)}
   return L.join("\n").split("\n").map(s=>"　　"+s).join("\n")}
@@ -89,6 +90,8 @@ function dlCompact(r){
     case"contact":return `接触 ${P(e.who)}${star(e)}${DLS}${e.tp?1:0}${DLS}${tail(e.mine)}${DLS}${tail(e.theirs)}${DLS}${e.need}${DLS}${e.cuts.map(tail).join(" ")||"-"}${DLS}${e.dis.map(reg).join(" ")||"-"}${DLS}${e.chose?tail(e.chose.replace(/\((カットイン|変装)\)$/,""))+(/変装\)$/.test(e.chose)?"(変装)":"(カ)"):"-"}${DLS}${cnt(e.hand)}${DLS}${e.oHand} ${e.oRm}`;
     case"search":return `探索 ${P(e.who)}${DLS}${e.pick}${DLS}${e.plans.map(x=>x[1]+" "+x[0]).join(DLS)}`;
     case"combo":return `コンボ表 ${P(e.who)}${DLS}${e.how}`;
+    case"threat":return `脅威 ${P(e.who)}${DLS}${e.gainMax}${DLS}${e.gainMin}${DLS}${e.need}${DLS}${e.lethal?1:0}${DLS}${(e.parts||[]).join(",")}`;
+    case"fin":return `勝切 ${P(e.who)}${DLS}${e.need}${DLS}${e.mis}${DLS}${e.swift||""}`;
     default:return "? "+JSON.stringify(e)}};
   let j=0;
   r.log.forEach(([t,m],i)=>{while(j<ev.length&&ev[j].li<=i)out(fmt(ev[j++]));out(m)});
@@ -99,7 +102,7 @@ function dlCompact(r){
     "[始][終]=手番の始め/終わりの盤面。前回の同プレイヤーの記録からの差分だけ（+増 -減、手=手札 場=現場 #n:AP、file=FILE枚数 ev=証拠 lv=事件レベル solved=解決編 rm=リムーブエリア deck=デッキ枚数 pt=パートナー）。最初だけ全部。",
     "引 P=ドロー ¦ マリガン=手札→戻した札 ¦ 選=選択: 題¦最小-最大枚¦候補¦選んだ札 ¦ 諾否=題¦本文¦1はい0いいえ",
     "ガード=P¦攻撃キャラ¦攻撃AP¦対象¦ガード候補¦選んだ1体¦手札¦相手の手札枚数 相手の現場数 自証拠 相手証拠 ¦ 接触=P¦自分の番か¦自分のキャラ¦相手のキャラ¦勝つのに要るAP差¦カットイン候補(AP+)¦変装候補¦選んだ札(カ=カットイン)¦手札¦相手の手札枚数 相手のリムーブエリア枚数",
-    "探索=P¦採用案¦全案の「点数 案」 ¦ コンボ表=P¦内容",
+    "探索=P¦採用案¦全案の「点数 案」 ¦ コンボ表=P¦内容 ¦ 脅威=P¦相手の次手番の最大獲得¦防御で減らした値¦必要な削減¦1なら相手が勝てる¦内訳 ¦ 勝切=P¦あと証拠¦相手のミスリード¦先に出す迅速キャラ",
     ...(r.deckLists||[]).map((t,i)=>`P${i}デッキ: ${t.replace(/\n/g," / ")}`),"カード辞書:"];
   const d=[...dict].map(([s,i])=>`#${i}=${s}`);
   return [...head,...d,"## ログ",...body].join("\n")}

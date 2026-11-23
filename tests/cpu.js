@@ -35,4 +35,14 @@ module.exports=[
       await w.cpuTurn(G.P[0]);return G};
     const G1=await run(true);assert.ok(!G1.P[1].field.some(x=>w.C(x).nm==="白馬探"),"def2: 倒せる推理源（白馬探）を倒した");
     const G0=await run(false);assert.ok(G0.P[1].field.some(x=>w.C(x).nm==="白馬探"),"def2なし: 倒していない")}],
+  ["勝ち切り(fin2): 解決編で、推理だけで事件レベルに届くなら、事件アクションをせず推理して事件解決する",async w=>{
+    const run=async()=>{const G=board(w,{p0:{field:["B01019","B01019","B01019"],solved:true,level:3},p1:{field:["B01019"],ev:["B01019","B01019"]}});
+      G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};G.P[1].field[0].st="s"; // 相手のスリープ中のキャラを殴りたくなる盤面
+      await w.cpuTurn(G.P[0]);return G};
+    w.AI_OFF=w.ev("AI_OFF0");const G=await run();assert.ok(G.over&&G.winner===0,"勝った（3体の推理で証拠3、パートナーで事件解決）")}],
+  ["勝ち切り(fin2): 迅速のキャラを出せば推理で届くなら、先に迅速のキャラを出して推理し、事件解決する",async w=>{
+    w.AI_OFF=w.ev("AI_OFF0");
+    const G=board(w,{p0:{field:["B01019","B01019"],hand:["D01002"],file:["B01019","B01019","B01019","B01019","B01019","B01019","B01019"],solved:true,level:3},p1:{field:["B01019"],ev:["B01019","B01019"]}});
+    G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};G.P[1].field[0].st="s";
+    await w.cpuTurn(G.P[0]);assert.ok(G.over&&G.winner===0,"迅速で出したコナンも推理して勝った")}],
 ];
