@@ -71,7 +71,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
         const c=S.querySelectorAll(".topOnly")[j];if(c)c.checked=e.target.checked}};
     document.getElementById("cpu"+i).onchange=()=>{const ps=document.getElementById("ps"+i),v=ps.value;ps.innerHTML=deckOptions(i,isCpu(i));
       if([...ps.options].some(o=>o.value===v))ps.value=v;chk(i)};
-    S.querySelector(`[data-r="${i}"]`).onclick=()=>{const c=[];for(const [,g,arr] of deckGroups())if(g!=="m"&&g!=="v")arr.forEach((d,k)=>{const r=deckRank(d);if(r!==null&&r<DECK_TOP_N&&(!isCpu(i)||cpuReady(parseDeckText(d.text))))c.push(g+":"+k)});
+    S.querySelector(`[data-r="${i}"]`).onclick=()=>{const c=[],gs=deckGroups(),envSet=new Set(gs.find(x=>x[1]==="v")[2]);for(const [,g,arr] of gs)if(g!=="m")arr.forEach((d,k)=>{if((g==="p"||g==="e")&&envSet.has(d))return;const r=deckRank(d);if(r!==null&&r<DECK_TOP_N&&(!isCpu(i)||cpuReady(parseDeckText(d.text))))c.push(g+":"+k)});
       if(!c.length)return;const ps=document.getElementById("ps"+i),v=c[Math.floor(Math.random()*c.length)];if(![...ps.options].some(o=>o.value===v))ps.innerHTML=deckOptions(i,isCpu(i));ps.value=v;ps.onchange()};
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=shareIdOf(document.getElementById("sh"+i).value);const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
