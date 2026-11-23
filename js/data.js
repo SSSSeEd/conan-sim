@@ -34,7 +34,7 @@ B10045 x3
 D03005 x3
 B04040 x3`};
 
-const PRESETS=[SAMPLE_DECK,{"name": "黒試し（RVVutYH1）", "text": "パートナー B03107\n事件 B06105\nB05108 x3\nB06099 x2\nB10086 x3\nB10087 x3\nB03111 x3\nB06104 x3\nPR310 x3\nB03116 x3\nD07012 x3\nD07019 x3\nB08089 x2\nD07016 x3\nB04095 x3\nB03132 x3"},{"name": "サッカー4（hlxo2zIa）", "text": "パートナー B10002\n事件 B10019\nB10003 x3\nB10004 x3\nB10005 x2\nB10007 x2\nB10013 x3\nB10017 x1\nB10012 x3\nD01005 x3\nD01015 x2\nD01013 x2\nB03011 x1\nB10016 x3\nB01023 x2\nB09009 x1\nB10008 x3\nB10018 x3\nD01014 x3"},{"name": "青単SOSアグロ（sgsSBbDE）", "text": "パートナー B04002Sec1\n事件 B05024\nD01002 x3\nB01009 x3\nB01010 x3\nB03015 x3\nD01005 x3\nD01012 x3\nD01003 x3\nD01013 x3\nB04010 x2\nD01010 x2\nD08015 x1\nD08016 x2\nB05010 x2\nD01011 x1\nD08018 x1\nPR182 x3\nD01014 x2"},{"name":"スタンキッド11/20","text":"パートナー B01042\n事件 D03016\nB01055 x3\nB02038 x3\nB02045 x3\nB02049 x2\nB03046 x3\nB04038 x1\nB04040 x3\nB04042 x2\nB06055 x2\nB06066 x3\nB10045 x3\nD03003 x3\nD03005 x3\nD03006 x1\nD03015 x2\nPR149 x3"},{"name":"ジン＆ウォッカ11/20","text":"パートナー B03107\n事件 B06105\nB03111 x3\nB03112 x2\nB03116 x3\nB03132 x3\nB04095 x3\nB05106 x3\nB05108 x3\nB06104 x3\nB09099 x2\nB10086 x2\nD07012 x3\nD07016 x3\nD07019 x3\nD07022 x2\nPR310 x2"}];
+const PRESETS=[SAMPLE_DECK,{"name": "黒試し（RVVutYH1）", "text": "パートナー B03107\n事件 B06105\nB05108 x3\nB06099 x2\nB10086 x3\nB10087 x3\nB03111 x3\nB06104 x3\nPR310 x3\nB03116 x3\nD07012 x3\nD07019 x3\nB08089 x2\nD07016 x3\nB04095 x3\nB03132 x3"},{"name": "サッカー4（hlxo2zIa）", "text": "パートナー B10002\n事件 B10019\nB10003 x3\nB10004 x3\nB10005 x2\nB10007 x2\nB10013 x3\nB10017 x1\nB10012 x3\nD01005 x3\nD01015 x2\nD01013 x2\nB03011 x1\nB10016 x3\nB01023 x2\nB09009 x1\nB10008 x3\nB10018 x3\nD01014 x3"},{"name": "青単SOSアグロ（sgsSBbDE）", "text": "パートナー B04002Sec1\n事件 B05024\nD01002 x3\nB01009 x3\nB01010 x3\nB03015 x3\nD01005 x3\nD01012 x3\nD01003 x3\nD01013 x3\nB04010 x2\nD01010 x2\nD08015 x1\nD08016 x2\nB05010 x2\nD01011 x1\nD08018 x1\nPR182 x3\nD01014 x2"},{"name":"スタンキッド11/20","text":"パートナー B01042\n事件 D03016\nB01055 x3\nB02038 x3\nB02045 x3\nB02049 x2\nB03046 x3\nB04038 x1\nB04040 x3\nB04042 x2\nB06055 x2\nB06066 x3\nB10045 x3\nD03003 x3\nD03005 x3\nD03006 x1\nD03015 x2\nPR149 x3"},{"name":"ジン＆ウォッカ11/20","text":"パートナー B03107\n事件 B06105\nB03111 x3\nB03112 x2\nB03116 x3\nB03132 x3\nB04095 x3\nB05106 x3\nB05108 x3\nB06104 x3\nB09099 x2\nB10086 x2\nD07012 x3\nD07016 x3\nD07019 x3\nD07022 x2\nPR310 x2"},{"name":"青単探偵団","text":"パートナー D08001\n事件 D01016\nB01016 x2\nB01022 x3\nB02014 x1\nB03006 x2\nB04005 x2\nB04014 x2\nB05005 x3\nB05010 x3\nB07008 x1\nB11003 x3\nB11007 x3\nB11008 x3\nB11009 x3\nB11017 x3\nD01011 x1\nD08003 x1\nD08007 x1\nD08008 x1\nD08018 x2"}];
 function parseDeckText(text){
   const res={partner:null,caseN:null,main:[],errors:[]};
   const tokens=[];
@@ -94,7 +94,12 @@ function deckTopOnly(){try{return localStorage.getItem("conan-sim-decktop")!=="a
 function setDeckTopOnly(v){try{localStorage.setItem("conan-sim-decktop",v?"top":"all")}catch(e){}}
 // 勝率の順位（0が一番高い）。表にないデッキ（マイデッキなど）は null
 function deckRank(d){if(!(d.name in DECK_WR))return null;return Object.keys(DECK_WR).filter(n=>DECK_WR[n]>DECK_WR[d.name]).length}
-function deckGroups(){return [["マイデッキ","m",loadMyDecks()],["プリセット","p",[...PRESETS,...loadUserPresets()]],["環境デッキ（note・10弾）","e",(window.ENV_DECKS&&ENV_DECKS.decks)||[]]]}
+// 「環境デッキ」分類: 勝率上位DECK_TOP_Nデッキ（DECK_WR順）＋ DECK_ENV_EXTRA（勝率表にまだ無い追加分）。同じデッキ（同じ名前）はプリセット・noteの欄からは外して重複を避ける
+const DECK_ENV_EXTRA=["青単探偵団"];
+function deckGroups(){const pre=[...PRESETS,...loadUserPresets()],env=(window.ENV_DECKS&&ENV_DECKS.decks)||[];
+  const all=[...pre,...env];const top=Object.keys(DECK_WR).sort((a,b)=>DECK_WR[b]-DECK_WR[a]).slice(0,DECK_TOP_N);
+  const v=[...top,...DECK_ENV_EXTRA].map(n=>all.find(d=>d.name===n)).filter(Boolean);
+  return [["マイデッキ","m",loadMyDecks()],["環境デッキ","v",v],["プリセット","p",pre],["noteの環境デッキ（10弾）","e",env]]}
 // 効果の自動化率: 効果文のあるカード（枚数で数える。パートナー・事件も1枚）のうち自動で処理されるもの。CPUは100%のデッキだけ使う
 function autoRate(d){let all=0,ok=0;const ng=[];
   for(const id of [...d.main,d.partner,d.caseN]){const c=DB[id];if(!c||!(c.f||c.hr||c.ci))continue;

@@ -71,7 +71,7 @@ function showSetup(){document.documentElement.classList.remove("spectate");
         const c=S.querySelectorAll(".topOnly")[j];if(c)c.checked=e.target.checked}};
     document.getElementById("cpu"+i).onchange=()=>{const ps=document.getElementById("ps"+i),v=ps.value;ps.innerHTML=deckOptions(i,isCpu(i));
       if([...ps.options].some(o=>o.value===v))ps.value=v;chk(i)};
-    S.querySelector(`[data-r="${i}"]`).onclick=()=>{const c=[];for(const [,g,arr] of deckGroups())if(g!=="m")arr.forEach((d,k)=>{const r=deckRank(d);if(r!==null&&r<DECK_TOP_N&&(!isCpu(i)||cpuReady(parseDeckText(d.text))))c.push(g+":"+k)});
+    S.querySelector(`[data-r="${i}"]`).onclick=()=>{const c=[];for(const [,g,arr] of deckGroups())if(g!=="m"&&g!=="v")arr.forEach((d,k)=>{const r=deckRank(d);if(r!==null&&r<DECK_TOP_N&&(!isCpu(i)||cpuReady(parseDeckText(d.text))))c.push(g+":"+k)});
       if(!c.length)return;const ps=document.getElementById("ps"+i),v=c[Math.floor(Math.random()*c.length)];if(![...ps.options].some(o=>o.value===v))ps.innerHTML=deckOptions(i,isCpu(i));ps.value=v;ps.onchange()};
     S.querySelector(`[data-f="${i}"]`).onclick=async()=>{const id=shareIdOf(document.getElementById("sh"+i).value);const m=document.getElementById("dm"+i);
       m.className="dmsg";m.textContent="読込中…";try{const r=await fetchShareDeck(id);ta.value=r.text;chk(i);m.textContent+=`（${r.name}）`}catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）。リストを貼り付けてください。"}};
@@ -89,9 +89,11 @@ function showSetup(){document.documentElement.classList.remove("spectate");
 // デッキ一覧。CPUが操作する席には、効果がすべて自動で処理されるデッキだけ出す
 function deckOptions(i,cpuOnly){
   const top=deckTopOnly(); // 勝率上位のデッキだけ（プリセット・環境デッキ。マイデッキは常に全部）。上位のときは勝率の高い順
-  return deckGroups().map(([lab,g,a])=>{let o=a.map((d,k)=>[d,k]).filter(([d])=>!cpuOnly||cpuReady(parseDeckText(d.text)));
-    if(top&&g!=="m"){o=o.filter(([d])=>{const r=deckRank(d);return r!==null&&r<DECK_TOP_N}).sort((x,y)=>DECK_WR[y[0].name]-DECK_WR[x[0].name])}
-    return o.length?`<optgroup label="${esc(lab)}${top&&g!=="m"?"（勝率上位"+DECK_TOP_N+"）":""}">${o.map(([d,k])=>`<option value="${g}:${k}" ${g==="p"&&k===(i?1:0)?"selected":""}>${esc(d.name)}${d.name in DECK_WR?`（勝率${DECK_WR[d.name]}%）`:""}</option>`).join("")}</optgroup>`:""}).join("")}
+  const gs=deckGroups(),envSet=new Set(gs.find(x=>x[1]==="v")[2]); // 環境デッキ分類に入れたものは、プリセット・noteの欄には出さない
+  return gs.map(([lab,g,a])=>{let o=a.map((d,k)=>[d,k]).filter(([d])=>!cpuOnly||cpuReady(parseDeckText(d.text)));
+    if(g==="p"||g==="e")o=o.filter(([d])=>!envSet.has(d));
+    if(top&&g!=="m"&&g!=="v"){o=o.filter(([d])=>{const r=deckRank(d);return r!==null&&r<DECK_TOP_N}).sort((x,y)=>DECK_WR[y[0].name]-DECK_WR[x[0].name])}
+    return o.length?`<optgroup label="${esc(lab)}${top&&g!=="m"&&g!=="v"?"（勝率上位"+DECK_TOP_N+"）":""}">${o.map(([d,k])=>`<option value="${g}:${k}" ${g==="p"&&k===(i?1:0)?"selected":""}>${esc(d.name)}${d.name in DECK_WR?`（勝率${DECK_WR[d.name]}%）`:""}</option>`).join("")}</optgroup>`:""}).join("")}
 // 途中の対戦（接続切れ・リロードで中断したもの）
 function saveLabel(s){const m=s.meta,d=new Date(s.at);
   return `${m.turnNo}ターン目（${m.turnName}の番）・${m.names[0]}（${m.decks[0]}） vs ${m.names[1]}（${m.decks[1]}）・${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}
