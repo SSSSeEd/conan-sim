@@ -56,4 +56,11 @@ module.exports=[
     const top=all.filter(d=>w.deckRank(d)<w.ev("DECK_TOP_N"));assert.strictEqual(top.length,w.ev("DECK_TOP_N"));
     const min=Math.min(...top.map(d=>wr[d.name]));for(const d of all)if(!top.includes(d))assert.ok(wr[d.name]<=min);
     assert.strictEqual(w.deckRank({name:"自作デッキ"}),null)}],
+  ["自動命名: 主力カード名（8文字まで）と日付が入り、既存の名前と被ったら連番になる",w=>{
+    const r=w.parseDeckText(w.ev("PRESETS")[3].text),DB=w.ev("DB"),now=new Date(2026,10,23);
+    const n1=w.autoDeckName(r,[],now);
+    assert.ok(n1.endsWith(" 11/23")&&n1.length<=" 11/23".length+8,n1);
+    const n2=w.autoDeckName(r,[n1],now);assert.strictEqual(n2,n1+" 2");
+    assert.strictEqual(w.autoDeckName(r,[n1,n2],now),n1+" 3");
+    assert.ok(w.autoDeckName({main:[]},[],now).endsWith(" 11/23"))}],
 ];

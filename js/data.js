@@ -77,6 +77,20 @@ function deckToText(d){
   const cnt={};for(const n of d.main)cnt[n]=(cnt[n]||0)+1;
   return `パートナー ${d.partner}\n事件 ${d.caseN}\n`+Object.entries(cnt).map(([n,k])=>`${n} x${k}`).join("\n");
 }
+// デッキの自動命名: 「主力カード名（8文字まで） 11/23」。主力カード＝枚数が多く、同数ならレベルが高いカード。既存の名前と被ったら末尾に 2, 3… を付ける
+function autoDeckName(d,taken,now){
+  const cnt={};for(const n of d.main||[])cnt[n]=(cnt[n]||0)+1;
+  let key=null;for(const n in cnt){const c=DB[n];if(!c)continue;
+    if(!key||cnt[n]>cnt[key]||cnt[n]===cnt[key]&&(c.lv||0)>((DB[key]||{}).lv||0))key=n}
+  const dt=now||new Date();
+  // 主力カード名だけ（括弧書きは省き、8文字まで）
+  const base=key?[...DB[key].nm.replace(/[（(［\[【].*$/,"").trim()].slice(0,8).join("")||"デッキ":"デッキ";
+  const head=`${base} ${dt.getMonth()+1}/${dt.getDate()}`;
+  const used=new Set(taken||[]);let name=head;
+  for(let k=2;used.has(name);k++)name=`${head} ${k}`;
+  return name;
+}
+function takenDeckNames(){return deckGroups().flatMap(g=>g[2]).map(x=>x.name)}
 // マイデッキ（リンクから登録したデッキ。端末に保存）
 const MY_KEY="conan-sim-mydecks";
 function loadMyDecks(){try{return JSON.parse(localStorage.getItem(MY_KEY)||"[]")}catch(e){return []}}
