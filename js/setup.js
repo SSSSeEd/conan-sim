@@ -114,8 +114,10 @@ function renderMyDecks(){
     if(!id){m.className="dmsg bad";m.textContent="リンクを貼ってください";return}
     m.className="dmsg";m.textContent="読込中…";
     try{const r=await fetchShareDeck(id);const d=parseDeckText(r.text);const w=[...d.errors,...validateDeck(d)];
-      const a=loadMyDecks();a.push({name:`${r.name||"デッキ"}（${id}）`,text:r.text,id});saveMyDecks(a);
-      m.className=w.length?"dmsg bad":"dmsg good";m.textContent=`登録しました: ${r.name}${w.length?"\n注意: "+w.join(" / "):""}`;
+      const nm=await askText("デッキを登録","事件・パートナー・主力カードと日付から付けた名前です。直して決定してください。",autoDeckName(d,takenDeckNames()));
+      if(nm===null){m.className="dmsg";m.textContent="登録をやめました";return}
+      const a=loadMyDecks();a.push({name:nm,text:r.text,id});saveMyDecks(a);
+      m.className=w.length?"dmsg bad":"dmsg good";m.textContent=`登録しました: ${nm}${w.length?"\n注意: "+w.join(" / "):""}`;
       const keep=m.textContent,cls=m.className;showSetup();const m2=document.getElementById("myMsg");m2.textContent=keep;m2.className=cls}
     catch(e){m.className="dmsg bad";m.textContent="読み込めませんでした（"+e.message+"）"}};
   document.getElementById("myLast").onclick=async()=>{const m=document.getElementById("myMsg");
@@ -123,7 +125,7 @@ function renderMyDecks(){
     const d=parseDeckText(sv.dk0||"");if(!sv.dk0||d.errors.length||!d.partner||!d.caseN){m.className="dmsg bad";m.textContent="最後に使ったデッキがありません（一度「対戦開始」すると記録されます）";return}
     const key=t=>deckToText(parseDeckText(t));
     const hit=deckGroups().flatMap(g=>g[2]).find(x=>key(x.text)===key(sv.dk0)); // 同じ中身の登録済み・プリセットがあればその名前
-    const nm=await askText("最後に使ったデッキを登録","デッキの名前を入力してください。",hit?hit.name:`${C({n:d.partner}).nm}のデッキ`);
+    const nm=await askText("最後に使ったデッキを登録","デッキの名前を入力してください。",hit?hit.name:autoDeckName(d,takenDeckNames()));
     if(nm===null)return;
     const a=loadMyDecks();a.push({name:nm,text:deckToText(d)});saveMyDecks(a);showSetup();const m2=document.getElementById("myMsg");m2.className="dmsg good";m2.textContent=`登録しました: ${nm}`};
   B.querySelectorAll("[data-mypre]").forEach(b=>b.onclick=()=>{const d=loadMyDecks()[+b.dataset.mypre];if(!d)return;const m=document.getElementById("myMsg");
@@ -223,7 +225,7 @@ function renderFill(){
     m.textContent=[...w,...r.warns,`補った${r.main.length-d.main.length}枚: `+r.why.map(x=>`${C({n:x.n}).nm}×${x.k}（${x.why}）`).join("、")].join("\n")};
   const okDeck=()=>{const d=parseDeckText(ta.value);if(d.errors.length||!d.partner||!d.caseN||!d.main.length){m.className="dmsg bad";m.textContent=d.errors.join("\n")||"先に「40枚に補完」を押してください（パートナーが決まります）";return null}return d};
   document.getElementById("fillReg").onclick=async()=>{const d=okDeck();if(!d)return;
-    const nm=await askText("マイデッキに登録","デッキの名前を入力してください。",`${C({n:d.partner}).nm}の補完デッキ`);if(nm===null)return;
+    const nm=await askText("マイデッキに登録","デッキの名前を入力してください。",autoDeckName(d,takenDeckNames()));if(nm===null)return;
     const a=loadMyDecks();a.push({name:nm,text:deckToText(d)});saveMyDecks(a);showSetup();const m2=document.getElementById("fillMsg");m2.className="dmsg good";m2.textContent=`マイデッキに登録しました: ${nm}`};
   for(const i of [0,1])document.getElementById("fillSet"+i).onclick=()=>{if(!okDeck())return;
     const keep=ta.value;showSetup();const dk=document.getElementById("dk"+i);dk.value=keep;dk.oninput();showTab("play");scrollTo(0,0);toast(i?"相手のデッキにセットしました":"あなたのデッキにセットしました")};
