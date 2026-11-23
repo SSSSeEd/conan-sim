@@ -26,4 +26,13 @@ module.exports=[
   ["脅威の見積り: こちらのアクティブなキャラ（ガード役）が多いほど、防御で減らした見積り gainMin が小さくなる",async w=>{
     const {me,o}=setup(w);me.field=["B01019","B01019","B01019"].map(n=>w.inst(n));const t=w.threatNext(me,o);
     assert.ok(t.gainMin<t.gainMax);assert.strictEqual(t.gainMin,Math.max(0,6-3-0))}],
+  ["防衛(def2): 相手が次の手番に勝てる見込みなら、事件アクションより先にスリープ中の推理源（LP1以上）を倒す",async w=>{
+    const off=w.ev("AI_OFF0");
+    const run=async on=>{w.AI_OFF=off.filter(x=>x!=="threat2"&&(!on||x!=="def2")); // threat2は常にオン、def2はon のときだけオン
+      const G=board(w,{p0:{field:["B01008"],ev:["B01019"]},p1:{field:["B11035","B03046"],ev:["B01019","B01019","B01019","B01019"],solved:true,level:8}});
+      G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+      const o=G.P[1];o.field[0].st="s";o.field[1].st="s"; // 白馬探(LP1, AP5000)とキッドLv8(LP2, AP7000)はスリープ中
+      await w.cpuTurn(G.P[0]);return G};
+    const G1=await run(true);assert.ok(!G1.P[1].field.some(x=>w.C(x).nm==="白馬探"),"def2: 倒せる推理源（白馬探）を倒した");
+    const G0=await run(false);assert.ok(G0.P[1].field.some(x=>w.C(x).nm==="白馬探"),"def2なし: 倒していない")}],
 ];

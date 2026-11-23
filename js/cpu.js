@@ -6,7 +6,7 @@
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 //   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","threat2"];
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","threat2","def2"];
 // 2026-11-12 SeEdの使い方の差から試す3案（既定は無効。AI_OFFから外すと有効）: early6=FILE6なら手札の前にアシストして解決編へ / mid=序盤〜中盤は推理より事件アクション / lose=相手が次のターンに解決しそうなら事件アクションで抵抗
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
@@ -189,6 +189,18 @@ async function cpuTurn(p){
   if(G.over)return;
   // sit2: 相手にアクティブなミスリードが2体以上いるなら、先にパートナーで推理して使わせ、スリープしたところをアクションで倒す
   if(ai2(p,"sit2")&&!resist&&p.pLoc==="area"&&p.partner.st==="a"&&!p.solved&&canAct(p.partner,p,"reason")&&o.field.filter(y=>y.st==="a"&&(staticKw(y,o).misread||0)>0).length>=2){await reason(p,p.partner);await step();if(G.over)return}
+  // def2: 抵抗モードでも、相手のスリープ中の推理源（LPのあるキャラ）は先に倒す。事件アクションで証拠を1枚削るより、相手の次の手番の獲得量を直接減らせる。
+  // 倒せるもの（こちらのAPが対象以上）をLPの大きい順に、いちばん弱いキャラで倒す。倒せないときは従来どおり事件アクション
+  if(resist&&ai2(p,"def2")){
+    for(;;){
+      if(G.over)return;
+      const atks=p.field.filter(x=>!hold.has(x)&&canAct(x,p,"chara"));
+      const tg=o.field.filter(y=>y.st!=="a"&&y.st!=="x"&&lpOf(y)>=1&&!FX.noTarget(p,y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0));
+      let done=false;
+      for(const t of tg){const a=atks.filter(x=>apOf(x)>=apOf(t)&&canAct(x,p,"chara",t)).sort((a,b)=>apOf(a)-apOf(b))[0];
+        if(a){await declareAction(p,a,t);await step();done=true;break}}
+      if(!done)break}
+  }
   // 3) キャラへのアクション（勝てる相手）
   for(;!resist;){
     const atks=p.field.filter(x=>!hold.has(x)&&canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
