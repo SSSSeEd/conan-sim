@@ -60,11 +60,24 @@ module.exports.push(["短縮版を読み戻すと、元のイベント(手札・
   for(let i=0;i<3;i++){await H.play(w,{decks:[ds[i%2],ds[(i+1)%2]],search:[true,i%2===0]});
     const r=w.dlLoad().pop(),t=w.dlCompact(r),x=expand(t),T=w.dlText(r);
     assert.strictEqual(x.log.join("\n"),r.log.map(l=>l[1]).join("\n"),"通常ログが同じ");
-    assert.strictEqual(x.ev.length,r.ev.length,"イベント数");
-    r.ev.forEach((e,j)=>{
+    const rev=w.dlEvs(r);
+    assert.strictEqual(x.ev.length,rev.length,"イベント数");
+    rev.forEach((e,j)=>{
       let a=e,b=x.ev[j];
       if(e.k==="turnStart"||e.k==="turnEnd"){ // 盤面は両者の全項目で比べる（辞書順は問わない）
         const nb=bs=>bs.map(q=>({who:q.who,hand:[...q.hand].sort(),field:[...q.field].sort(),file:q.file,ev:q.ev,level:q.level,solved:q.solved?1:0,rm:q.rm,deck:q.deck,partner:q.partner}));
         a={k:e.k,b:nb(e.b)};b={k:b.k,b:nb(b.b)}}
       assert.strictEqual(JSON.stringify(norm(b)),JSON.stringify(norm(a)),`${j}番目 ${e.k}`)});
     assert.ok(t.length<T.length,`短縮版が短い ${t.length} < ${T.length}`);console.log(`   (参考) ${i+1}戦目 テキスト版${T.length}字 → 短縮版${t.length}字`)}}]);
+module.exports.push(["人の手番の盤面(snap)はJSONにだけ入り、tools/agree.js で同じ盤面からCPUが同じ手を再現できる（探索なしなら全項目一致）",async()=>{
+  const {execFileSync}=require("child_process"),fs=require("fs"),os=require("os"),path=require("path");
+  const w=H.load({seed:5,init:{SIM_SAVE:1}});const D=[...w.ev("PRESETS"),...w.ENV_DECKS.decks];
+  // 席0を「人」として記録する（dlSnap は人の手番だけ残すので、テストでは席0の手番でも残すように差し替える）
+  w.ev('dlSnap=function(p){if(!dlOn()||p.idx!==0)return;dl("snap",{who:p.idx,g:packRefs({cfg:G.cfg,P:G.P,turn:G.turn,turnNo:G.turnNo,first:G.first,queue:G.queue,phase:G.phase,showOppHand:G.showOppHand})})}');
+  const out=[];
+  for(let i=0;i<2;i++){await H.play(w,{decks:[w.parseDeckText(D[i*5].text),w.parseDeckText(D[i*11+3].text)],search:[false,false]});out.push(w.dlLoad().pop())}
+  const r=out[0];assert.ok(r.ev.some(e=>e.k==="snap"),"snap がある");
+  assert.ok(!/【snap】|"k":"snap"/.test(w.dlText(r))&&!/snap/.test(w.dlCompact(r)),"テキスト版・短縮版には出ない");
+  const f=path.join(os.tmpdir(),`agree-test-${process.pid}.json`);fs.writeFileSync(f,JSON.stringify(out));
+  const res=JSON.parse(execFileSync("node",[path.join(H.ROOT,"tools/agree.js"),f,"--nosearch","--runs","1"],{encoding:"utf8"}));fs.unlinkSync(f);
+  assert.ok(res.turns>=5,"照合した手番 "+res.turns);assert.strictEqual(res["全項目一致"],"100.0%")}]);

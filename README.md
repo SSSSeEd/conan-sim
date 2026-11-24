@@ -24,6 +24,7 @@
 - `node tools/test.js [試合数]` 動作確認（デッキの読み込み、CPU同士の対戦がエラーなしで決着するか、`tests/rules.js` のルールの単体テスト）。PRごとに GitHub Actions でも走る
 - `node tools/fill_eval.js [回数]` デッキ補完の答え合わせ（環境デッキから入力だけ残して、元に戻せる割合）
 - `node tools/bench.js +機能|-機能|none [組数]` CPUの改良を測る（同じ乱数で席を入れ替えた2戦を1組にして比べる。4並列、勝率と95%の幅と判定を出す。2000組=4000戦で約10分）
+- `node tools/agree.js ログ.json [--runs 3] [--off a] [--on x] [--show]` 人間との一致度。詳しい対戦ログ(JSON保存)の「人の手番の始めの盤面」から、CPUに同じ手番を指させて人の手と照合する(使ったカード・アシスト・ヒント・推理・アクションの回数など)
 - `node tools/golden.js 試合数 save|check 記録.json` 整理・リファクタの前後で、同じ乱数の全試合のログが一致するかを確かめる（`OFF=threat2` で既定オンのスイッチを切った動きも比べられる）
 - `node tools/find_combos.js デッキ.txt [試合数]` 新しいデッキのコンボ探し
 - `node tools/probe_assist.js 試合数 seed [search]` 最初の手番に手札を使えたか、FILEで強くなるイベントをアシスト前に使っていないかの集計

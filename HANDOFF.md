@@ -59,3 +59,7 @@
 - js/cpu.js: cpuTurn を段階の関数（choosePlan / abilityPhase / handPhase / rushPhase / attackPhase / actorPhase / partnerPhase）と判定の関数（finishCheck / defenseCheck / waryNow / caseFirst / bestHand / canAssist / holdForHeavy）に分けた。
 - 実験スイッチは AI_SWITCH の5つ（fin2, threat2, resist, wary, combo2。既定オン）だけ。新しい実験は AI_OFF0 に入れて既定オフで足し、bench の +名前 で測る。不採用の14個と定着した13個のスイッチは削除（歴史は notes/cpu-flag-history-2026-11-24.md）。cfg.ai1（旧CPU）も削除。
 - 段階3（2026-11-24）: 探索で案ごとに相手の手札の配り直しを変えて3回試し、平均で選ぶ（search.js の rolloutN、スイッチ multi、回数は window.ROLL_K）。bench 4000戦で54.1%（1回比）。5回は54.3%で差なし。CPUの考える時間は約2倍。
+
+## 2026-11-24 追記: 評価軸は「人間の動きに近いか」が第一（SeEd）
+- SeEdの方針: CPU改良の採否は、勝率より「人間の判断に近いか」を優先。勝率が下がっても人間に近ければ採用。報告は一致度と勝率を並べる。
+- 一致度の物差し: 詳しい対戦ログに「人の手番の始めの盤面」（snap、js/dlog.js の dlSnap。テキスト版・短縮版には出さずJSON保存にだけ入る）を残し、`node tools/agree.js ログ.json` で同じ盤面からCPUに指させて照合する。探索なしのCPU同士なら100%一致（tests/dlog.js）。探索ありのCPUは自分自身とも約6割しか一致しない（配り直しの乱数）。

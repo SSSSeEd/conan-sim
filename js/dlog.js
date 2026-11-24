@@ -16,6 +16,10 @@ const dlFld=p=>p.field.map(x=>`${C(x).nm}${x.st==="a"?"":x.st==="s"?"(S)":"(X)"}
 function dlBoard(){return G.P.map(p=>({who:p.idx,name:p.name,cpu:!!p.cpu,hand:dlCards(p.hand),field:dlFld(p),file:p.file.length,ev:p.ev.length,level:p.level,solved:p.solved,deck:p.deck.length,rm:p.rm.length,partner:C(p.partner).nm+(p.pLoc==="area"&&p.partner.st==="a"?"":"(寝)")}))}
 function dlTurnStart(){dl("turnStart",{b:dlBoard()})}
 function dlTurnEnd(){dl("turnEnd",{b:dlBoard()})}
+// 人の手番の始め（メインフェイズ開始時の効果のあと）の盤面を丸ごと残す。tools/agree.js が、同じ盤面でCPUならどうするかを出して、人の手と照合する（人間との一致度）。
+// テキスト版・短縮版には出さない（JSON保存にだけ入る）。CPUの手番では残さない
+function dlSnap(p){if(!dlOn()||p.cpu)return;dl("snap",{who:p.idx,g:packRefs({cfg:G.cfg,P:G.P,turn:G.turn,turnNo:G.turnNo,first:G.first,queue:G.queue,phase:G.phase,showOppHand:G.showOppHand})})}
+function dlEvs(r){return (r.ev||[]).filter(e=>e.k!=="snap")}
 
 // ---- テキスト化: 通常ログの行の間に、詳しい記録を差し込む ----
 function dlFmt(e,names){
@@ -37,7 +41,7 @@ function dlFmt(e,names){
     default:L.push(`【${e.k}】${JSON.stringify(e)}`)}
   return L.join("\n").split("\n").map(s=>"　　"+s).join("\n")}
 function dlText(r){
-  const names=r.names,ev=r.ev||[],out=[];
+  const names=r.names,ev=dlEvs(r),out=[];
   out.push(`# 詳しい対戦ログ ${r.start}`,`${names[0]}${r.cpu[0]?"(CPU)":""}（${r.decks[0]}） vs ${names[1]}${r.cpu[1]?"(CPU)":""}（${r.decks[1]}）／先攻: ${names[r.first]}／${r.turns}ターン／${r.winner==null?"未決着":names[r.winner]+" の勝利（"+(r.why||"")+"）"}`,
     "※「— Nターン目 —」は通常ログと同じ番号。【…】の行がこのログだけの詳細です。","");
   (r.deckLists||[]).forEach((t,i)=>out.push(`## ${names[i]}のデッキ`,t,""));
@@ -63,7 +67,7 @@ function dlSave(w,why){
 // (3) 同じカードは「#3x2」と枚数でまとめる (4) キーを短くし、凡例を先頭に1回だけ書く。通常ログの行はそのまま残す。
 const DLS=" ¦ ";
 function dlCompact(r){
-  const names=r.names,ev=r.ev||[],dict=new Map();
+  const names=r.names,ev=dlEvs(r),dict=new Map();
   const reg=s=>{if(!dict.has(s))dict.set(s,dict.size+1);return "#"+dict.get(s)};
   const cnt=a=>(a&&a.length)?(()=>{const m=new Map();for(const s of a)m.set(s,(m.get(s)||0)+1);return [...m].map(([s,n])=>reg(s)+(n>1?"x"+n:"")).join(" ")})():"-";
   const tail=s=>{const m=/^(.*?)(\(AP[^()]*\))$/.exec(s)||/^(.*\(Lv\d+\))(.*)$/.exec(s);return m?reg(m[1])+m[2]:reg(s)}; // 名(AP1000,S) / 名(Lv4)AP+2000 の後ろ側はそのまま

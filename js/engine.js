@@ -236,7 +236,7 @@ function beginTurn(){
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
   G.phase="main";recTurnStart(p);dlTurnStart();render();saveGame();
-  const go=()=>FX.mainStart(p).then(()=>{if(p.cpu)return cpuTurn(p)}); // 自分のメインフェイズ開始時の効果（沖矢昴 B05072・勝又力 B05075）
+  const go=()=>FX.mainStart(p).then(()=>{dlSnap(p);if(p.cpu)return cpuTurn(p)}); // dlSnap: 人の手番なら盤面を丸ごと詳しいログへ（tools/agree.js 用） // 自分のメインフェイズ開始時の効果（沖矢昴 B05072・勝又力 B05075）
   // メインフェイズ開始時: 相手が効果でパートナーエリアに移したキャラを、持ち主が登場させるか決める
   const q=opp(p);
   const t=q.pa.some(x=>x.paRet===G.turnNo)?FX.paReturn(q).then(()=>{saveGame();return go()}):go();
