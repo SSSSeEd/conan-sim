@@ -247,7 +247,7 @@ DEF["1121"]={ // 松田陣平＆萩原研二 B10065
   partnerToo:true,
   onAllyEnter:async(p,self,y)=>{if(!myTurn(p)||y===self||turnCount(self,"mh")||!keisatsu(y))return;useTurn(self,"mh");await rmChar(p,lvLe(9))},
   endTurn:async p=>{if(!bondOk(p,"降谷零")||!p.hand.length||!p.rm.some(y=>isChar(y)&&hasTrait(y,"警察")&&lvOf(y)<=3))return;
-    if(!await yes(p,"松田陣平＆萩原研二","手札を1枚リムーブして、リムーブエリアのレベル3以下の［警察］をスリープ状態で登場させますか？",true))return;
+    if(!await yes(p,"松田陣平＆萩原研二","手札を1枚リムーブして、リムーブエリアのレベル3以下の［警察］をスリープ状態で登場させますか？",p.field.length<fieldMax(p)))return; // CPU: 現場がいっぱいなら断る（入れ替えで自分のキャラを1体リムーブすることになる。SeEd 11/24 実況T11: 降谷零を外して鬼塚八蔵を出した）
     await discard(p,1);const [y]=await pickCards(p,"登場させる［警察］（レベル3以下）","",p.rm.filter(y=>isChar(y)&&hasTrait(y,"警察")&&lvOf(y)<=3),{ai:c=>c.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});
     if(y)await enterByEffect(p,y,"s")},
   abilities:[{label:"［降谷零］［諸伏景光］［伊達航］を1枚ターン終了時までAP＋2000",turn1:true,partner:true,

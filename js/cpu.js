@@ -217,7 +217,8 @@ async function handPhase(t){
   const {p,plan,step,fin}=t;
   const planned=()=>plan.play==="none"?null:plan.play?p.hand.find(x=>x.n===plan.play&&!playableReason(p,x,false))||bestHand(p,false):bestHand(p,false);
   // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする。FILE6以上か手札5枚以上でも先にアシスト
-  if(canAssist(p)&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand&&!holdForHeavy(p)){
+  // 勝ち切り（fin.on）のときはアシストしない: パートナーがFILEに行くと、推理で証拠が揃っても事件解決できない（SeEd 11/24 実況T13）
+  if(canAssist(p)&&!(fin&&fin.on)&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand&&!holdForHeavy(p)){
     const lv=x=>x?(C(x).lv||0):-1;const now=bestHand(p,false);
     p.file.push(p.partner);const after=bestHand(p,false);p.file.pop();
     // asst3（SeEd 11/24: 序盤に、Lv2を出すのにアシストしてFILE3にしている）: 「手札過多」は手札5枚ではなく7枚以上。それ以外で先にアシストするかは探索（plan.assist）が試して決める

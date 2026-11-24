@@ -917,6 +917,11 @@ module.exports=[
   ["レベル3: 大上祝善 B05050 はFILEエリアから手札に加えたとき、リムーブエリアの［探偵］を手札に加えて自分をリムーブする",async w=>{
     const det=w.CARD_DB.find(c=>c.t==="キャラ"&&(c.ct||"").split(",").includes("探偵")).n;
     const G=board(w,{p0:{field:["B05050"],rm:[det]}});const p=G.P[0];await w.FX.onLeave({fileHand:true,p,turn:0});assert.ok(p.hand.some(y=>y.n===det));assert.ok(!p.field.length)}],
+  ["松田陣平＆萩原研二 B10065: ターン終了時の［警察］登場は、CPUなら現場に空きがあるときだけ行う（いっぱいだと自分のキャラを1体外すことになる。SeEd 11/24 実況T11）",async w=>{
+    for(const [n,want] of [[4,true],[5,false]]){
+      const G=board(w,{p0:{field:["B10065","B08074",...Array(n-2).fill(R)],hand:[R,R],rm:["B10073"],deck:[R,R,R,R,R]},p1:{field:[R]}});
+      const p=G.P[0];p.cpu=true;await w.ev("DEF")["1121"].endTurn(p);
+      assert.strictEqual(p.field.some(y=>w.C(y).nm==="鬼塚八蔵"),want,(want?"空きがあるので登場させる":"現場がいっぱいなので断る")+` 現場${n}体`)}}],
   ["レベル3: 大滝悟郎 B09028 は［大阪府警］が2枚以上いるときだけスリープ状態でもガードできる",async w=>{
     const G=board(w,{p0:{field:["B09028"]}});const x=G.P[0].field[0];x.st="s";assert.ok(!w.FX.canGuardSleeping(x));
     const osk=w.CARD_DB.find(c=>c.t==="キャラ"&&(c.ct||"").split(",").includes("大阪府警")).n;G.P[0].field.push(w.inst(osk),w.inst(osk));assert.ok(w.FX.canGuardSleeping(x))}],
