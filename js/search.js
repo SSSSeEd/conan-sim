@@ -58,6 +58,11 @@ async function rollout(p,plan){
   if(g.sim.rushSeen)ROLL_RUSH=true; // この手番に、起きたまま（突撃・迅速で）アクションできるキャラがいた → アクション先も試す
   return v;
 }
+// multi: 1つの案を、相手の手札の配り直しを変えて ROLL_K 回（既定3）試し、平均の点数で比べる（1回だと配り直しの運で点数が揺れ、良い案を選び損ねる）
+// 2026-11-24 bench 4000戦（環境デッキ16）: 1回に対して 3回 54.1%（52.8〜55.4）、5回 54.3%（53.0〜55.7）→ 3回を既定に（5回は時間が1.5倍で差なし）
+async function rolloutN(p,plan){
+  if(!ai2(p,"multi"))return rollout(p,plan);
+  const K=window.ROLL_K||3;let s=0;for(let k=0;k<K;k++)s+=await rollout(p,plan);return s/K}
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
 async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
@@ -79,9 +84,9 @@ async function chooseTurnPlan(p){
   const tried=[];ROLL_RUSH=false;
   if(plans.length<=2){ // 選択肢は無いが、突撃キャラがいるかだけ見る
     const v=await rollout(p,plans[0]);if(!ROLL_RUSH)return null;best=plans[0];bv=v;tried.push([best,v])}
-  else for(const pl of plans){const v=await rollout(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  else for(const pl of plans){const v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
   if(ROLL_RUSH&&!(G.cfg.noAct&&G.cfg.noAct[p.idx])){const b0=best;
-    for(const act of ACT_MODES){const pl={...b0,act},v=await rollout(p,pl);tried.push([pl,v]);
+    for(const act of ACT_MODES){const pl={...b0,act},v=await rolloutN(p,pl);tried.push([pl,v]);
       // rushb: 突撃・迅速で出たばかりのキャラを動かす手に加点する（SeEd: 突撃を付けても動かさないのは「付けること」で満足している。付けたなら動かす）
       const vv=act!=="stay"?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
   recSearch(p,tried,best);

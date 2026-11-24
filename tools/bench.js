@@ -35,7 +35,7 @@ function deckPool(w,kind){
 // ---- 子プロセス: 組 [from,to) を回して結果を返す ----
 async function worker({flag,from,to,decks,seed,search}){
   const H=require("./headless");
-  const w=H.load({seed,init:{AI_OFF:[]}});
+  const w=H.load({seed,init:{AI_OFF:[],...(process.env.ROLL_K?{ROLL_K:+process.env.ROLL_K}:{})}}); // ROLL_K=5 などで探索の試行回数（multi）を変えて測れる
   const AI_OFF0=w.ev("AI_OFF0"),offA=offFor(flag,AI_OFF0),pool=deckPool(w,decks);
   const out=[];
   for(let i=from;i<to;i++){
