@@ -6,9 +6,10 @@
 //   単独: act2 54.2% / case2 53.8% / mull2 51.7%（各600戦）、end2 49% / rsnw 46% / play2 45.5% / guard2 37% / cut2 35%（各200戦）→ 不採用
 //   2026-10-29 再検証（対照=同じCPU同士と比べる、各200戦）: 対照45.5% / guard2 46.0% / cut2 46.5% → 守りを控えても差は無い。以前の37%・35%は誤差
 //   2026-10-29 コンボ表（combo）: 今のCPUに 50.2%（400戦）→ 差なし、不採用。探索（search.js）: 62.0%、コンボ表に 64.2%
-const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose"];
+const AI_OFF0=["cut","reason","mull2","play2","rsnw","end2","guard2","cut2","combo","early6","mid","lose","def2","annoy"];
 // 2026-11-12 SeEdの使い方の差から試す3案（既定は無効。AI_OFFから外すと有効）: early6=FILE6なら手札の前にアシストして解決編へ / mid=序盤〜中盤は推理より事件アクション / lose=相手が次のターンに解決しそうなら事件アクションで抵抗
 const ai2=(p,f)=>!(G&&G.cfg.ai1&&G.cfg.ai1[p.idx])&&!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
+const HARASS_RE=/相手は手札を\d枚[^。\n]*リムーブ|相手の現場にいる[^。\n]*手札に移す/; // 手札を減らす／キャラを手札に戻す
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 function cpuGuard(o,atk,target,guards){
   const A=apOf(atk);
@@ -79,6 +80,24 @@ function comboNow(p){
     if(e.act.kind==="hand"){const x=p.hand.find(x=>x.n===e.act.n);if(x&&!playableReason(p,x,false))return {e,x}}
     else{const x=p.field.find(x=>x.n===e.act.n);const ab=x&&FX.abilities(p,x).find(a=>a.label===e.act.label);if(ab&&ab.ok)return {e,x,ab}}}
   return null}
+// 脅威の見積り（threat2）: 相手 o が次の手番で増やせる証拠の最大量と、その手番で勝てるか。
+// 従来の oppPot は「いまアクティブなキャラのLP」だけだった。実際は、①スリープ中のキャラも相手の手番の始めに起き上がる（スタン状態は起きない）
+// ②FILEにいるパートナーも手番の始めに戻る ③キャラは推理の代わりに事件アクション（自分の証拠がある限り＋1）もできる ④手札の登場時「証拠を得る」効果、を数える。
+// 設計: notes/cpu-defense-design-2026-11-23.md
+function threatNext(me,o){
+  const parts=[];let g=0;
+  const add=(y,nm)=>{const v=Math.max(lpOf(y),me.ev.length>0?1:0);if(v>0){g+=v;parts.push(nm+"+"+v)}};
+  for(const y of o.field)if(y.st!=="x")add(y,C(y).nm);
+  if(o.partner&&o.partner.st!=="x"&&(o.pLoc==="area"||o.pLoc==="file"))add(o.partner,"パートナー");
+  const fileNext=o.file.length+2; // 手番の始めのオートフェイズでFILEに2枚
+  const ent=o.hand.filter(x=>C(x).t==="キャラ"&&(C(x).lv||0)<=fileNext+1).map(x=>{const m=/【登場時】[^\n]*証拠を(\d)つ得/.exec(C(x).f||"");return m?+m[1]:0}).filter(v=>v>0).sort((a,b)=>b-a).slice(0,2);
+  for(const v of ent){g+=v;parts.push("登場時+"+v)}
+  const guards=me.field.filter(y=>y.st==="a").length;
+  const mis=me.field.reduce((a,y)=>a+(y.st==="a"?(staticKw(y,me).misread||0):0),0);
+  const gMin=Math.max(0,g-guards-mis);
+  const near=o.solved||fileNext>=7;
+  return {gainMax:g,gainMin:gMin,need:o.ev.length+g-o.level+1,lethal:near&&o.ev.length+g>=o.level,lethalMin:near&&o.ev.length+gMin>=o.level,parts};
+}
 async function cpuTurn(p){
   const g0=G; // 途中で新しい対戦が始まったら、古いCPUの手番はそこで止める
   const step=async ms=>{if(G!==g0)await new Promise(()=>{});if(G.sim)return;if(window.SIM_TURBO){if(G.ui.act)G.ui.act=null;await sleep(0);return}clearAct();render();await sleep(window.SIM_FAST?(ms||450):(ms||450)*1.8*pace())};
@@ -105,6 +124,18 @@ async function cpuTurn(p){
   if(plan.abFirst){await runAbilities();if(G.over)return}
   // 1) 事件解決
   if(p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&p.ev.length>=p.level&&!FX.noSolve(p)){solve(p);return}
+  // fin2（SeEd: 推理すれば勝ちなのにアクションして勝ち筋を消している場面がある。迅速はほぼ証拠1枚）: 解決編でパートナーがアクティブで、
+  // 今の現場の推理（LPの合計。相手のミスリード分を引く）と、手札の迅速キャラ1枚の推理で、事件レベルに届くなら、アクション（事件・キャラ）をせず推理だけをして事件解決する。
+  // 届くには迅速キャラを先に出す必要があれば、手札の最初の1枚としてそのカードを出す
+  const fin={on:false,swift:null};
+  if(ai2(p,"fin2")&&p.solved&&p.pLoc==="area"&&p.partner.st==="a"&&!FX.noSolve(p)&&p.ev.length<p.level){
+    const need=p.level-p.ev.length;
+    const mis=o.field.reduce((a,y)=>a+(y.st==="a"?(staticKw(y,o).misread||0):0),0);
+    const rs=p.field.filter(x=>x!==p.partner&&canAct(x,p,"reason")).reduce((a,x)=>a+lpOf(x),0);
+    if(rs-mis>=need)fin.on=true;
+    else{const sw=p.hand.filter(x=>C(x).t==="キャラ"&&/〚迅速〛/.test(C(x).f||"")&&!playableReason(p,x,false)&&p.field.length<fieldMax(p)).sort((a,b)=>(C(b).lp||0)-(C(a).lp||0))[0];
+      if(sw&&rs+(C(sw).lp||0)-mis>=need){fin.on=true;fin.swift=sw}}
+    if(fin.on&&!G.sim)dl("fin",{who:p.idx,need,swift:fin.swift?C(fin.swift).nm:"",mis})}
   // 2) 手札の使用（基本方針: 毎ターン必ず使う。相手のキャラを減らす効果を優先）
   const best=viaHint=>{
     const cs=p.hand.filter(x=>!playableReason(p,x,viaHint)&&(C(x).t==="キャラ"||FX.eventAi(p,x)));
@@ -113,6 +144,7 @@ async function cpuTurn(p){
       if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
       if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.has(x,"enter"))v+=25;
       if(c.t==="キャラ"&&p.field.length>=fieldMax(p))v-=30;
+      if(ai2(p,"annoy")&&HARASS_RE.test(c.f||""))v+=35; // annoy: 相手の手札を減らす・キャラを手札に戻す効果を持つカードを優先（SeEd: 嫌がらせ）
       return v};
     return cs.sort((a,b)=>score(b)-score(a))[0]||null};
   // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする
@@ -131,7 +163,7 @@ async function cpuTurn(p){
     p.file.push(p.partner);const after=best(false);p.file.pop();
     if(plan.assist||ai2(p,"sit2")&&(p.file.length>=6||p.hand.length>=5)||ai2(p,"early6")&&p.file.length>=6||after&&lvOf(after)>lvOf(now)||ai2(p,"assist2")&&fileEv(planned())){await assist(p);await step()}
   }
-  let pick1=planned();
+  let pick1=fin.swift&&!playableReason(p,fin.swift,false)?fin.swift:planned();
   if(pick1){await useFromHand(p,pick1);await step()}
   if(G.over)return;
   const fileCards=()=>p.file.filter(x=>x!==p.partner).length;
@@ -153,14 +185,16 @@ async function cpuTurn(p){
   if(G.over)return;
   // 相手が事件を解決編にしていて、次のターンに解決しそうなら、キャラへのアクションをやめて全員で相手の事件にアクションし、証拠を減らして抵抗する
   const oppPot=o.field.reduce((a,y)=>a+(y.st==="a"?lpOf(y):0),0)+(o.pLoc==="area"&&o.partner.st==="a"?lpOf(o.partner):0);
-  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0||ai2(p,"lose")&&o.solved&&o.ev.length>0&&o.ev.length+oppPot>=o.level;
+  const thr=ai2(p,"threat2")?threatNext(p,o):null; // threat2: スリープ中のキャラ・パートナー・事件アクション・登場時の効果まで数えた脅威。resist/wary の判定に使う
+  if(thr&&!G.sim)dl("threat",{who:p.idx,gainMax:thr.gainMax,gainMin:thr.gainMin,need:thr.need,lethal:thr.lethal,parts:thr.parts});
+  const resist=ai2(p,"resist")&&o.solved&&o.ev.length>=o.level-2&&o.ev.length>0||ai2(p,"lose")&&o.solved&&o.ev.length>0&&o.ev.length+oppPot>=o.level||!!thr&&thr.lethalMin&&o.ev.length>0; // 防御（ガード役・ミスリード）で減らしても相手が勝てるときだけ抵抗（最大値だと終盤は常に危険になり、攻めが止まった）
   // 2.8) 出たばかりでもアクションできるキャラ（突撃・迅速）。探索（plan.act）で動かし方を選ぶ。stay は動かさず起こしておく
   const hold=new Set();
   {const rushers=()=>p.field.filter(x=>x.fresh&&x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case"))).sort((a,b)=>apOf(b)-apOf(a));
     const rs=rushers();
     if(rs.length&&G.sim)G.sim.rushSeen=true;
     if(plan.act==="stay")for(const x of rs)hold.add(x);
-    else if(plan.act&&!resist)for(const x of rs){
+    else if(plan.act&&!resist&&!fin.on)for(const x of rs){
       for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
         if(G.over||!p.field.includes(x)||x.st!=="a")break;
         if(way==="chara"){const t=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
@@ -169,8 +203,20 @@ async function cpuTurn(p){
   if(G.over)return;
   // sit2: 相手にアクティブなミスリードが2体以上いるなら、先にパートナーで推理して使わせ、スリープしたところをアクションで倒す
   if(ai2(p,"sit2")&&!resist&&p.pLoc==="area"&&p.partner.st==="a"&&!p.solved&&canAct(p.partner,p,"reason")&&o.field.filter(y=>y.st==="a"&&(staticKw(y,o).misread||0)>0).length>=2){await reason(p,p.partner);await step();if(G.over)return}
+  // def2: 抵抗モードでも、相手のスリープ中の推理源（LPのあるキャラ）は先に倒す。事件アクションで証拠を1枚削るより、相手の次の手番の獲得量を直接減らせる。
+  // 倒せるもの（こちらのAPが対象以上）をLPの大きい順に、いちばん弱いキャラで倒す。倒せないときは従来どおり事件アクション
+  if(resist&&ai2(p,"def2")){
+    for(;;){
+      if(G.over)return;
+      const atks=p.field.filter(x=>!hold.has(x)&&canAct(x,p,"chara"));
+      const tg=o.field.filter(y=>y.st!=="a"&&y.st!=="x"&&lpOf(y)>=1&&!FX.noTarget(p,y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0));
+      let done=false;
+      for(const t of tg){const a=atks.filter(x=>apOf(x)>=apOf(t)&&canAct(x,p,"chara",t)).sort((a,b)=>apOf(a)-apOf(b))[0];
+        if(a){await declareAction(p,a,t);await step();done=true;break}}
+      if(!done)break}
+  }
   // 3) キャラへのアクション（勝てる相手）
-  for(;!resist;){
+  for(;!resist&&!fin.on;){
     const atks=p.field.filter(x=>!hold.has(x)&&canAct(x,p,"chara")).sort((a,b)=>apOf(b)-apOf(a));
     // 「必ずガードする」相手のキャラがいれば、APで勝てるキャラでアクションしてガードさせる
     const fg=o.field.find(y=>staticKw(y,o).mustGuard&&canGuardNow(o,y));
@@ -185,12 +231,12 @@ async function cpuTurn(p){
   }
   if(G.over)return;
   // 4) 事件へのアクション / 推理
-  const keep=resist?0:p.field.length>=3?1:0;
+  const keep=resist||fin.on?0:p.field.length>=3?1:0;
   let actors=p.field.filter(x=>x.st==="a"&&!hold.has(x)).sort((a,b)=>lpOf(b)-lpOf(a));
   if(ai2(p,"rsnw"))actors.sort((a,b)=>(C(a).lv||0)-(C(b).lv||0)||lpOf(b)-lpOf(a)); // SeEd: 弱いキャラから動かし、強いキャラを起こして残す
   const oppNear=o.solved&&o.ev.length>=o.level-2; // 相手が次のターンに勝ちそう
   // wary（弱い警戒）: 解決編でなくても、迅速・突撃などで証拠を1つ余計に取られて、現場のLP+1で勝たれる形なら、自分の証拠を貯めるより相手の証拠を削る（事件アクション）。ネクストヒントを増やすなどはしない
-  const wary=ai2(p,"wary")&&!resist&&o.ev.length>0&&o.ev.length+oppPot+1>=o.level;
+  const wary=ai2(p,"wary")&&!resist&&o.ev.length>0&&(thr?o.ev.length+thr.gainMax>=o.level:o.ev.length+oppPot+1>=o.level);
   let left=actors.length;
   for(const x of actors){
     if(G.over)return;
@@ -199,9 +245,9 @@ async function cpuTurn(p){
       const late=p.ev.length>=p.level-2;
       const threat=o.field.some(y=>y.st!=="x"&&apOf(y)>=apOf(x));
       if(!late&&threat&&(strongChar(x)||G.turnNo<=4)){continue}}
-    if(o.ev.length>0&&canAct(x,p,"case")&&(resist||wary||ai2(p,"end2")&&oppNear||ai2(p,"mid")&&p.ev.length<p.level-3||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
+    if(!fin.on&&o.ev.length>0&&canAct(x,p,"case")&&(resist||wary||ai2(p,"end2")&&oppNear||ai2(p,"mid")&&p.ev.length<p.level-3||ai2(p,"case2")&&(o.ev.length>p.ev.length||G.turnNo<=4&&o.ev.length>=2))){await declareAction(p,x,"case");left--;await step();continue} // SeEd: 遅れていれば事件アクション、先行していれば推理
     if(lpOf(x)>=1&&canAct(x,p,"reason")){await reason(p,x);left--;await step();continue}
-    if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");left--;await step()}
+    if(!fin.on&&o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");left--;await step()}
   }
   if(G.over)return;
   // 5) パートナー
