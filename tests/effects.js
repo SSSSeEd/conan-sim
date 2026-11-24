@@ -211,7 +211,7 @@ module.exports=[
     p.partner=w.inst("B11095");p.caseC=w.inst("B11099");
     await w.FX.endTurn(p);assert.ok(!G.over,"事件が探偵VS怪盗でないので勝てない");
     p.caseC=w.inst("B11098");await w.FX.endTurn(p);assert.ok(G.over)}],
-  ["怪盗キッド B11031: 事件が探偵VS怪盗（コナンVS怪盗キッド）で、お互いの証拠が合わせて5つ以上のときだけ手札リムーブの能力を宣言できる",async w=>{
+  ["怪盗キッド B11031: 事件が探偵VS怪盗（コナンVS怪盗キッド）で、お互いの証拠が合わせて5つ以上のときだけ手札リムーブの能力を宣言できる。スリープの能力は登場したターンでも使える",async w=>{
     const G=board(w,{p0:{field:["B11031"],hand:[R,R],ev:[R,R,R]},p1:{field:[R],ev:[R,R]}});const p=G.P[0],[x]=p.field,a=w.ev("DEF")["1197"].abilities[0];
     p.caseC=w.inst("D01016");assert.ok(!a.can(p,x),"事件が探偵VS怪盗でないので宣言できない");
     p.caseC=w.inst("B11098");assert.ok(a.can(p,x),"探偵VS怪盗で証拠が合わせて5つなら宣言できる（相手の証拠も数える）");
@@ -219,7 +219,7 @@ module.exports=[
     x.st="s";assert.ok(w.FX.abilities(p,x).find(b=>b.key==="ab0").ok,"スリープ状態でも宣言できる（アクティブにする）");
     await a.run(p,x);assert.strictEqual(x.st,"a");assert.strictEqual(G.P[1].field[0].st,"s");
     const b=w.ev("DEF")["1197"].abilities[1];G.P[1].field[0].st="a";assert.ok(!b.can(p,x)&&/スリープ状態のキャラがいない/.test(b.why(p,x)));
-    G.P[1].field[0].st="s";x.fresh=true;assert.ok(!b.can(p,x)&&/登場したばかり/.test(b.why(p,x)));x.fresh=false;assert.ok(b.can(p,x))}],
+    G.P[1].field[0].st="s";x.fresh=true;assert.ok(b.can(p,x)&&w.FX.abilities(p,x).find(b=>b.key==="ab1").ok,"登場したターンでもスリープのコストを払って宣言できる");x.fresh=false;assert.ok(b.can(p,x))}],
   ["服部平次＆ジョディ B11096: 登場時にAP8000以下をリムーブ。APが4000以上低い相手を指定したら手札1枚で証拠を得る",async w=>{
     const G=board(w,{p0:{field:["B11096","B11039"],hand:[R,R,R]},p1:{field:[R]}});const p=G.P[0],[x,y]=p.field;
     await w.FX.enter(p,x);assert.strictEqual(G.P[1].field.length,0);G.P[1].field.push(w.inst("B01019"));
