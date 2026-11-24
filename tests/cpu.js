@@ -36,4 +36,16 @@ module.exports=[
     const G=board(w,{p0:{field:["B01019","B01019"],hand:["D01002"],file:["B01019","B01019","B01019","B01019","B01019","B01019","B01019"],solved:true,level:3},p1:{field:["B01019"],ev:["B01019","B01019"]}});
     G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};G.P[1].field[0].st="s";
     await w.cpuTurn(G.P[0]);assert.ok(G.over&&G.winner===0,"迅速で出したコナンも推理して勝った")}],
+  ["序盤のアシスト(asst3): 1ターン目に、アシストしても出せるカードが無いなら、アシストせずパートナーで推理する（SeEd 11/24）",async w=>{
+    w.AI_OFF=w.ev("AI_OFF0");
+    const G=board(w,{p0:{hand:["B01008","B01008","B02007","D01009","D01002","B01008"],file:["B01019"]}}); // 手札6枚すべてLv3以上、FILE1
+    G.turnNo=1;G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+    const p=G.P[0];await w.cpuTurn(p);
+    assert.strictEqual(p.file.length,1,"アシストしていない（FILE1のまま）");assert.strictEqual(p.ev.length,1,"パートナーで推理して証拠1")}],
+  ["序盤のアシスト(asst3): 手札5〜6枚で、アシストしなくてもLv2を出せるなら、アシストせずに出す（SeEd: Lv2を出すのにアシストしてFILE3にしている）",async w=>{
+    w.AI_OFF=w.ev("AI_OFF0");
+    const G=board(w,{p0:{hand:["B01019","B01008","B01008","D01002","D01002"],file:["B01019","B01019"]}}); // FILE2、Lv2が出せる。Lv3を出すにはアシストが要るが手札に無い
+    G.turnNo=2;G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+    const p=G.P[0];await w.cpuTurn(p);
+    assert.strictEqual(p.file.length,2,"アシストしていない（FILE2のまま）");assert.ok(p.field.some(x=>w.C(x).lv===2),"Lv2を出した")}],
 ];
