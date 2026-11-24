@@ -9,7 +9,7 @@
 // 切り替えられるのは AI_SWITCH の6つだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
 const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=[];
+const AI_OFF0=["stance"]; // stance: 相手が勝てそうなとき、探索で守り/攻めの構えも試す（search.js）
 const ai2=(p,f)=>!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 
@@ -101,7 +101,7 @@ function defenseCheck(p,o){
   return {oppPot,thr,resist}}
 // wary（弱い警戒）: 解決編でなくても、迅速・突撃などで証拠を1つ余計に取られて、現場のLP+1で勝たれる形なら、自分の証拠を貯めるより相手の証拠を削る。
 // 判定はアクションの段階に入ったとき（突撃などで相手の証拠が減った後）の証拠数で行う
-const waryNow=(p,o,d)=>ai2(p,"wary")&&!d.resist&&o.ev.length>0&&(d.thr?o.ev.length+d.thr.gainMax>=o.level:o.ev.length+d.oppPot+1>=o.level);
+const waryNow=(p,o,d)=>ai2(p,"wary")&&!d.resist&&!d.calm&&o.ev.length>0&&(d.thr?o.ev.length+d.thr.gainMax>=o.level:o.ev.length+d.oppPot+1>=o.level);
 
 // ---- 手札を使う優先度 ----
 // レベル×10、除去イベント+45、登場時に除去するキャラ+25、現場がいっぱいのキャラ−30
@@ -148,6 +148,7 @@ async function cpuTurn(p){
   if(G.over)return;
   // 守りに入るか
   t.def=defenseCheck(p,o);
+  if(plan.stance==="defend")t.def.resist=true;else if(plan.stance==="attack"){t.def.resist=false;t.def.calm=true} // 探索が選んだ構え（stance）で上書き
   // 2.8) 出たばかりでもアクションできるキャラ（突撃・迅速）
   await rushPhase(t);
   if(G.over)return;

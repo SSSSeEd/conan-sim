@@ -68,7 +68,7 @@ async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
 function recSearch(p,tried,best){
   if(!G.rec)return;
-  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.stance&&"構え:"+({defend:"守り",attack:"攻め"})[pl.stance],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
   (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
   dl("search",{who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
 }
@@ -77,18 +77,24 @@ function recSearch(p,tried,best){
 // 突撃は手札を出したあとに付くことが多く、手番のはじめにはわからない。そこで、まず出し方の組み合わせを試し、
 // 試しの中で「出たばかりでアクションできるキャラ」がいたときだけ、いちばん良かった組み合わせにアクションの出し方を足して試す
 const ACT_MODES=["chara","case","stay"];
+const STANCES=["defend","attack"]; // 構え（plan.stance）: defend=抵抗する / attack=抵抗も警戒もしない。無し=今の判定のまま
 let ROLL_RUSH=false;
 async function chooseTurnPlan(p){
   const plans=turnPlans(p);
   let best=null,bv=-Infinity;
   const tried=[];ROLL_RUSH=false;
-  if(plans.length<=2){ // 選択肢は無いが、突撃キャラがいるかだけ見る
-    const v=await rollout(p,plans[0]);if(!ROLL_RUSH)return null;best=plans[0];bv=v;tried.push([best,v])}
+  const thr=ai2(p,"stance")?threatNext(p,opp(p)):null,danger=!!thr&&thr.lethal; // stance: 相手が次の手番で勝てそうな見込み（最大値）なら、構えも試す
+  if(plans.length<=2){ // 選択肢は無いが、突撃キャラがいるか（と構えを試すか）だけ見る
+    const v=await (danger?rolloutN:rollout)(p,plans[0]);if(!ROLL_RUSH&&!danger)return null;best=plans[0];bv=v;tried.push([best,v])}
   else for(const pl of plans){const v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
   if(ROLL_RUSH&&!(G.cfg.noAct&&G.cfg.noAct[p.idx])){const b0=best;
     for(const act of ACT_MODES){const pl={...b0,act},v=await rolloutN(p,pl);tried.push([pl,v]);
       // rushb: 突撃・迅速で出たばかりのキャラを動かす手に加点する（SeEd: 突撃を付けても動かさないのは「付けること」で満足している。付けたなら動かす）
       const vv=act!=="stay"?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
+  // stance（実験）: いちばん良かった案に「守り」（全員で相手の事件を削る）と「攻め」（守りに入らない）の構えを足して試す。
+  // 守りの発動条件（resist / threat2 / wary）を手書きの閾値で決めるのではなく、試して良い方を選ぶ（設計: notes/cpu-architecture-plan-2026-11-24.md の段階4）
+  if(danger){const b0=best;
+    for(const stance of STANCES){const pl={...b0,stance},v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
   recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;
