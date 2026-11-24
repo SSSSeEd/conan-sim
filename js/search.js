@@ -24,22 +24,22 @@ function turnPlans(p){
   for(const x of p.hand){
     if(seen.has(x.n)||playableReason(p,x,false)||!ok(x))continue;
     seen.add(x.n);base.push({play:x.n})}
-  if(ai2(p,"assist2")&&(!p.solved||ai2(p,"asolv")&&p.file.length<9)&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
+  if((!p.solved||p.file.length<9)&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand){
     p.file.push(p.partner);
     for(const x of p.hand){if(seen.has(x.n)||playableReason(p,x,false)||!ok(x))continue;seen.add(x.n);base.push({play:x.n,assist:1})}
     p.file.pop()
     // fileplan: すでに出せるが、効果がFILE数を参照するカードは、アシストしてから出すほうが良いかもしれないので、その手も試す（SeEd）
-    if(ai2(p,"fileplan"))for(const x of p.hand){if(playableReason(p,x,false)||!ok(x)||!/FILE/.test(C(x).f||""))continue;
+    for(const x of p.hand){if(playableReason(p,x,false)||!ok(x)||!/FILE/.test(C(x).f||""))continue;
       if(!base.some(b=>b.play===x.n&&b.assist))base.push({play:x.n,assist:1})}
   }
-  if(!(ai2(p,"assist2")&&G.turnNo<=2&&base.length>1))base.push({play:"none"});
+  if(!(G.turnNo<=2&&base.length>1))base.push({play:"none"});
   // 事件・キャラの宣言能力が使えるなら、手札を使う前に能力を使う組み合わせも試す（事件の能力でリムーブエリアから手札に加えたカードを同じ手番で使うため）
   // ab2: 能力の使うかどうかも探索する。ab:"none"=能力を使わない、ab:"force"=CPUの目安（aiCan）が「使わない」でも使える能力は全部使う
   const abs=[...p.field,p.caseC,...p.hand,...areaCards(p)].flatMap(x=>FX.abilities(p,x).filter(ab=>ab.ok&&!ab.noAi).map(ab=>[x,ab]));
   const abNow=abs.some(([x,ab])=>!ab.aiCan||ab.aiCan(p,x));
   const abSkipped=abs.some(([x,ab])=>ab.aiCan&&!ab.aiCan(p,x));
   let all=abNow?base.flatMap(pl=>[pl,{...pl,abFirst:true}]):base;
-  if(ai2(p,"ab2")&&abs.length){
+  if(abs.length){
     all=[...all,...base.map(pl=>({...pl,ab:"none"}))];
     if(abSkipped)all=[...all,...base.flatMap(pl=>[{...pl,ab:"force"},{...pl,ab:"force",abFirst:true}])]}
   return all.flatMap(pl=>[pl,{...pl,hint:false}]);
@@ -83,7 +83,7 @@ async function chooseTurnPlan(p){
   if(ROLL_RUSH&&!(G.cfg.noAct&&G.cfg.noAct[p.idx])){const b0=best;
     for(const act of ACT_MODES){const pl={...b0,act},v=await rollout(p,pl);tried.push([pl,v]);
       // rushb: 突撃・迅速で出たばかりのキャラを動かす手に加点する（SeEd: 突撃を付けても動かさないのは「付けること」で満足している。付けたなら動かす）
-      const vv=act!=="stay"&&ai2(p,"rushb")?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
+      const vv=act!=="stay"?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
   recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;

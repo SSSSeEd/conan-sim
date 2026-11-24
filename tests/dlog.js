@@ -50,6 +50,8 @@ function expand(t){
       chose:f[7]==="-"?"":tl(f[7].replace(/\((カ|変装)\)$/,""))+(/変装\)$/.test(f[7])?"(変装)":"(カットイン)"),hand:cl(f[8]),oHand:o[0],oRm:o[1]})}
     else if(h[0]==="探索")out.push({k:"search",who:pn(f[0].split(" ")[1]),pick:f[1],plans:f.slice(2).map(x=>{const j=x.indexOf(" ");return [x.slice(j+1),+x.slice(0,j)]})});
     else if(h[0]==="コンボ表")out.push({k:"combo",who:pn(f[0].split(" ")[1]),how:f[1]});
+    else if(h[0]==="脅威")out.push({k:"threat",who:pn(f[0].split(" ")[1]),gainMax:+f[1],gainMin:+f[2],need:+f[3],lethal:f[4]==="1",parts:f[5]?f[5].split(","):[]});
+    else if(h[0]==="勝切")out.push({k:"fin",who:pn(f[0].split(" ")[1]),need:+f[1],mis:+f[2],swift:f[3]||""});
     else log.push(l)}
   return {ev:out,log}}
 const norm=e=>{const o={};for(const k of Object.keys(e).sort())if(k!=="t"&&k!=="li")o[k]=e[k];for(const k of ["hand","cands","chose","cards","back"])if(Array.isArray(o[k]))o[k]=[...o[k]].sort();return o};
