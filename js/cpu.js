@@ -8,9 +8,10 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
 const AI_OFF0=["stance"]; // stance: 相手が勝てそうなとき、探索で守り/攻めの構えも試す（search.js、未測定）
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
+// asst4（既定オン 11/24）: 手札の枚数（手札過多）ではアシストしない。出せるカードが増えるとき・解決編に入るときだけ。bench 2000戦: asst4なしのCPUが 49.4%（48.4〜50.4）＝勝率は変わらず、人間に近いので採用
 // order（既定オン 11/24）: アクションを手札より先にする順も探索で試す。4000戦 50.8%（49.5〜52.1、差なし）。SeEdの要望で採用
 const ai2=(p,f)=>!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
@@ -217,11 +218,13 @@ async function handPhase(t){
   const {p,plan,step,fin}=t;
   const planned=()=>plan.play==="none"?null:plan.play?p.hand.find(x=>x.n===plan.play&&!playableReason(p,x,false))||bestHand(p,false):bestHand(p,false);
   // アシストでFILEが1枚増えると、今は出せない高レベルが出せるなら先にアシストする。FILE6以上か手札5枚以上でも先にアシスト
-  if(canAssist(p)&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand&&!holdForHeavy(p)){
+  // 勝ち切り（fin.on）のときはアシストしない: パートナーがFILEに行くと、推理で証拠が揃っても事件解決できない（SeEd 11/24 実況T13）
+  if(canAssist(p)&&!(fin&&fin.on)&&p.pLoc==="area"&&p.partner.st==="a"&&!p.usedHand&&!holdForHeavy(p)){
     const lv=x=>x?(C(x).lv||0):-1;const now=bestHand(p,false);
     p.file.push(p.partner);const after=bestHand(p,false);p.file.pop();
     // asst3（SeEd 11/24: 序盤に、Lv2を出すのにアシストしてFILE3にしている）: 「手札過多」は手札5枚ではなく7枚以上。それ以外で先にアシストするかは探索（plan.assist）が試して決める
-    const many=ai2(p,"asst3")?p.hand.length>=7:p.hand.length>=5;
+    // asst4（SeEd 11/24: 手札過多でも意味ないならアシストしない。出すカードを決めて逆算してアシストする）: 手札の枚数ではアシストしない
+    const many=ai2(p,"asst4")?false:ai2(p,"asst3")?p.hand.length>=7:p.hand.length>=5;
     const up=after&&lv(after)>lv(now)&&!(ai2(p,"asst3")&&plan.play); // asst3: 探索が出すカードを決めているなら、そのカードのためのアシストは plan.assist で示される
     if(plan.assist||(p.file.length>=6||many)||up||fileEv(planned())){await assist(p);await step()}
   }

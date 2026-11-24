@@ -31,6 +31,12 @@ module.exports=[
       G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};G.P[1].field[0].st="s"; // 相手のスリープ中のキャラを殴りたくなる盤面
       await w.cpuTurn(G.P[0]);return G};
     w.AI_OFF=w.ev("AI_OFF0");const G=await run();assert.ok(G.over&&G.winner===0,"勝った（3体の推理で証拠3、パートナーで事件解決）")}],
+  ["勝ち切り(fin2): 推理で事件レベルに届くなら、Lv9を出すためのアシストでパートナーを使わず、事件解決する（SeEd 11/24 実況T13: FILE8でアシスト→松田陣平＆萩原研二を出し、証拠7/7になったのにパートナーが無く解決できず負け）",async w=>{
+    const F=n=>Array(n).fill("B01019");
+    const G=board(w,{p0:{field:["B10065","B10068","B10068"],hand:["B10065","B10066"],ev:F(3),file:F(8),deck:F(20),solved:true,level:7},p1:{field:["B01019"],ev:F(5)}});
+    G.P[0].caseC=w.inst("B10082P");G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+    w.AI_OFF=w.ev("AI_OFF0");await w.cpuTurn(G.P[0]);
+    assert.ok(G.over&&G.winner===0,"勝った（推理3体で証拠7、パートナーで事件解決）。アシスト: "+G.rec.log.filter(m=>/アシスト/.test(m[1]||m)).length)}],
   ["勝ち切り(fin2): 迅速のキャラを出せば推理で届くなら、先に迅速のキャラを出して推理し、事件解決する",async w=>{
     w.AI_OFF=w.ev("AI_OFF0");
     const G=board(w,{p0:{field:["B01019","B01019"],hand:["D01002"],file:["B01019","B01019","B01019","B01019","B01019","B01019","B01019"],solved:true,level:3},p1:{field:["B01019"],ev:["B01019","B01019"]}});
@@ -42,6 +48,13 @@ module.exports=[
     G.turnNo=1;G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
     const p=G.P[0];await w.cpuTurn(p);
     assert.strictEqual(p.file.length,1,"アシストしていない（FILE1のまま）");assert.strictEqual(p.ev.length,1,"パートナーで推理して証拠1")}],
+  ["アシスト(asst4): 手札が7枚あっても、アシストして出せるカードが増えないならアシストせず推理する（SeEd 11/24 実況T3: 手札7枚・FILE3で出せるカードが無いのにアシスト）",async w=>{
+    w.AI_OFF=w.ev("AI_OFF0");
+    const G=board(w,{p0:{hand:["B01008","B01008","D01002","B01008","D01002","B01008","D01002"],file:["B01019","B01019","B01019"]}}); // 手札7枚、FILE3。アシストしてFILE4でも出せるカードは無い前提を下で確かめる
+    const p=G.P[0];p.file.push(p.partner);const can4=p.hand.filter(x=>!w.playableReason(p,x,false));p.file.pop();assert.strictEqual(can4.length,0,"前提: FILE4でも出せるカードが無い");
+    G.turnNo=3;G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
+    await w.cpuTurn(p);
+    assert.strictEqual(p.file.length,3,"アシストしていない（FILE3のまま）");assert.strictEqual(p.ev.length,1,"パートナーで推理して証拠1")}],
   ["序盤のアシスト(asst3): 手札5〜6枚で、アシストしなくてもLv2を出せるなら、アシストせずに出す（SeEd: Lv2を出すのにアシストしてFILE3にしている）",async w=>{
     w.AI_OFF=w.ev("AI_OFF0");
     const G=board(w,{p0:{hand:["B01019","B01008","B01008","D01002","D01002"],file:["B01019","B01019"]}}); // FILE2、Lv2が出せる。Lv3を出すにはアシストが要るが手札に無い
