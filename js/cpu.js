@@ -6,10 +6,12 @@
 //                   → 守りの判定 → 突撃・迅速 → ミスリードを先に使わせる → キャラへのアクション → 事件アクション/推理 → パートナー
 // 実験の歴史（勝率）は notes/cpu-flag-history-2026-11-24.md。2026-11-24 に、不採用の実験（cut, reason, mull2, play2, rsnw, end2, guard2, cut2,
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
-// 切り替えられるのは AI_SWITCH の6つだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
+// 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["stance","asst3","order"]; // stance: 相手が勝てそうなとき、探索で守り/攻めの構えも試す（search.js） / asst3: 序盤の無駄なアシストを減らす / order: アクションを手札より先にする順も探索で試す
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_OFF0=["stance"]; // stance: 相手が勝てそうなとき、探索で守り/攻めの構えも試す（search.js、未測定）
+// asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
+// order（既定オン 11/24）: アクションを手札より先にする順も探索で試す。4000戦 50.8%（49.5〜52.1、差なし）。SeEdの要望で採用
 const ai2=(p,f)=>!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
 
