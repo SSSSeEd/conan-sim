@@ -68,7 +68,7 @@ async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
 function recSearch(p,tried,best){
   if(!G.rec)return;
-  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.stance&&"構え:"+({defend:"守り",attack:"攻め"})[pl.stance],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.order&&"アクション先",pl.stance&&"構え:"+({defend:"守り",attack:"攻め"})[pl.stance],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
   (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
   dl("search",{who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
 }
@@ -91,6 +91,9 @@ async function chooseTurnPlan(p){
     for(const act of ACT_MODES){const pl={...b0,act},v=await rolloutN(p,pl);tried.push([pl,v]);
       // rushb: 突撃・迅速で出たばかりのキャラを動かす手に加点する（SeEd: 突撃を付けても動かさないのは「付けること」で満足している。付けたなら動かす）
       const vv=act!=="stay"?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
+  // order（実験）: いちばん良かった案に「アクションを先にする」行動順を足して試す（場にアクションできるキャラがいるときだけ）
+  if(ai2(p,"order")&&best&&p.field.some(x=>x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case")||canAct(x,p,"reason")))){
+    const pl={...best,order:"act"},v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
   // stance（実験）: いちばん良かった案に「守り」（全員で相手の事件を削る）と「攻め」（守りに入らない）の構えを足して試す。
   // 守りの発動条件（resist / threat2 / wary）を手書きの閾値で決めるのではなく、試して良い方を選ぶ（設計: notes/cpu-architecture-plan-2026-11-24.md の段階4）
   if(danger){const b0=best;
