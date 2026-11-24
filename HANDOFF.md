@@ -58,3 +58,4 @@
 - 動きを変えない整理は `node tools/golden.js 300 save 前.json` → 変更 → `check 前.json` で全試合一致を確かめる。
 - js/cpu.js: cpuTurn を段階の関数（choosePlan / abilityPhase / handPhase / rushPhase / attackPhase / actorPhase / partnerPhase）と判定の関数（finishCheck / defenseCheck / waryNow / caseFirst / bestHand / canAssist / holdForHeavy）に分けた。
 - 実験スイッチは AI_SWITCH の5つ（fin2, threat2, resist, wary, combo2。既定オン）だけ。新しい実験は AI_OFF0 に入れて既定オフで足し、bench の +名前 で測る。不採用の14個と定着した13個のスイッチは削除（歴史は notes/cpu-flag-history-2026-11-24.md）。cfg.ai1（旧CPU）も削除。
+- 段階3（2026-11-24）: 探索で案ごとに相手の手札の配り直しを変えて3回試し、平均で選ぶ（search.js の rolloutN、スイッチ multi、回数は window.ROLL_K）。bench 4000戦で54.1%（1回比）。5回は54.3%で差なし。CPUの考える時間は約2倍。
