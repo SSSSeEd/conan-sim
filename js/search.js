@@ -110,7 +110,7 @@ async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
 function recSearch(p,tried,best){
   if(!G.rec)return;
-  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.order&&"アクション先",pl.stance&&"構え:"+({defend:"守り",attack:"攻め"})[pl.stance],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.order&&"アクション先",pl.stance&&"構え:"+({defend:"守り",attack:"攻め"})[pl.stance],pl.keep===0&&"ガード役なし",pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
   (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
   dl("search",{who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
 }
@@ -140,6 +140,9 @@ async function chooseTurnPlan(p){
   // 守りの発動条件（resist / threat2 / wary）を手書きの閾値で決めるのではなく、試して良い方を選ぶ（設計: notes/cpu-architecture-plan-2026-11-24.md の段階4）
   if(danger){const b0=best;
     for(const stance of STANCES){const pl={...b0,stance},v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
+  // keep2（段階④、SeEd 11/25: ガード役は残したら偉いくらいで必須ではない。証拠が少ないなら守っても美味しくない）:
+  //   現場3体以上（今のCPUはガード役を1体残す）なら、いちばん良かった案に「ガード役を残さない」を足して試す
+  if(ai2(p,"keep2")&&best&&p.field.length>=3){const pl={...best,keep:0},v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
   recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;

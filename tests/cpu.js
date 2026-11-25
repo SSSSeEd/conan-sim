@@ -47,6 +47,11 @@ module.exports=[
     w.AI_OFF=w.ev("AI_OFF0").filter(x=>x!=="strat");const snap=JSON.stringify(G.P);
     const ss=w.stratDeals(G.P[1]);assert.ok(ss&&Math.abs(ss.reduce((a,s)=>a+s.w,0)-1)<1e-9,"重みの合計が1");
     await w.rolloutN(G.P[0],{});assert.strictEqual(JSON.stringify(G.P),snap,"本番の盤面が変わっていない");w.AI_OFF=w.ev("AI_OFF0")}],
+  ["ガード役(keep2): 現場3体なら今のCPUは1体残して推理する。探索が「ガード役なし」（plan.keep=0）を選んだら全員推理する（SeEd 11/25）",async w=>{
+    w.AI_OFF=w.ev("AI_OFF0");
+    const run=async plan=>{const G=board(w,{p0:{field:["B01019","B01019","B01019"],deck:Array(10).fill("B01019"),file:Array(5).fill("B01019")},p1:{field:["B01019"]}});
+      G.cfg.search=[false,false];G.sim={plan,planFor:0,stage:1};const p=G.P[0];p.pLoc="file";await w.cpuTurn(p);return p.field.filter(x=>x.st==="s").length};
+    assert.strictEqual(await run({}),2,"今のCPU: 1体残す");assert.strictEqual(await run({keep:0}),3,"ガード役なし: 全員")}],
   ["序盤のアシスト(asst3): 1ターン目に、アシストしても出せるカードが無いなら、アシストせずパートナーで推理する（SeEd 11/24）",async w=>{
     w.AI_OFF=w.ev("AI_OFF0");
     const G=board(w,{p0:{hand:["B01008","B01008","B02007","D01009","D01002","B01008"],file:["B01019"]}}); // 手札6枚すべてLv3以上、FILE1
