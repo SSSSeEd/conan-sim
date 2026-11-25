@@ -126,6 +126,7 @@ let ROLL_RUSH=false;
 // rushb の加点（アクションの出し方で突撃・迅速のキャラを動かす案に+400）。いちばん良かった案に何かを足して試すときも、同じ加点で比べる
 //   （11/25 まで: 足した案には加点が無く、元の案が加点ありで比べられていたため、order・stance・keep2 はほぼ選ばれなかった）
 const rushB=(p,pl)=>ai2(p,"fair")&&pl.act&&pl.act!=="stay"?(window.RUSH_BONUS??400):0;
+// deckHook(p,"plan",pl): デッキ別CPUの加点（段階⑤）。後から足して試す案（行動順・構え・ガード役なし）にも同じ加点をつけて、同じ物差しで比べる
 async function chooseTurnPlan(p){
   const plans=turnPlans(p);
   let best=null,bv=-Infinity;
@@ -133,21 +134,21 @@ async function chooseTurnPlan(p){
   const thr=ai2(p,"stance")?threatNext(p,opp(p)):null,danger=!!thr&&thr.lethal; // stance: 相手が次の手番で勝てそうな見込み（最大値）なら、構えも試す
   if(plans.length<=2){ // 選択肢は無いが、突撃キャラがいるか（と構えを試すか）だけ見る
     const v=await (danger?rolloutN:rollout)(p,plans[0]);if(!ROLL_RUSH&&!danger)return null;best=plans[0];bv=v;tried.push([best,v])}
-  else for(const pl of plans){const v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
+  else for(const pl of plans){const v=await rolloutN(p,pl)+deckHook(p,"plan",pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}} // 同点なら先に試した方（今のCPUのまま）
   if(ROLL_RUSH&&!(G.cfg.noAct&&G.cfg.noAct[p.idx])){const b0=best;
-    for(const act of ACT_MODES){const pl={...b0,act},v=await rolloutN(p,pl);tried.push([pl,v]);
+    for(const act of ACT_MODES){const pl={...b0,act},v=await rolloutN(p,pl)+deckHook(p,"plan",pl);tried.push([pl,v]);
       // rushb: 突撃・迅速で出たばかりのキャラを動かす手に加点する（SeEd: 突撃を付けても動かさないのは「付けること」で満足している。付けたなら動かす）
       const vv=act!=="stay"?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
   // order（実験）: いちばん良かった案に「アクションを先にする」行動順を足して試す（場にアクションできるキャラがいるときだけ）
   if(ai2(p,"order")&&best&&p.field.some(x=>x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case")||canAct(x,p,"reason")))){
-    const pl={...best,order:"act"},v=await rolloutN(p,pl)+rushB(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
+    const pl={...best,order:"act"},v=await rolloutN(p,pl)+rushB(p,pl)+deckHook(p,"plan",pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
   // stance（実験）: いちばん良かった案に「守り」（全員で相手の事件を削る）と「攻め」（守りに入らない）の構えを足して試す。
   // 守りの発動条件（resist / threat2 / wary）を手書きの閾値で決めるのではなく、試して良い方を選ぶ（設計: notes/cpu-architecture-plan-2026-11-24.md の段階4）
   if(danger){const b0=best;
-    for(const stance of STANCES){const pl={...b0,stance},v=await rolloutN(p,pl)+rushB(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
+    for(const stance of STANCES){const pl={...b0,stance},v=await rolloutN(p,pl)+rushB(p,pl)+deckHook(p,"plan",pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
   // keep2（段階④、SeEd 11/25: ガード役は残したら偉いくらいで必須ではない。証拠が少ないなら守っても美味しくない）:
   //   現場3体以上（今のCPUはガード役を1体残す）なら、いちばん良かった案に「ガード役を残さない」を足して試す
-  if(ai2(p,"keep2")&&best&&p.field.length>=3){const pl={...best,keep:0},v=await rolloutN(p,pl)+rushB(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
+  if(ai2(p,"keep2")&&best&&p.field.length>=3){const pl={...best,keep:0},v=await rolloutN(p,pl)+rushB(p,pl)+deckHook(p,"plan",pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
   recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;

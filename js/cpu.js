@@ -8,8 +8,11 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","val2"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3","val3"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_OFF0=["strat","strat2","eval2","eval3","val3","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+// ci2・ciAtk・deck（既定オン 11/25、青単探偵団の専用CPU）: ci2 は段階⑥（除去カットインを切る）。ciAtk は除去カットインで取れる相手にキャラへのアクションを仕掛ける。
+//   deck は js/deckcpu の手書き方針（今は青単探偵団だけ）。bench --deck 青単探偵団（各401〜501組で打ち切り）: +ci2 52.9%（51.2〜54.6）、+ci2,+ciAtk 53.7%（51.7〜55.8）、
+//   +ci2,+ciAtk,+deck 56.2%（53.8〜58.6、素の勝率 22.9%→35.4%）。deckL（学んだ表）を足しても 56.7% で差は誤差の範囲なので既定オフのまま
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
@@ -141,6 +144,18 @@ function defenseCheck(p,o){
 // 判定はアクションの段階に入ったとき（突撃などで相手の証拠が減った後）の証拠数で行う
 const waryNow=(p,o,d)=>ai2(p,"wary")&&!d.resist&&!d.calm&&o.ev.length>0&&(d.thr?o.ev.length+d.thr.gainMax>=o.level:o.ev.length+d.oppPot+1>=o.level);
 
+// ---- デッキ別CPU（段階⑤、js/deckcpu/*.js） ----
+// デッキ別のファイルは DECK_CPU.名前={detect(p), play(p,x), plan(p,pl)} を登録する（方針の上書きだけ。無ければ共通CPUのまま）。
+//   play: 手札のカード x を使う優先度への加点（bestHand。探索なしの手番と、試しの手番の中の動き）
+//   plan: 探索の案 pl（出すカード・アシスト）の点数への加点（chooseTurnPlan。対戦データから学んだ表など）
+// スイッチ: deck=SeEdの方針を手で書いたもの（play）、deckL=対戦データから学んだ表（plan と play の両方に足す）。席ごとに初回だけデッキを判定する
+function deckCpu(p){if(!window.DECK_CPU||!(ai2(p,"deck")||ai2(p,"deckL")))return null;
+  if(p.deckCpu===undefined){p.deckCpu="";for(const k in DECK_CPU)if(DECK_CPU[k].detect(p)){p.deckCpu=k;break}}
+  return p.deckCpu?DECK_CPU[p.deckCpu]:null} // 関数は探索の盤面コピーに入れられないので、席には名前だけ持つ
+function deckHook(p,name,...a){const d=deckCpu(p);return d&&d[name]?d[name](p,...a)||0:0}
+// 局面の区切り（デッキ別CPUと対戦データの集計で共通）: 序盤=FILE4以下 / 終盤=解決編で証拠があと3以内 / それ以外は中盤
+const deckPhase=p=>p.solved&&p.ev.length>=p.level-3?"late":p.file.length<=4&&!p.solved?"early":"mid";
+
 // ---- 手札を使う優先度 ----
 // レベル×10、除去イベント+45、登場時に除去するキャラ+25、現場がいっぱいのキャラ−30
 function bestHand(p,viaHint){
@@ -149,7 +164,7 @@ function bestHand(p,viaHint){
     if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
     if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.has(x,"enter"))v+=25;
     if(c.t==="キャラ"&&p.field.length>=fieldMax(p))v-=30;
-    return v};
+    return v+deckHook(p,"play",x)};
   return cs.sort((a,b)=>score(b)-score(a))[0]||null}
 // SeEd:「烏丸蓮耶の影」「小さくなった名探偵」のようにFILEの枚数で出せるレベルが決まるイベントは、先にアシストしてから使う
 const fileEv=x=>!!x&&C(x).t==="イベント"&&/手札から自分のFILEエリアの枚数以下のレベル/.test(C(x).f||"");
@@ -286,10 +301,22 @@ async function rushPhase(t){
   for(const x of rs){
     for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
       if(G.over||!p.field.includes(x)||x.st!=="a")break;
-      if(way==="chara"){const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
+      if(way==="chara"){const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0]||(ciAtkPick(p,o,[x])||{}).y;
         if(tg){await declareAction(p,x,tg);await step();break}}
       else if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");await step();break}}}
 }
+// ciAtk（実験、段階⑤ 青単探偵団から。ci2 とセット）: APで負ける相手でも、手札の除去カットイン（DEF の ciKill。元太・光彦 B11008/B11009）で
+//   コンタクト中に取れるなら、キャラへのアクションを仕掛ける（今までは勝てる相手にしかアクションしないので、除去カットインを切る場面がほぼ無かった）。
+//   アクションしたキャラはスリープするので、推理できないキャラ（LP0）か、取る価値のある相手（LP2以上・効果ありLv6以上・Lv6以上）のときだけ
+function ciAtkPick(p,o,atks){
+  if(!ai2(p,"ciAtk")||!ai2(p,"ci2"))return null;
+  const ks=p.hand.filter(x=>{const e=def(x);return e&&e.ciKill&&cutinUsable(x,p)});if(!ks.length)return null;
+  const val=y=>lpOf(y)*10+(strongChar(y)?5:0)+(C(y).lv||0);
+  const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&ks.some(x=>def(x).ciKill(p,y))).sort((a,b)=>val(b)-val(a));
+  for(const y of tg){const worth=lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6;
+    const a=atks.filter(x=>canAct(x,p,"chara",y)&&(worth||lpOf(x)<=0)).sort((a,b)=>lpOf(a)-lpOf(b)||apOf(a)-apOf(b))[0];
+    if(a)return {a,y}}
+  return null}
 // キャラへのアクション。倒す価値のある相手（LP2以上・効果あり・Lv6以上）を、LP→効果→レベルの順に、勝てるキャラで狙う（SeEd）
 async function attackPhase({p,o,step,hold}){
   for(;;){
@@ -303,6 +330,7 @@ async function attackPhase({p,o,step,hold}){
       .filter(y=>lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6).sort((a,b)=>lpOf(b)-lpOf(a)||(strongChar(b)-strongChar(a))||(C(b).lv||0)-(C(a).lv||0));
     let done=false;
     for(const y of tg){const a=atks.find(x=>apOf(x)>=apOf(y)&&canAct(x,p,"chara",y));if(a){await declareAction(p,a,y);await step();done=true;break}}
+    if(!done){const k=ciAtkPick(p,o,atks);if(k){await declareAction(p,k.a,k.y);await step();done=true}}
     if(!done||G.over)break;
   }
 }
