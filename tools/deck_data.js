@@ -32,7 +32,7 @@ async function worker({deck,from,to,seed,eps,ai}){
   // 手番のはじめ（探索の前）に、局面と選べる案を記録し、eps の割合でくじを引く
   const ctp=w.chooseTurnPlan;
   w.chooseTurnPlan=async function(p){
-    if(!real()||p.idx!==seat)return ctp.apply(this,arguments);
+    if(!real()||p.idx!==seat||!cur)return ctp.apply(this,arguments); // 手番の切れ目の前に呼ばれたとき（cur なし）は記録しない
     const o=w.__G().P[1-p.idx];
     const cands=w.turnPlans(p).filter(pl=>Object.keys(pl).every(k=>k==="play"||k==="assist")&&pl.play);
     cur.c=cands.map(planKey);

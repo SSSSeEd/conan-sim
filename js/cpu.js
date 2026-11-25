@@ -8,13 +8,17 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3","deck","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_OFF0=["strat","strat2","eval2","eval3","val2","val3","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+// ci2・ciAtk・deck（既定オン 11/25、青単探偵団の専用CPU）: ci2 は段階⑥（除去カットインを切る）。ciAtk は除去カットインで取れる相手にキャラへのアクションを仕掛ける。
+//   deck は js/deckcpu の手書き方針（今は青単探偵団だけ）。bench --deck 青単探偵団（各401〜501組で打ち切り）: +ci2 52.9%（51.2〜54.6）、+ci2,+ciAtk 53.7%（51.7〜55.8）、
+//   +ci2,+ciAtk,+deck 56.2%（53.8〜58.6、素の勝率 22.9%→35.4%）。deckL（学んだ表）を足しても 56.7% で差は誤差の範囲なので既定オフのまま
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
 //   fair＋keep2 53.9%（52.3〜55.4）、3つとも 55.7%（54.1〜57.4）。keep2 は勝率の差は無いが SeEd の感覚（ガード役は必須ではない）に近いので採用
 // asst4（既定オン 11/24）: 手札の枚数（手札過多）ではアシストしない。出せるカードが増えるとき・解決編に入るときだけ。bench 2000戦: asst4なしのCPUが 49.4%（48.4〜50.4）＝勝率は変わらず、人間に近いので採用
+// disg（既定オン 11/25）: 負けるコンタクトを変装で返す。bench（1602戦で打ち切り）52.2%（51.1〜53.3）。変装は1戦平均0.18回（変装札のあるデッキは16中8）、そのぶんカットインが1.06→0.97回に減った
 // order（既定オン 11/24）: アクションを手札より先にする順も探索で試す。4000戦 50.8%（49.5〜52.1、差なし）。SeEdの要望で採用
 const ai2=(p,f)=>!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
 const strongChar=x=>{const c=C(x);return c&&c.t==="キャラ"&&(c.lv||0)>=6&&!!(c.f||"").trim()};
@@ -32,14 +36,38 @@ function cpuGuard(o,atk,target,guards){
 }
 // ---- コンタクト: カットイン ----
 // コンボ探し（search.js の explore）のときは、カットインを切る／切らないを試しに変える
-function cpuContact(q,mine,theirs,cuts,tp){
-  const d=cpuContact0(q,mine,theirs,cuts,tp);
+function cpuContact(q,mine,theirs,cuts,tp,dis=[]){
+  if(!ai2(q,"disg"))dis=[];
+  const d=cpuContact0(q,mine,theirs,cuts,tp,dis);
   if(!(G.sim&&G.sim.explore))return d;
-  const opts=[null,...cuts.filter(x=>cutinAp(x,q)!=null||FX.has(x,"cutin"))];
-  const i=explore(q,"カットイン",opts,Math.max(0,opts.findIndex(o=>o===(d&&d.x))),o=>o?`${C(o).nm}(${o.n})→${C(mine).nm}(${mine.n})・${q===tp?"自分":"相手"}ターン`:`切らない（${C(mine).nm}(${mine.n})）`);
-  return opts[i]?{x:opts[i],how:"cut"}:null;
+  const opts=[null,...cuts.filter(x=>cutinAp(x,q)!=null||FX.has(x,"cutin")).map(x=>({x,how:"cut"})),...dis.map(x=>({x,how:"dis"}))];
+  const i=explore(q,"カットイン",opts,Math.max(0,opts.findIndex(o=>o?d&&o.x===d.x&&o.how===d.how:!d)),o=>o?`${o.how==="dis"?"変装 ":""}${C(o.x).nm}(${o.x.n})→${C(mine).nm}(${mine.n})・${q===tp?"自分":"相手"}ターン`:`切らない（${C(mine).nm}(${mine.n})）`);
+  return opts[i]||null;
 }
-function cpuContact0(q,mine,theirs,cuts,tp){
+// ---- コンタクト: 変装（disg） ----
+// 変装したら x のAPがいくつになるか。mine の修整（AP＋・状態）を引き継ぐので、盤面で一瞬入れ替えて apOf を測り、すぐ戻す（同期処理なので他に影響しない）。
+// 【変装時】の「このコンタクト中、このキャラをAP＋N」と「キャラをAP－N」（相手のコンタクト中のキャラに使う）は文面から足す
+function disguiseAp(q,mine,x){
+  const fi=q.field.indexOf(mine);if(fi<0)return null;
+  const keys=["st","apM","apT","apC","lpM","lpT","kw","fresh"],save={};for(const k of keys)save[k]=x[k];
+  const ct=G.contact,side=ct&&(ct.a===mine?"a":ct.d===mine?"d":null);
+  Object.assign(x,{st:mine.st,apM:mine.apM,apT:mine.apT,apC:mine.apC,lpM:mine.lpM,lpT:mine.lpT,kw:mine.kw.slice(),fresh:mine.fresh});
+  q.field[fi]=x;if(side)ct[side]=x;
+  let v;try{v=apOf(x)}finally{q.field[fi]=mine;if(side)ct[side]=mine;Object.assign(x,save)}
+  const f=C(x).f||"";
+  if(!FX.disguiseOff(q)){
+    const up=f.match(/【変装時】[^【]*このコンタクト中、このキャラをAP[＋+](\d+)/);if(up)v+=+up[1];
+    const dn=f.match(/【変装時】キャラを1枚まで選び、ターン終了時までAP[－-](\d+)/);if(dn)v+=+dn[1]}
+  return v}
+// 負けるコンタクトで、変装すれば勝てる（守る側は相手のAPを上回る）なら変装する。
+// カットインでも勝てるときは、変装先のレベルが今のキャラ以上（入れ替えて得をする）なら変装、そうでなければカットインを残す
+function cpuDisguise(q,mine,theirs,tp,dis){
+  const T=apOf(theirs);
+  const c=dis.map(x=>({x,v:disguiseAp(q,mine,x)})).filter(o=>o.v!=null&&(q===tp?o.v>=T:o.v>T));
+  if(!c.length)return null;
+  c.sort((a,b)=>(lvOf(a.x)-lvOf(b.x))||(a.v-b.v)); // いちばん小さい（失って惜しくない）変装札から
+  return c[0].x}
+function cpuContact0(q,mine,theirs,cuts,tp,dis=[]){
   const need=q===tp?apOf(theirs)-apOf(mine):apOf(theirs)-apOf(mine)+1; // 攻撃側は同値で勝ち
   // コンボ: スコッチ B10086 のコンタクト中にバーボンのカットイン → スコッチが起きて、もう一度アクションできる
   if(q===tp&&idOf(mine)==="1141"&&partnerIs(q,"黒")&&!turnCount(mine,"scotch")){
@@ -50,7 +78,12 @@ function cpuContact0(q,mine,theirs,cuts,tp){
   // ジン B01098: 自分のターンに負けそうなら、自分よりレベルの高い相手のキャラと相打ちにする
   if(q===tp){const gin=cuts.find(x=>idOf(x)==="0086");if(gin&&lvOf(theirs)>=Math.max(6,lvOf(mine)))return {x:gin,how:"cut"}}
   // 負けるときだけ、APが足りる中でいちばん小さいカットインを切る
+  // ci2: AP以外の効果で相手のコンタクト中のキャラをリムーブできるカットイン（元太・光彦 B11008/B11009 など、DEF の ciKill）。
+  //   負けるコンタクトでも相手のキャラを取れて1枚引けるので、AP＋のカットインより先に使う
+  if(ai2(q,"ci2")){const k=cuts.find(x=>{const e=def(x);return e&&e.ciKill&&e.ciKill(q,theirs)});if(k)return {x:k,how:"cut"}}
   const c=cuts.map(x=>({x,v:cutinAp(x,q)})).filter(o=>o.v!=null&&o.v>=need).sort((a,b)=>a.v-b.v);
+  const dg=dis.length?cpuDisguise(q,mine,theirs,tp,dis):null;
+  if(dg&&(!c.length||lvOf(dg)>=lvOf(mine)))return {x:dg,how:"dis"};
   if(c.length)return {x:c[0].x,how:"cut"};
   return null;
 }
@@ -266,10 +299,22 @@ async function rushPhase(t){
   for(const x of rs){
     for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
       if(G.over||!p.field.includes(x)||x.st!=="a")break;
-      if(way==="chara"){const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
+      if(way==="chara"){const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0]||(ciAtkPick(p,o,[x])||{}).y;
         if(tg){await declareAction(p,x,tg);await step();break}}
       else if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");await step();break}}}
 }
+// ciAtk（実験、段階⑤ 青単探偵団から。ci2 とセット）: APで負ける相手でも、手札の除去カットイン（DEF の ciKill。元太・光彦 B11008/B11009）で
+//   コンタクト中に取れるなら、キャラへのアクションを仕掛ける（今までは勝てる相手にしかアクションしないので、除去カットインを切る場面がほぼ無かった）。
+//   アクションしたキャラはスリープするので、推理できないキャラ（LP0）か、取る価値のある相手（LP2以上・効果ありLv6以上・Lv6以上）のときだけ
+function ciAtkPick(p,o,atks){
+  if(!ai2(p,"ciAtk")||!ai2(p,"ci2"))return null;
+  const ks=p.hand.filter(x=>{const e=def(x);return e&&e.ciKill&&cutinUsable(x,p)});if(!ks.length)return null;
+  const val=y=>lpOf(y)*10+(strongChar(y)?5:0)+(C(y).lv||0);
+  const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&ks.some(x=>def(x).ciKill(p,y))).sort((a,b)=>val(b)-val(a));
+  for(const y of tg){const worth=lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6;
+    const a=atks.filter(x=>canAct(x,p,"chara",y)&&(worth||lpOf(x)<=0)).sort((a,b)=>lpOf(a)-lpOf(b)||apOf(a)-apOf(b))[0];
+    if(a)return {a,y}}
+  return null}
 // キャラへのアクション。倒す価値のある相手（LP2以上・効果あり・Lv6以上）を、LP→効果→レベルの順に、勝てるキャラで狙う（SeEd）
 async function attackPhase({p,o,step,hold}){
   for(;;){
@@ -283,6 +328,7 @@ async function attackPhase({p,o,step,hold}){
       .filter(y=>lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6).sort((a,b)=>lpOf(b)-lpOf(a)||(strongChar(b)-strongChar(a))||(C(b).lv||0)-(C(a).lv||0));
     let done=false;
     for(const y of tg){const a=atks.find(x=>apOf(x)>=apOf(y)&&canAct(x,p,"chara",y));if(a){await declareAction(p,a,y);await step();done=true;break}}
+    if(!done){const k=ciAtkPick(p,o,atks);if(k){await declareAction(p,k.a,k.y);await step();done=true}}
     if(!done||G.over)break;
   }
 }

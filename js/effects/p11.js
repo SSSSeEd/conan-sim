@@ -297,8 +297,10 @@ DEF["1175"]={ // 吉田歩美 B11007
   enter:fileRush("突撃"),
   disguise:async(p,x)=>{if(!myTurn(p)||komaeN(p)<3)return;
     await rmChar(p,y=>y.st==="s"&&lvOf(y)<=7,"リムーブするスリープ状態のキャラ（レベル7以下）");drawN(p,1)}};
-DEF["1176"]={enter:fileRush("突撃［キャラ］"),cutin:komaeCut(l=>l>=8,"レベル8以上")}; // 小嶋元太 B11008
-DEF["1177"]={enter:fileRush("突撃［キャラ］"),cutin:komaeCut(l=>l<=7,"レベル7以下")}; // 円谷光彦 B11009
+// ciKill: CPU用。このカットインで相手のコンタクト中のキャラ y をリムーブできるか（cpu.js cpuContact0、フラグ ci2）
+const komaeKill=lim=>(p,y)=>myTurn(p)&&komaeN(p)>=2&&lim(lvOf(y));
+DEF["1176"]={enter:fileRush("突撃［キャラ］"),cutin:komaeCut(l=>l>=8,"レベル8以上"),ciKill:komaeKill(l=>l>=8)}; // 小嶋元太 B11008
+DEF["1177"]={enter:fileRush("突撃［キャラ］"),cutin:komaeCut(l=>l<=7,"レベル7以下"),ciKill:komaeKill(l=>l<=7)}; // 円谷光彦 B11009
 DEF["1192"]={ // 服部静華 B11025（カットインの条件タグは本体が見る）
   enter:async p=>{if(!condOk("事件緑＆赤",p)||p.solved)return;const f=y=>hasColor(y,"緑")||hasColor(y,"赤");
     if(!p.hand.some(f)||!await yes(p,"服部静華","手札の【緑】か【赤】のカードを1枚リムーブして、カードを2枚引きますか？",()=>p.hand.length>=2))return;
