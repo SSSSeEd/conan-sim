@@ -3,6 +3,8 @@
 //   機能: +x=既定オフの x をオンにしたCPU / -x=既定オンの x をオフにしたCPU / カンマで複数（+threat2,-fin2） / none=同じCPU同士（自己点検）
 //   組数: 既定 2000（1組=2戦なので4000戦）
 //   --decks env|all|preset  デッキ群（既定 env: 環境デッキ分類＝勝率上位15＋DECK_ENV_EXTRA）
+//   --deck 名前  デッキ別CPU用（段階⑤）: 1組＝「そのデッキを新CPU(A)が使う試合」と「同じ配り・同じ乱数・同じ席で既定のCPU(B)が使う試合」。
+//               相手は --decks の群から。A勝率＝(Aでの勝ち＋(1−Bでの勝ち))/2 なので、50%なら差なし。winRaw に A・B それぞれの素の勝率
 //   --seed N  --jobs N（並列数、既定はCPUコア数）  --nosearch（探索なし。速いが本番と違う）  --full（途中打ち切りをしない）
 // 仕組み: 1組ごとに、デッキ2つ・乱数を決め、新CPU(A)が席0の試合と席1の試合を同じ乱数で1回ずつ行う（デッキと先攻後攻の運が打ち消し合う）。
 //   A と B（既定のCPU）が同じなら、2戦は同じ試合になり、必ず1勝1敗になる（none で確かめられる）。
@@ -12,9 +14,9 @@
 const os=require("os"),path=require("path"),{fork}=require("child_process");
 
 function parseArgs(argv){
-  const o={flag:argv[0],pairs:2000,decks:"env",seed:1,jobs:os.cpus().length,search:true,early:true};
+  const o={flag:argv[0],pairs:2000,decks:"env",seed:1,jobs:os.cpus().length,search:true,early:true,deck:null};
   for(let i=1;i<argv.length;i++){const a=argv[i];
-    if(a==="--decks")o.decks=argv[++i];else if(a==="--seed")o.seed=+argv[++i];else if(a==="--jobs")o.jobs=+argv[++i];
+    if(a==="--decks")o.decks=argv[++i];else if(a==="--deck")o.deck=argv[++i];else if(a==="--seed")o.seed=+argv[++i];else if(a==="--jobs")o.jobs=+argv[++i];
     else if(a==="--nosearch")o.search=false;else if(a==="--full")o.early=false;else if(/^\d+$/.test(a))o.pairs=+a;else throw new Error("不明な引数: "+a)}
   if(!o.flag)throw new Error("機能を指定してください（例: +threat2 / -fin2 / none）");
   return o}
@@ -36,10 +38,11 @@ function deckPool(w,kind){
 // ---- 子プロセス: 組 [from,to) を回し、1組ごとに結果を親へ送る ----
 // 行動の回数（席ごと、ログの行から数える）と、探索が選んだ案に入っていた項目（ガード役なし・構え・アクションの出し方など）も数える
 const ACT_RE=[["assist",/^. はアシスト/],["hint",/^. はネクストヒント/],["reason",/^. の .+ が推理（LP/],["caseAct",/^. の .+がアクション → 事件$/],["charaAct",/^. の .+がアクション → (?!事件$)/],["play",/^. は .+を登場させた|^. はイベント/]];
-async function worker({flag,from,to,decks,seed,search}){
+async function worker({flag,from,to,decks,seed,search,deck}){
   const H=require("./headless");
   const w=H.load({seed,init:{AI_OFF:[],...(process.env.ROLL_K?{ROLL_K:+process.env.ROLL_K}:{})}}); // ROLL_K=5 などで探索の試行回数（multi）を変えて測れる
   const AI_OFF0=w.ev("AI_OFF0"),offA=offFor(flag,AI_OFF0),pool=deckPool(w,decks);
+  const me=deck?[...w.ev("PRESETS"),...w.ENV_DECKS.decks].find(d=>d.name===deck):null;if(deck&&!me)throw new Error("デッキが見つからない: "+deck);
   let st=null; // 今の試合の席ごとの数
   const log0=w.log;w.log=(m,c)=>{const g=w.__G();if(st&&g&&!g.sim&&typeof m==="string"){const k=m[0]==="A"?0:m[0]==="B"?1:-1;if(k>=0)for(const [n,re] of ACT_RE)if(re.test(m))st[k][n]=(st[k][n]||0)+1}return log0(m,c)};
   const ctp=w.chooseTurnPlan;w.chooseTurnPlan=async function(p){const pl=await ctp.apply(this,arguments);const g=w.__G();
@@ -49,6 +52,14 @@ async function worker({flag,from,to,decks,seed,search}){
     w.reseed(s);const a=Math.floor(w.rnd()*pool.length),b=Math.floor(w.rnd()*pool.length);
     const da=w.parseDeckText(pool[a].text),db=w.parseDeckText(pool[b].text);
     const r={i,da:pool[a].name,db:pool[b].name,g:[]};
+    if(me){const seat=i%2,dm=w.parseDeckText(me.text);r.da=me.name;r.db=pool[b].name;
+      for(const useA of [1,0]){const off=[];off[seat]=useA?offA:[...AI_OFF0];off[1-seat]=[...AI_OFF0];
+        const ds=[];ds[seat]=structuredClone(dm);ds[1-seat]=structuredClone(db);
+        w.reseed(s+1);st=[{},{}];
+        try{const {winner,turns}=await H.play(w,{decks:ds,search:[search,search],aiOff:off});const win=winner===null?0.5:winner===seat?1:0;
+          r.g.push({a:useA?win:1-win,raw:win,turns,sa:useA?st[seat]:st[1-seat],sb:useA?st[1-seat]:st[seat]})}
+        catch(e){r.g.push({a:0.5,err:String(e).slice(0,120)})}}
+      st=null;process.send({row:r});continue}
     for(const seatA of [0,1]){
       const off=[];off[seatA]=offA;off[1-seatA]=[...AI_OFF0];
       w.reseed(s+1);st=[{},{}];
@@ -69,8 +80,9 @@ function summarize(o,rows,ms){
   const split=sc.filter(v=>v===0.5).length,errs=rows.reduce((x,r)=>x+r.g.filter(g=>g.err).length,0);
   const lo=(mean-half)*100,hi=(mean+half)*100;
   const verdict=lo>50?"採用候補（50%より上）":hi<50?"悪化（50%より下）":"判定できず（差は誤差の範囲）";
-  const byDeck={};for(const r of rows){const v=(r.g[0].a+r.g[1].a)/2;for(const d of [r.da]){const t=byDeck[d]=byDeck[d]||{n:0,s:0};t.n++;t.s+=v}}
-  return {flag:o.flag,decks:o.decks,seed:o.seed,search:o.search,pairs:n,games:n*2,winA:+(mean*100).toFixed(1),ci95:[+lo.toFixed(1),+hi.toFixed(1)],
+  const byDeck={};for(const r of rows){const v=(r.g[0].a+r.g[1].a)/2;for(const d of [o.deck?r.db:r.da]){const t=byDeck[d]=byDeck[d]||{n:0,s:0};t.n++;t.s+=v}}
+  const raw=o.deck?{A:+(rows.reduce((x,r)=>x+(r.g[0].raw??0.5),0)/n*100).toFixed(1),B:+(rows.reduce((x,r)=>x+(r.g[1].raw??0.5),0)/n*100).toFixed(1)}:undefined;
+  return {flag:o.flag,deck:o.deck||undefined,winRaw:raw,decks:o.decks,seed:o.seed,search:o.search,pairs:n,games:n*2,winA:+(mean*100).toFixed(1),ci95:[+lo.toFixed(1),+hi.toFixed(1)],
     verdict,splitPairs:split,errors:errs,sec:Math.round(ms/1000),
     avgTurns:+(rows.reduce((x,r)=>x+r.g.reduce((y,g)=>y+(g.turns||0),0),0)/(n*2)).toFixed(1),
     perGame:perGame(rows),
@@ -95,12 +107,13 @@ async function main(){
     const c=fork(__filename,["--worker"],{stdio:["ignore","ignore","inherit","ipc"]});kids.push(c);
     c.on("message",m=>{if(m.row){if(!stop){rows.push(m.row);check()}}else if(m.done){res();c.kill()}});
     c.on("error",rej);c.on("exit",code=>{if(stop||!code)res();else rej(new Error("worker exit "+code))});
-    c.send({flag:o.flag,from,to,decks:o.decks,seed:o.seed,search:o.search})})));
+    c.send({flag:o.flag,from,to,decks:o.decks,seed:o.seed,search:o.search,deck:o.deck})})));
   rows.sort((a,b)=>a.i-b.i);
   const s=summarize(o,rows,Date.now()-t0);if(stop)s.stopped=stop;
   console.log(JSON.stringify(s,null,1));
   if(o.flag==="none"&&s.splitPairs!==s.pairs)console.log("注意: 同じCPU同士なのに1勝1敗でない組がある（乱数がずれている）");
 }
-if(process.argv[2]==="--worker")process.on("message",m=>{worker(m)});
+if(require.main!==module){} // tools/deck_data.js などから部品（offFor・deckPool）だけ読むとき
+else if(process.argv[2]==="--worker")process.on("message",m=>{worker(m)});
 else main().catch(e=>{console.error(e.message);process.exit(1)});
-module.exports={offFor,parseArgs};
+module.exports={offFor,parseArgs,deckPool};

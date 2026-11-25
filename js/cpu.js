@@ -9,7 +9,7 @@
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
 const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_OFF0=["strat","strat2","eval2","eval3","deck","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
@@ -109,6 +109,18 @@ function defenseCheck(p,o){
 // 判定はアクションの段階に入ったとき（突撃などで相手の証拠が減った後）の証拠数で行う
 const waryNow=(p,o,d)=>ai2(p,"wary")&&!d.resist&&!d.calm&&o.ev.length>0&&(d.thr?o.ev.length+d.thr.gainMax>=o.level:o.ev.length+d.oppPot+1>=o.level);
 
+// ---- デッキ別CPU（段階⑤、js/deckcpu/*.js） ----
+// デッキ別のファイルは DECK_CPU.名前={detect(p), play(p,x), plan(p,pl)} を登録する（方針の上書きだけ。無ければ共通CPUのまま）。
+//   play: 手札のカード x を使う優先度への加点（bestHand。探索なしの手番と、試しの手番の中の動き）
+//   plan: 探索の案 pl（出すカード・アシスト）の点数への加点（chooseTurnPlan。対戦データから学んだ表など）
+// スイッチ: deck=SeEdの方針を手で書いたもの（play）、deckL=対戦データから学んだ表（plan と play の両方に足す）。席ごとに初回だけデッキを判定する
+function deckCpu(p){if(!window.DECK_CPU||!(ai2(p,"deck")||ai2(p,"deckL")))return null;
+  if(p.deckCpu===undefined){p.deckCpu="";for(const k in DECK_CPU)if(DECK_CPU[k].detect(p)){p.deckCpu=k;break}}
+  return p.deckCpu?DECK_CPU[p.deckCpu]:null} // 関数は探索の盤面コピーに入れられないので、席には名前だけ持つ
+function deckHook(p,name,...a){const d=deckCpu(p);return d&&d[name]?d[name](p,...a)||0:0}
+// 局面の区切り（デッキ別CPUと対戦データの集計で共通）: 序盤=FILE4以下 / 終盤=解決編で証拠があと3以内 / それ以外は中盤
+const deckPhase=p=>p.solved&&p.ev.length>=p.level-3?"late":p.file.length<=4&&!p.solved?"early":"mid";
+
 // ---- 手札を使う優先度 ----
 // レベル×10、除去イベント+45、登場時に除去するキャラ+25、現場がいっぱいのキャラ−30
 function bestHand(p,viaHint){
@@ -117,7 +129,7 @@ function bestHand(p,viaHint){
     if(c.t==="イベント")v+=/リムーブする|デッキの下|スタン/.test(c.f||"")?45:(c.lv||0)<=2?8:20;
     if(c.t==="キャラ"&&/【登場時】[^\n]*(リムーブ|スタン)/.test(c.f||"")&&FX.has(x,"enter"))v+=25;
     if(c.t==="キャラ"&&p.field.length>=fieldMax(p))v-=30;
-    return v};
+    return v+deckHook(p,"play",x)};
   return cs.sort((a,b)=>score(b)-score(a))[0]||null}
 // SeEd:「烏丸蓮耶の影」「小さくなった名探偵」のようにFILEの枚数で出せるレベルが決まるイベントは、先にアシストしてから使う
 const fileEv=x=>!!x&&C(x).t==="イベント"&&/手札から自分のFILEエリアの枚数以下のレベル/.test(C(x).f||"");
