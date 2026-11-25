@@ -31,12 +31,12 @@ const aiBestTargets=(p,n=1,how)=>cs=>cs.slice().sort((a,b)=>aiScoreTarget(p,b,ho
 const aiCardValue=(p,x)=>{const c=C(x);let v=lvOf(x);if(c.ci)v+=2;if(c.t==="キャラ"&&lvOf(x)<=p.file.length+2)v+=3;if(!canPlayColor(c,p))v-=5;
   if(typeof ai2==="function"&&ai2(p,"val2"))v+=aiCardValue2(p,x,c);return v};
 // val2（段階⑥）: 人間の捨て方に寄せる足し引き。SeEd「被りを捨て名前違いを残す」（実況 11/22 T4）・人と差の表 2-3 の a/b/c
-//   a 同名が手札に（自分以外で）1枚以上あれば −3（拾うときは別の名前を優先。どちらか1枚が先に捨てられ、残った1枚は元の点に戻る）
+//   a 同名が手札に（自分以外で）1枚以上あれば −1（初版の −3 は 4000戦 48.9%（47.9〜49.8）で悪化。同じくらいの価値の札の間で被りを先に捨てる「決め手」にとどめる。拾うときは別の名前を優先。どちらか1枚が先に捨てられ、残った1枚は元の点に戻る）
 //   b 当分出せない重いキャラ（レベルがFILE＋3を超える、解決編の前）は、超えた分だけ −（今は使えないものを抱えない）
 //   c 今の事件の色で使えるイベント（除去・ドローなど）は ＋2（レベルが低いだけで真っ先に捨てない）
 //   d 変装を持つキャラは ＋2（カットインと同じく、コンタクトで使える。変装 disg がオンのとき）
 function aiCardValue2(p,x,c){let d=0;
-  if(p.hand.some(y=>y!==x&&C(y).nm===c.nm))d-=3; // 拾うときも、手札に同名があれば別の名前を取る
+  if(p.hand.some(y=>y!==x&&C(y).nm===c.nm))d-=1; // 拾うときも、手札に同名があれば別の名前を取る
   if(ai2(p,"val3")){ // b・c・d は val3（a と合わせた初版は 4000戦 49.2%（48.1〜50.3）だったので分けて測る）
     if(c.t==="キャラ"&&!p.solved){const over=lvOf(x)-(p.file.length+3);if(over>0)d-=over}
     if(c.t==="イベント"&&canPlayColor(c,p))d+=2;

@@ -8,8 +8,8 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3","val2","val3","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_OFF0=["strat","strat2","eval2","eval3","val3","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // ci2・ciAtk・deck（既定オン 11/25、青単探偵団の専用CPU）: ci2 は段階⑥（除去カットインを切る）。ciAtk は除去カットインで取れる相手にキャラへのアクションを仕掛ける。
 //   deck は js/deckcpu の手書き方針（今は青単探偵団だけ）。bench --deck 青単探偵団（各401〜501組で打ち切り）: +ci2 52.9%（51.2〜54.6）、+ci2,+ciAtk 53.7%（51.7〜55.8）、
 //   +ci2,+ciAtk,+deck 56.2%（53.8〜58.6、素の勝率 22.9%→35.4%）。deckL（学んだ表）を足しても 56.7% で差は誤差の範囲なので既定オフのまま
@@ -18,6 +18,8 @@ const AI_OFF0=["strat","strat2","eval2","eval3","val2","val3","deckL"]; // 既�
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
 //   fair＋keep2 53.9%（52.3〜55.4）、3つとも 55.7%（54.1〜57.4）。keep2 は勝率の差は無いが SeEd の感覚（ガード役は必須ではない）に近いので採用
 // asst4（既定オン 11/24）: 手札の枚数（手札過多）ではアシストしない。出せるカードが増えるとき・解決編に入るときだけ。bench 2000戦: asst4なしのCPUが 49.4%（48.4〜50.4）＝勝率は変わらず、人間に近いので採用
+// val2（既定オン 11/25）: 捨て札・拾う札で、同名が手札にあれば −1（SeEd「被りを捨て名前違いを残す」）。4000戦 50.7%（49.9〜51.5、差なし）。−3 では 48.9% に悪化したので決め手にとどめた
+// ci2（既定オン 11/25）: 元太・光彦（B11008/B11009）の除去カットインを負けるコンタクトで切る。4000戦 50.3%（50.1〜50.5）。差が出たのは19組だけ（このカードを積む青単探偵団で52%）
 // disg（既定オン 11/25）: 負けるコンタクトを変装で返す。bench（1602戦で打ち切り）52.2%（51.1〜53.3）。変装は1戦平均0.18回（変装札のあるデッキは16中8）、そのぶんカットインが1.06→0.97回に減った
 // order（既定オン 11/24）: アクションを手札より先にする順も探索で試す。4000戦 50.8%（49.5〜52.1、差なし）。SeEdの要望で採用
 const ai2=(p,f)=>!((window.AI_OFF||AI_OFF0).includes(f))&&!(G&&G.cfg.aiOff&&(G.cfg.aiOff[p.idx]||[]).includes(f));
