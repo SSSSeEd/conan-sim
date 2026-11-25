@@ -296,7 +296,11 @@ const fileRush=k=>async(p,x)=>{if(condOk("FILE5",p))giveKw(x,k)}; // 【FILE5】
 DEF["1175"]={ // 吉田歩美 B11007
   enter:fileRush("突撃"),
   disguise:async(p,x)=>{if(!myTurn(p)||komaeN(p)<3)return;
-    await rmChar(p,y=>y.st==="s"&&lvOf(y)<=7,"リムーブするスリープ状態のキャラ（レベル7以下）");drawN(p,1)}};
+    await rmChar(p,y=>y.st==="s"&&lvOf(y)<=7,"リムーブするスリープ状態のキャラ（レベル7以下）");drawN(p,1)},
+  // dgKill: CPU用。コンタクト中の自分のキャラ mine をこのキャラに変装したら、変装時の除去が働くか（入れ替えた後の現場でLv4の名前違いが3種以上、相手にスリープ中のLv7以下）。cpu.js cpuContact0、フラグ dgKill
+  dgKill:(p,mine)=>{if(!myTurn(p))return false;
+    const ns=new Set(p.field.filter(y=>y!==mine&&isKomae(y)).map(nameOf));ns.add("吉田歩美");
+    return ns.size>=3&&opp(p).field.some(y=>y.st==="s"&&lvOf(y)<=7&&!immune(p,y))}};
 // ciKill: CPU用。このカットインで相手のコンタクト中のキャラ y をリムーブできるか（cpu.js cpuContact0、フラグ ci2）
 const komaeKill=lim=>(p,y)=>myTurn(p)&&komaeN(p)>=2&&lim(lvOf(y));
 DEF["1176"]={enter:fileRush("突撃［キャラ］"),cutin:komaeCut(l=>l>=8,"レベル8以上"),ciKill:komaeKill(l=>l>=8)}; // 小嶋元太 B11008
