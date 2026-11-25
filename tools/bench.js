@@ -3,7 +3,7 @@
 //   機能: +x=既定オフの x をオンにしたCPU / -x=既定オンの x をオフにしたCPU / カンマで複数（+threat2,-fin2） / none=同じCPU同士（自己点検）
 //   組数: 既定 2000（1組=2戦なので4000戦）
 //   --decks env|all|preset  デッキ群（既定 env: 環境デッキ分類＝勝率上位15＋DECK_ENV_EXTRA）
-//   --seed N  --jobs N（並列数、既定はCPUコア数）  --nosearch（探索なし。速いが本番と違う）  --full（途中打ち切りをしない）
+//   --seed N  --jobs N（並列数、既定はCPUコア数）  --nosearch（探索なし。速いが本番と違う）  --early（結論が出たら途中で打ち切る。既定は最後まで回す）
 // 仕組み: 1組ごとに、デッキ2つ・乱数を決め、新CPU(A)が席0の試合と席1の試合を同じ乱数で1回ずつ行う（デッキと先攻後攻の運が打ち消し合う）。
 //   A と B（既定のCPU）が同じなら、2戦は同じ試合になり、必ず1勝1敗になる（none で確かめられる）。
 // 途中経過: 約10%ごとに標準エラーへ（戦数・経過・残りの目安・暫定勝率）。例: node tools/bench.js +x 2000 >結果.json 2>進捗.txt
@@ -12,10 +12,10 @@
 const os=require("os"),path=require("path"),{fork}=require("child_process");
 
 function parseArgs(argv){
-  const o={flag:argv[0],pairs:2000,decks:"env",seed:1,jobs:os.cpus().length,search:true,early:true};
+  const o={flag:argv[0],pairs:2000,decks:"env",seed:1,jobs:os.cpus().length,search:true,early:false};
   for(let i=1;i<argv.length;i++){const a=argv[i];
     if(a==="--decks")o.decks=argv[++i];else if(a==="--seed")o.seed=+argv[++i];else if(a==="--jobs")o.jobs=+argv[++i];
-    else if(a==="--nosearch")o.search=false;else if(a==="--full")o.early=false;else if(/^\d+$/.test(a))o.pairs=+a;else throw new Error("不明な引数: "+a)}
+    else if(a==="--nosearch")o.search=false;else if(a==="--early")o.early=true;else if(/^\d+$/.test(a))o.pairs=+a;else throw new Error("不明な引数: "+a)}
   if(!o.flag)throw new Error("機能を指定してください（例: +threat2 / -fin2 / none）");
   return o}
 // 機能の指定 → A の席の AI_OFF（既定 AI_OFF0 から足し引き）
@@ -81,7 +81,7 @@ async function main(){
   const J=Math.max(1,Math.min(o.jobs,o.pairs)),per=Math.ceil(o.pairs/J);
   const rows=[],kids=[];let next=0,stop=null;const step=Math.max(1,Math.round(o.pairs/10));
   const stat=()=>{const n=rows.length,sc=rows.map(r=>(r.g[0].a+r.g[1].a)/2),m=sc.reduce((x,y)=>x+y,0)/n,sd=Math.sqrt(sc.reduce((x,y)=>x+(y-m)**2,0)/Math.max(1,n-1));return {n,m,sd}};
-  // 途中経過（標準エラーに約10%ごと。結果のJSONは標準出力なので混ざらない）と、途中打ち切り（--full で無効）:
+  // 途中経過（標準エラーに約10%ごと。結果のJSONは標準出力なので混ざらない）と、途中打ち切り（--early のときだけ）:
   //   20%以上終わった時点で、99%の幅でも50%をまたがない → 結論が出たので止める
   //   40%以上終わった時点で、最後まで回したときの95%の幅（今の幅×√(今の組数/全組数)）の3割より、50%からの差が小さい → 差が出そうにないので止める
   const check=()=>{const {n,m,sd}=stat();if(n<next&&n<o.pairs)return;next=n+step;const sec=(Date.now()-t0)/1000,left=sec/n*(o.pairs-n);
