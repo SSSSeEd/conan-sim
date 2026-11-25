@@ -9,7 +9,7 @@
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
 const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3","val2","val3","ci2","deck","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_OFF0=["strat","strat2","eval2","eval3","val2","val3","ci2","deck","deckL","ciAtk"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
@@ -296,10 +296,22 @@ async function rushPhase(t){
   for(const x of rs){
     for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
       if(G.over||!p.field.includes(x)||x.st!=="a")break;
-      if(way==="chara"){const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0];
+      if(way==="chara"){const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||(C(b).lv||0)-(C(a).lv||0))[0]||(ciAtkPick(p,o,[x])||{}).y;
         if(tg){await declareAction(p,x,tg);await step();break}}
       else if(o.ev.length>0&&canAct(x,p,"case")){await declareAction(p,x,"case");await step();break}}}
 }
+// ciAtk（実験、段階⑤ 青単探偵団から。ci2 とセット）: APで負ける相手でも、手札の除去カットイン（DEF の ciKill。元太・光彦 B11008/B11009）で
+//   コンタクト中に取れるなら、キャラへのアクションを仕掛ける（今までは勝てる相手にしかアクションしないので、除去カットインを切る場面がほぼ無かった）。
+//   アクションしたキャラはスリープするので、推理できないキャラ（LP0）か、取る価値のある相手（LP2以上・効果ありLv6以上・Lv6以上）のときだけ
+function ciAtkPick(p,o,atks){
+  if(!ai2(p,"ciAtk")||!ai2(p,"ci2"))return null;
+  const ks=p.hand.filter(x=>{const e=def(x);return e&&e.ciKill&&cutinUsable(x,p)});if(!ks.length)return null;
+  const val=y=>lpOf(y)*10+(strongChar(y)?5:0)+(C(y).lv||0);
+  const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&ks.some(x=>def(x).ciKill(p,y))).sort((a,b)=>val(b)-val(a));
+  for(const y of tg){const worth=lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6;
+    const a=atks.filter(x=>canAct(x,p,"chara",y)&&(worth||lpOf(x)<=0)).sort((a,b)=>lpOf(a)-lpOf(b)||apOf(a)-apOf(b))[0];
+    if(a)return {a,y}}
+  return null}
 // キャラへのアクション。倒す価値のある相手（LP2以上・効果あり・Lv6以上）を、LP→効果→レベルの順に、勝てるキャラで狙う（SeEd）
 async function attackPhase({p,o,step,hold}){
   for(;;){
@@ -313,6 +325,7 @@ async function attackPhase({p,o,step,hold}){
       .filter(y=>lpOf(y)>=2||strongChar(y)||(C(y).lv||0)>=6).sort((a,b)=>lpOf(b)-lpOf(a)||(strongChar(b)-strongChar(a))||(C(b).lv||0)-(C(a).lv||0));
     let done=false;
     for(const y of tg){const a=atks.find(x=>apOf(x)>=apOf(y)&&canAct(x,p,"chara",y));if(a){await declareAction(p,a,y);await step();done=true;break}}
+    if(!done){const k=ciAtkPick(p,o,atks);if(k){await declareAction(p,k.a,k.y);await step();done=true}}
     if(!done||G.over)break;
   }
 }
