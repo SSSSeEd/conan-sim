@@ -45,12 +45,14 @@ function turnPlans(p){
   return all.flatMap(pl=>[pl,{...pl,hint:false}]);
 }
 // 盤面をコピーして1つの組み合わせを試す。終わったら元の盤面に戻す
-async function rollout(p,plan){
+async function rollout(p,plan,deal){
   const real=G;
   const g=structuredClone({...real,rec:null,dlog:null,undo:[],ui:{mode:null}});
   g.sim={plan,planFor:p.idx,next:null,stage:0};for(const q of g.P)q.cpu=true;
   // 相手の手札は見えないので、相手の手札とデッキを混ぜて配り直す（同じ枚数）
-  const o=g.P[1-p.idx],pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length);
+  const o=g.P[1-p.idx];
+  if(deal){const r=deal(o);o.hand=r.hand;o.deck=r.deck} // strat: 場合分けした配り方
+  else{const pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length)}
   G=g;let v;
   try{await cpuTurn(g.P[p.idx]);if(g.sim.next)await g.sim.next;v=evalState(p.idx)}
   catch(e){console.warn("search",e);v=-1e9}
@@ -60,7 +62,27 @@ async function rollout(p,plan){
 }
 // multi: 1つの案を、相手の手札の配り直しを変えて ROLL_K 回（既定3）試し、平均の点数で比べる（1回だと配り直しの運で点数が揺れ、良い案を選び損ねる）
 // 2026-11-24 bench 4000戦（環境デッキ16）: 1回に対して 3回 54.1%（52.8〜55.4）、5回 54.3%（53.0〜55.7）→ 3回を既定に（5回は時間が1.5倍で差なし）
+// strat（SeEd 11/25 の案）: 配り直しをランダムに3回ではなく、相手の手札を場合分けして試す。
+//   ①出たターンに証拠を増やせるキャラ（突撃・迅速・登場時に証拠）がある ②①は無いがAP＋2000以上のカットインがある ③どちらも無い
+//   それぞれの起こりやすさ（相手の見えないカード＝手札＋デッキの中の枚数から計算）で重みをつけて平均する
+const stratThr=(o,x)=>{const c=C(x);return c.t==="キャラ"&&(c.lv||0)<=Math.min(9,o.file.length+3)&&(/〚突撃|〚迅速/.test(c.f||"")||/【登場時】[^\n]*証拠を/.test(c.f||""))};
+const stratCut=(o,x)=>(cutinAp(x,o)||0)>=2000;
+const pNone=(n,k,h)=>{let q=1;for(let i=0;i<h;i++)q*=Math.max(0,n-k-i)/(n-i);return q}; // n枚からh枚引いて、k枚の当たりが1枚も入らない確率
+function stratDeals(o){
+  const pool=[...o.hand,...o.deck],h=o.hand.length,n=pool.length;if(!h||!n)return null;
+  const T=pool.filter(x=>stratThr(o,x)),rest=pool.filter(x=>!stratThr(o,x)),Cu=rest.filter(x=>stratCut(o,x)),N=rest.filter(x=>!stratCut(o,x));
+  const qT=1-pNone(n,T.length,h),qC=1-pNone(rest.length,Cu.length,h);
+  const mk=(must,from)=>()=>{const m=must[Math.floor(Math.random()*must.length)];const others=shuffle(pool.filter(x=>x!==m&&from.includes(x)));const fill=shuffle(pool.filter(x=>x!==m&&!from.includes(x)));
+    const hand=[m,...others,...fill].slice(0,h);const hs=new Set(hand);return {hand,deck:shuffle(pool.filter(x=>!hs.has(x)))}};
+  const out=[];
+  if(T.length)out.push({w:qT,deal:mk(T,pool)});
+  if(Cu.length)out.push({w:(1-qT)*qC,deal:mk(Cu,rest)});
+  if(N.length>=h)out.push({w:(1-qT)*(1-qC),deal:()=>{const hand=shuffle(N.slice()).slice(0,h);const hs=new Set(hand);return {hand,deck:shuffle(pool.filter(x=>!hs.has(x)))}}});
+  const sw=out.reduce((a,s)=>a+s.w,0);if(out.length<2||sw<=0)return null;
+  for(const s of out)s.w/=sw;return out}
 async function rolloutN(p,plan){
+  if(ai2(p,"strat")){const ss=stratDeals(G.P[1-p.idx]);
+    if(ss){let v=0;for(const s of ss)v+=s.w*await rollout(p,plan,s.deal);return v}}
   if(!ai2(p,"multi"))return rollout(p,plan);
   const K=window.ROLL_K||3;let s=0;for(let k=0;k<K;k++)s+=await rollout(p,plan);return s/K}
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
