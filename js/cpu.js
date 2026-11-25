@@ -9,7 +9,7 @@
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
 const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_OFF0=["strat","strat2","eval2","eval3","disg","val2"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
@@ -32,14 +32,38 @@ function cpuGuard(o,atk,target,guards){
 }
 // ---- コンタクト: カットイン ----
 // コンボ探し（search.js の explore）のときは、カットインを切る／切らないを試しに変える
-function cpuContact(q,mine,theirs,cuts,tp){
-  const d=cpuContact0(q,mine,theirs,cuts,tp);
+function cpuContact(q,mine,theirs,cuts,tp,dis=[]){
+  if(!ai2(q,"disg"))dis=[];
+  const d=cpuContact0(q,mine,theirs,cuts,tp,dis);
   if(!(G.sim&&G.sim.explore))return d;
-  const opts=[null,...cuts.filter(x=>cutinAp(x,q)!=null||FX.has(x,"cutin"))];
-  const i=explore(q,"カットイン",opts,Math.max(0,opts.findIndex(o=>o===(d&&d.x))),o=>o?`${C(o).nm}(${o.n})→${C(mine).nm}(${mine.n})・${q===tp?"自分":"相手"}ターン`:`切らない（${C(mine).nm}(${mine.n})）`);
-  return opts[i]?{x:opts[i],how:"cut"}:null;
+  const opts=[null,...cuts.filter(x=>cutinAp(x,q)!=null||FX.has(x,"cutin")).map(x=>({x,how:"cut"})),...dis.map(x=>({x,how:"dis"}))];
+  const i=explore(q,"カットイン",opts,Math.max(0,opts.findIndex(o=>o?d&&o.x===d.x&&o.how===d.how:!d)),o=>o?`${o.how==="dis"?"変装 ":""}${C(o.x).nm}(${o.x.n})→${C(mine).nm}(${mine.n})・${q===tp?"自分":"相手"}ターン`:`切らない（${C(mine).nm}(${mine.n})）`);
+  return opts[i]||null;
 }
-function cpuContact0(q,mine,theirs,cuts,tp){
+// ---- コンタクト: 変装（disg） ----
+// 変装したら x のAPがいくつになるか。mine の修整（AP＋・状態）を引き継ぐので、盤面で一瞬入れ替えて apOf を測り、すぐ戻す（同期処理なので他に影響しない）。
+// 【変装時】の「このコンタクト中、このキャラをAP＋N」と「キャラをAP－N」（相手のコンタクト中のキャラに使う）は文面から足す
+function disguiseAp(q,mine,x){
+  const fi=q.field.indexOf(mine);if(fi<0)return null;
+  const keys=["st","apM","apT","apC","lpM","lpT","kw","fresh"],save={};for(const k of keys)save[k]=x[k];
+  const ct=G.contact,side=ct&&(ct.a===mine?"a":ct.d===mine?"d":null);
+  Object.assign(x,{st:mine.st,apM:mine.apM,apT:mine.apT,apC:mine.apC,lpM:mine.lpM,lpT:mine.lpT,kw:mine.kw.slice(),fresh:mine.fresh});
+  q.field[fi]=x;if(side)ct[side]=x;
+  let v;try{v=apOf(x)}finally{q.field[fi]=mine;if(side)ct[side]=mine;Object.assign(x,save)}
+  const f=C(x).f||"";
+  if(!FX.disguiseOff(q)){
+    const up=f.match(/【変装時】[^【]*このコンタクト中、このキャラをAP[＋+](\d+)/);if(up)v+=+up[1];
+    const dn=f.match(/【変装時】キャラを1枚まで選び、ターン終了時までAP[－-](\d+)/);if(dn)v+=+dn[1]}
+  return v}
+// 負けるコンタクトで、変装すれば勝てる（守る側は相手のAPを上回る）なら変装する。
+// カットインでも勝てるときは、変装先のレベルが今のキャラ以上（入れ替えて得をする）なら変装、そうでなければカットインを残す
+function cpuDisguise(q,mine,theirs,tp,dis){
+  const T=apOf(theirs);
+  const c=dis.map(x=>({x,v:disguiseAp(q,mine,x)})).filter(o=>o.v!=null&&(q===tp?o.v>=T:o.v>T));
+  if(!c.length)return null;
+  c.sort((a,b)=>(lvOf(a.x)-lvOf(b.x))||(a.v-b.v)); // いちばん小さい（失って惜しくない）変装札から
+  return c[0].x}
+function cpuContact0(q,mine,theirs,cuts,tp,dis=[]){
   const need=q===tp?apOf(theirs)-apOf(mine):apOf(theirs)-apOf(mine)+1; // 攻撃側は同値で勝ち
   // コンボ: スコッチ B10086 のコンタクト中にバーボンのカットイン → スコッチが起きて、もう一度アクションできる
   if(q===tp&&idOf(mine)==="1141"&&partnerIs(q,"黒")&&!turnCount(mine,"scotch")){
@@ -51,6 +75,8 @@ function cpuContact0(q,mine,theirs,cuts,tp){
   if(q===tp){const gin=cuts.find(x=>idOf(x)==="0086");if(gin&&lvOf(theirs)>=Math.max(6,lvOf(mine)))return {x:gin,how:"cut"}}
   // 負けるときだけ、APが足りる中でいちばん小さいカットインを切る
   const c=cuts.map(x=>({x,v:cutinAp(x,q)})).filter(o=>o.v!=null&&o.v>=need).sort((a,b)=>a.v-b.v);
+  const dg=dis.length?cpuDisguise(q,mine,theirs,tp,dis):null;
+  if(dg&&(!c.length||lvOf(dg)>=lvOf(mine)))return {x:dg,how:"dis"};
   if(c.length)return {x:c[0].x,how:"cut"};
   return null;
 }
