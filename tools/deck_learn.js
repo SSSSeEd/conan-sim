@@ -28,7 +28,7 @@ function learn(games,tau){
   for(const g of games)for(const t of g.T){if(!t.x||!t.c||!t.k)continue;
     const ks=t.c,n=ks.length,pk=card(t.k);
     const cards=[...new Set(ks.map(card))];
-    for(const X of cards){const pi=ks.filter(k=>card(k)===X).length/n;add(t.ph,X,{pick:pk===X,pi,win:g.win})}
+    for(const X of cards){const pi=ks.filter(k=>card(k)===X).length/n;if(pi<1)add(t.ph,X,{pick:pk===X,pi,win:g.win})} // 案がXだけの手番は比べようがないので除く
     const na=ks.filter(k=>k.startsWith("A:")).length;if(na&&na<n)add(t.ph,"A",{pick:t.k.startsWith("A:"),pi:na/n,win:g.win})}
   const out={};
   for(const [ph,m] of Object.entries(by))for(const [X,rows] of Object.entries(m)){const r=effect(rows);if(!r)continue;
@@ -54,7 +54,7 @@ function report(games,L,pat,o){
   for(const ph of ["early","mid","late"])for(const [X,r] of Object.entries(L[ph]||{}).sort((a,b)=>b[1].es-a[1].es))
     lines.push(`| ${({early:"序盤",mid:"中盤",late:"終盤"})[ph]} | ${cardName(X)}(${X}) | ${pct(r.e)} | ${pct(r.e-1.96*r.se)}〜${pct(r.e+1.96*r.se)} | ${pct(r.es)} | ${r.n1}/${r.n0} |`);
   lines.push("","## 2) 勝ちパターン（相関、参考。勝っているから使えたものも混ざる）","",`全体の勝率 ${(pat.base*100).toFixed(1)}%。40試合以上で出たものの、勝率の差（上位12・下位8）`,"","| パターン | 試合 | 勝率 | 差 |","|---|---|---|---|");
-  const fmt=p=>{const [a,b]=p.k.split("|");const nm=b.split("+").map(id=>cardName(id)).join("＋");return `| ${({early:"序盤",mid:"中盤",late:"終盤"})[a]||a}: ${nm} | ${p.n} | ${(p.wr*100).toFixed(1)}% | ${pct(p.lift)} |`};
+  const fmt=p=>{const [a,b]=p.k.split("|");const nm=b.split("+").map(id=>`${cardName(id)}(${id})`).join("＋");return `| ${({early:"序盤",mid:"中盤",late:"終盤"})[a]||a}: ${nm} | ${p.n} | ${(p.wr*100).toFixed(1)}% | ${pct(p.lift)} |`};
   const s=pat.list.sort((a,b)=>b.lift-a.lift);for(const p of s.slice(0,12))lines.push(fmt(p));lines.push("| … | | | |");for(const p of s.slice(-8))lines.push(fmt(p));
   return lines.join("\n")}
 

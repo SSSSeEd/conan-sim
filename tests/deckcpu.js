@@ -10,10 +10,11 @@ const detectOf=async(w,name)=>{const all=[...w.ev("PRESETS"),...w.ENV_DECKS.deck
 // 青のパートナーで、手札・FILEを置いた盤面
 const blue=(w,spec)=>{const G=board(w,spec);for(const p of G.P){p.partner=w.inst("D08001");}return G};
 module.exports=[
-  ["デッキの判定: 青単探偵団（B2RISJY2P）は探偵団、スタンキッド11/20はスタンキッド、白単キッドは共通CPUのまま",async w=>{
+  ["デッキの判定: 青単探偵団（B2RISJY2P）は探偵団、白黄キッドは白黄キッド、白単キッド・スタンキッドは共通CPUのまま",async w=>{
     w.AI_OFF=[];
     assert.strictEqual(await detectOf(w,"青単探偵団"),"aoshonen");
-    assert.strictEqual(await detectOf(w,"スタンキッド11/20"),"stankid");
+    assert.strictEqual(await detectOf(w,"白黄キッド"),"shirokid");
+    assert.strictEqual(await detectOf(w,"スタンキッド11/20"),"");
     assert.strictEqual(await detectOf(w,"白単キッド"),"");
     assert.strictEqual(await detectOf(w,"青単SOS"),"")}],
   ["デッキ別CPU（deck）: スイッチがオフ（既定）なら加点しない。オンなら、リムーブエリアに探偵団が無いときの結成（B03006）より、名前違いのレベル4（B11007）を先に出す",async w=>{
@@ -43,12 +44,4 @@ module.exports=[
     const L=learn(games,0.04);const naive=(()=>{let a=0,b=0,na=0,nb=0;for(const g of games){const t=g.T[0];if(t.k==="X"){a+=g.win;na++}else{b+=g.win;nb++}}return a/na-b/nb})();
     assert.ok(Math.abs(naive)>0.05,"素の差は0から離れる: "+naive);
     assert.ok(Math.abs(L.mid.X.e)<0.03,"重みつきの効果はほぼ0: "+L.mid.X.e)}],
-  ["人に寄せる表（スタンキッド、deck）: SeEdがよく使うカードに加点、あまり使わないカードに減点",async w=>{
-    const G=board(w,{p0:{hand:["B01055","B02038"],file:Array(8).fill("B10045")}});const p=G.P[0];p.deckCpu="stankid";
-    const keep=w.DECK_HUMAN&&w.DECK_HUMAN.stankid;w.DECK_HUMAN=w.DECK_HUMAN||{};
-    w.DECK_HUMAN.stankid={mid:{"鈴木園子":1,"怪盗キッド":-1}};
-    try{w.AI_OFF=["deckL"];
-      assert.ok(w.deckHook(p,"play",p.hand[0])>0&&w.deckHook(p,"play",p.hand[1])<0);
-      w.AI_OFF=["deck","deckL"];assert.strictEqual(w.deckHook(p,"play",p.hand[0]),0)}
-    finally{w.DECK_HUMAN.stankid=keep}}],
 ];
