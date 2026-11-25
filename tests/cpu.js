@@ -105,7 +105,7 @@ module.exports=[
       assert.ok(w.apOf(ct.d)>w.apOf(ct.a))}],
   ]})(),
   // ---- 捨て札の点数（val2）: 旧CPUはレベルだけで比べ、同名の重複も当分出せない重さも見なかった ----
-  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="val3")},off=w=>{w.AI_OFF=w.ev("AI_OFF0").concat(["val2"])};
+  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0")},off=w=>{w.AI_OFF=w.ev("AI_OFF0").concat(["val2","val3"])};
     const MITSU="B01015",AYUMI="B01021",CONAN8="B01005"; // 円谷光彦 Lv3 / 吉田歩美 Lv3 / 江戸川コナン Lv8（青）
     const run=async(w,hand,file)=>{const G=board(w,{p0:{hand,file:Array(file).fill("B01019")}});const [x]=await w.discard(G.P[0],1);return w.C(x).nm};
     return [
@@ -116,6 +116,11 @@ module.exports=[
       off(w);assert.strictEqual(await run(w,[CONAN8,MITSU],1),"円谷光彦","旧: レベルの低い方を捨てる");
       on(w);assert.strictEqual(await run(w,[CONAN8,MITSU],1),"江戸川コナン","新: 重すぎる方を捨てる");
       on(w);assert.strictEqual(await run(w,[CONAN8,MITSU],5),"円谷光彦","FILE5 なら Lv8 は近いので残す")}],
+    ["捨て札(val3): 重いカードでも、自分の3ターン目以降・相手が解決編のときは残す（SeEd 11/25）",async w=>{
+      on(w);const run2=async f=>{const G=board(w,{p0:{hand:[CONAN8,MITSU],file:["B01019"]}});f(G);const [x]=await w.discard(G.P[0],1);return w.C(x).nm};
+      assert.strictEqual(await run2(G=>{G.turnNo=5}),"円谷光彦","自分の3ターン目");
+      assert.strictEqual(await run2(G=>{G.P[1].solved=true}),"円谷光彦","相手が解決編");
+      assert.strictEqual(await run2(G=>{}),"江戸川コナン","どちらでもなければ捨てる")}],
   ]})(),
   // ---- カットインのAP以外の効果（ci2）: 旧CPUはAP＋の無いカットインを使わなかった ----
   ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0")},off=w=>{w.AI_OFF=w.ev("AI_OFF0").concat(["ci2"])};

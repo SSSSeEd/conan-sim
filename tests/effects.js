@@ -215,7 +215,7 @@ module.exports=[
     const G=board(w,{p0:{field:["B11031"],hand:[R,R],ev:[R,R,R]},p1:{field:[R],ev:[R,R]}});const p=G.P[0],[x]=p.field,a=w.ev("DEF")["1197"].abilities[0];
     p.caseC=w.inst("D01016");assert.ok(!a.can(p,x),"事件が探偵VS怪盗でないので宣言できない");
     p.caseC=w.inst("B11098");assert.ok(a.can(p,x),"探偵VS怪盗で証拠が合わせて5つなら宣言できる（相手の証拠も数える）");
-    p.ev.pop();assert.ok(!a.can(p,x),"証拠が合わせて4つなら宣言できない");assert.ok(/合わせて4つ/.test(a.why(p,x)),"使えない理由を表示する");p.ev.push(R);
+    p.ev.pop();assert.ok(!a.can(p,x),"証拠が合わせて4つなら宣言できない");assert.ok(/合わせて4つ/.test(a.why(p,x)),"使えない理由を表示する");p.ev.push(w.inst(R));
     x.st="s";assert.ok(w.FX.abilities(p,x).find(b=>b.key==="ab0").ok,"スリープ状態でも宣言できる（アクティブにする）");
     await a.run(p,x);assert.strictEqual(x.st,"a");assert.strictEqual(G.P[1].field[0].st,"s");
     const b=w.ev("DEF")["1197"].abilities[1];G.P[1].field[0].st="a";assert.ok(!b.can(p,x)&&/スリープ状態のキャラがいない/.test(b.why(p,x)));
