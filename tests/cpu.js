@@ -71,4 +71,63 @@ module.exports=[
     G.turnNo=2;G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};
     const p=G.P[0];await w.cpuTurn(p);
     assert.strictEqual(p.file.length,2,"アシストしていない（FILE2のまま）");assert.ok(p.field.some(x=>w.C(x).lv===2),"Lv2を出した")}],
+  // ---- 変装（disg）: 旧CPUは変装を一度も選ばなかった（cpuContact がカットインしか返さない） ----
+  ...(()=>{const RAN="B01019"; // 毛利蘭 Lv2 AP1000（能力なし）。apM でAPを合わせる
+    const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="disg")},off=w=>{w.AI_OFF=w.ev("AI_OFF0").concat(["disg"])};
+    const mk=(w,{theirAp,mineAp=1000,dis,myTurn=false,mineApT=0})=>{
+      const G=board(w,{p0:{field:[RAN],hand:[dis]},p1:{field:[RAN]},turn:myTurn?0:1});const [q,o]=G.P;
+      const mine=q.field[0],theirs=o.field[0];mine.apM=mineAp-1000;mine.apT=mineApT;theirs.apM=theirAp-1000;
+      G.contact=myTurn?{a:mine,d:theirs}:{a:theirs,d:mine};const tp=myTurn?q:o;
+      return {G,q,o,mine,theirs,tp,x:q.hand[0]}};
+    return [
+    ["変装: 守る側で負けるコンタクトを、勝てる変装札（キッド B02038 AP6000＋変装時AP＋1000）で返す。disg を切ると従来どおり何もしない",async w=>{
+      let t=mk(w,{theirAp:5000,dis:"B02038"});off(w);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[],t.tp,[t.x]),null,"旧: 変装しない");
+      t=mk(w,{theirAp:5000,dis:"B02038"});on(w);const d=w.cpuContact(t.q,t.mine,t.theirs,[],t.tp,[t.x]);
+      assert.ok(d&&d.how==="dis"&&d.x===t.x,"新: 変装する");assert.strictEqual(w.disguiseAp(t.q,t.mine,t.x),7000);
+      assert.ok(t.q.field[0]===t.mine&&t.mine.apM===0&&t.x.apM===0,"見積りのあと盤面が元に戻っている")}],
+    ["変装: 守る側は同じAPでは負ける（攻撃側の勝ち）ので、AP6000の相手に AP6000 の変装はしない",async w=>{
+      const t=mk(w,{theirAp:6000,dis:"D06012"});on(w);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[],t.tp,[t.x]),null)}],
+    ["変装: 自分のターンの攻撃側は同じAPで勝つので、AP6000の相手に AP6000 のキッドへ変装する",async w=>{
+      const t=mk(w,{theirAp:6000,dis:"D06012",myTurn:true});on(w);const d=w.cpuContact(t.q,t.mine,t.theirs,[],t.tp,[t.x]);
+      assert.ok(d&&d.how==="dis")}],
+    ["変装: 元のキャラが受けているAP＋（ターン終了時まで＋2000）を引き継ぎ、変装時のAP－2000（B02045）も数えて勝てるなら変装する",async w=>{
+      const t=mk(w,{theirAp:7000,dis:"B02045",mineApT:2000});on(w);
+      assert.strictEqual(w.disguiseAp(t.q,t.mine,t.x),4000+2000+2000);
+      const d=w.cpuContact(t.q,t.mine,t.theirs,[],t.tp,[t.x]);assert.ok(d&&d.how==="dis")}],
+    ["変装: 勝てない変装（AP3000のキッド B02044 で AP7000 を受ける）はしない",async w=>{
+      const t=mk(w,{theirAp:7000,dis:"B02044"});on(w);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[],t.tp,[t.x]),null)}],
+    ["変装: 実際のコンタクトでCPUが変装し、キッドが現場に残り、元のキャラはデッキの下へ、相手のキャラは防がれる（B07033 FILE6）",async w=>{
+      on(w);const G=board(w,{p0:{field:[RAN],hand:["B07033"],file:Array(6).fill(RAN)},p1:{field:[RAN]},turn:1});const [q,o]=G.P;
+      const mine=q.field[0],theirs=o.field[0];theirs.apM=4000;const ct={a:theirs,d:mine};G.contact=ct;
+      assert.ok(w.disguiseOk(q.hand[0],q),"変装できる条件");
+      assert.strictEqual(await w.contactRight(q,ct,o),true);
+      assert.strictEqual(w.C(q.field[0]).nm,"怪盗キッド");assert.strictEqual(q.deck[q.deck.length-1],mine);assert.strictEqual(ct.d,q.field[0]);
+      assert.ok(w.apOf(ct.d)>w.apOf(ct.a))}],
+  ]})(),
+  // ---- 捨て札の点数（val2）: 旧CPUはレベルだけで比べ、同名の重複も当分出せない重さも見なかった ----
+  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="val2"&&f!=="val3")},off=w=>{w.AI_OFF=w.ev("AI_OFF0")};
+    const MITSU="B01015",AYUMI="B01021",CONAN8="B01005"; // 円谷光彦 Lv3 / 吉田歩美 Lv3 / 江戸川コナン Lv8（青）
+    const run=async(w,hand,file)=>{const G=board(w,{p0:{hand,file:Array(file).fill("B01019")}});const [x]=await w.discard(G.P[0],1);return w.C(x).nm};
+    return [
+    ["捨て札(val2): 同名が2枚ある手札では被りの方を捨て、名前違いを残す（SeEd 実況 11/22 T4）",async w=>{
+      off(w);assert.strictEqual(await run(w,[AYUMI,MITSU,MITSU],1),"吉田歩美","旧: 同じ点なので先頭の歩美を捨てる");
+      on(w);assert.strictEqual(await run(w,[AYUMI,MITSU,MITSU],1),"円谷光彦","新: 被りの光彦を捨てる")}],
+    ["捨て札(val3): FILE1 で当分出せない Lv8 を抱えず、すぐ出せる Lv3 を残す",async w=>{
+      off(w);assert.strictEqual(await run(w,[CONAN8,MITSU],1),"円谷光彦","旧: レベルの低い方を捨てる");
+      on(w);assert.strictEqual(await run(w,[CONAN8,MITSU],1),"江戸川コナン","新: 重すぎる方を捨てる");
+      on(w);assert.strictEqual(await run(w,[CONAN8,MITSU],5),"円谷光彦","FILE5 なら Lv8 は近いので残す")}],
+  ]})(),
+  // ---- カットインのAP以外の効果（ci2）: 旧CPUはAP＋の無いカットインを使わなかった ----
+  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="ci2")},off=w=>{w.AI_OFF=w.ev("AI_OFF0")};
+    const mk=w=>{const G=board(w,{p0:{field:["B11007","B11008"],hand:["B11009"]},p1:{field:["B01019"]},turn:0});const [q,o]=G.P;
+      const mine=q.field[0],theirs=o.field[0];theirs.apM=8000;const ct={a:mine,d:theirs};G.contact=ct;return {G,q,o,mine,theirs,ct,x:q.hand[0]}};
+    return [
+    ["カットイン(ci2): 探偵団Lv4が2種いる自分のターン、AP9000に負けるコンタクトで光彦 B11009 のカットインを切り、相手のLv2をリムーブして1枚引く",async w=>{
+      let t=mk(w);off(w);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[t.x],t.q,[]),null,"旧: AP＋が無いので切らない");
+      t=mk(w);on(w);const d=w.cpuContact(t.q,t.mine,t.theirs,[t.x],t.q,[]);assert.ok(d&&d.how==="cut"&&d.x===t.x,"新: 切る");
+      t=mk(w);on(w);const h0=t.q.hand.length;assert.strictEqual(await w.contactRight(t.q,t.ct,t.q),true);
+      assert.ok(!t.o.field.includes(t.theirs),"相手のキャラがリムーブされた");assert.strictEqual(t.q.hand.length,h0,"カットインを使って1枚引いた")}],
+    ["カットイン(ci2): 探偵団Lv4が1種だけなら条件を満たさないので切らない",async w=>{
+      const t=mk(w);t.q.field.pop();on(w);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[t.x],t.q,[]),null)}],
+  ]})(),
 ];

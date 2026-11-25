@@ -76,7 +76,7 @@ DEF["0086"]={ // ジン B01098（【カットイン】【自分ターン中】�
 DEF["0208"]={ // 怪盗キッド B02041
   enter:async p=>{if(partnerIs(p,"白"))await sleepOne(p)},disguise:async p=>{if(partnerIs(p,"白"))await sleepOne(p)}};
 DEF["0211"]={ // 怪盗キッド B02045
-  disguise:async p=>{const t=await chooseChar(p,"AP－2000するキャラ");if(t)apTurn(t,-2000)},
+  disguise:async(p,x)=>{const ct=G.contact,foe=ct&&(ct.a===x?ct.d:ct.a);const t=await chooseChar(p,"AP－2000するキャラ",()=>true,{ai:cs=>foe&&cs.includes(foe)?[foe]:aiBestTargets(p,1)(cs)});if(t)apTurn(t,-2000)}, // CPUはコンタクトの相手を下げる
   hirameki:async o=>{await sleepOne(o,"ヒラメキ: スリープさせるキャラ")}};
 DEF["0221"]={ // 赤井秀一 B02058
   enter:async p=>{const o=opp(p);if(o.hand.length&&o.hand.length>=p.hand.length)await discard(o,1)},

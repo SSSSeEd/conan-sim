@@ -37,7 +37,7 @@ function deckPool(w,kind){
 
 // ---- 子プロセス: 組 [from,to) を回し、1組ごとに結果を親へ送る ----
 // 行動の回数（席ごと、ログの行から数える）と、探索が選んだ案に入っていた項目（ガード役なし・構え・アクションの出し方など）も数える
-const ACT_RE=[["assist",/^. はアシスト/],["hint",/^. はネクストヒント/],["reason",/^. の .+ が推理（LP/],["caseAct",/^. の .+がアクション → 事件$/],["charaAct",/^. の .+がアクション → (?!事件$)/],["play",/^. は .+を登場させた|^. はイベント/]];
+const ACT_RE=[["assist",/^. はアシスト/],["hint",/^. はネクストヒント/],["reason",/^. の .+ が推理（LP/],["caseAct",/^. の .+がアクション → 事件$/],["charaAct",/^. の .+がアクション → (?!事件$)/],["play",/^. は .+を登場させた|^. はイベント/],["disguise",/^. は .+ を .+ に変装/],["cutin",/^. はカットイン /]];
 async function worker({flag,from,to,decks,seed,search,deck}){
   const H=require("./headless");
   const w=H.load({seed,init:{AI_OFF:[],...(process.env.ROLL_K?{ROLL_K:+process.env.ROLL_K}:{})}}); // ROLL_K=5 などで探索の試行回数（multi）を変えて測れる

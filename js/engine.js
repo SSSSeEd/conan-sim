@@ -458,7 +458,7 @@ async function contactRight(q,ct,tp){
   const dis=lockCD?[]:q.hand.filter(x=>C(x).t==="キャラ"&&C(x).dg&&disguiseOk(x,q));
   if(!cuts.length&&!dis.length)return false;
   let choice=null;
-  if(q.cpu)choice=cpuContact(q,mine,theirs,cuts,tp);
+  if(q.cpu)choice=cpuContact(q,mine,theirs,cuts,tp,dis);
   else{
     const opts=[...cuts,...dis];
     const sel=await chooseCards(`${q.name}: コンタクト中の行動`,`自分 ${C(mine).nm} AP${apOf(mine)} / 相手 ${C(theirs).nm} AP${apOf(theirs)}\nカットインか変装を1枚使えます（パス可）。`,opts,{min:0,max:1,okLabel:"使う"});
