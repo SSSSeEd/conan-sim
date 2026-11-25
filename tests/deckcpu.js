@@ -46,7 +46,7 @@ module.exports=[
     assert.ok(Math.abs(L.mid.X.e)<0.03,"重みつきの効果はほぼ0: "+L.mid.X.e)}],
   ["キャラへのアクション(ciAtk): APで負ける相手（スリープ中のAP8000）でも、手札の光彦 B11009 の除去カットインで取れるなら、推理できない元太 B11008 で仕掛けてリムーブする",async w=>{
     const run=async flags=>{const G=board(w,{p0:{field:["B11007","B11008"],hand:["B11009"]},p1:{field:["B01019"]},turn:0});const [p,o]=G.P;
-      const y=o.field[0];y.st="s";y.apM=8000;w.AI_OFF=w.ev("AI_OFF0").filter(f=>!flags.includes(f));
+      const y=o.field[0];y.st="s";y.apM=8000;w.AI_OFF=[...w.ev("AI_OFF0"),"ci2","ciAtk"].filter(f=>!flags.includes(f));
       await w.attackPhase({p,o,step:async()=>{},hold:new Set()});return {p,o,y}};
     let r=await run(["ci2"]);assert.ok(r.o.field.includes(r.y),"旧: APで勝てない相手にはアクションしない");assert.strictEqual(r.p.hand.length,1);
     r=await run(["ci2","ciAtk"]);assert.ok(!r.o.field.includes(r.y),"新: アクションしてカットインでリムーブ");
@@ -54,6 +54,6 @@ module.exports=[
     assert.ok(!r.p.hand.some(x=>x.n==="B11009")&&r.p.hand.length===1,"光彦を使って1枚引いた")}],
   ["キャラへのアクション(ciAtk): 名前違いのレベル4が1種だけ（カットインの条件を満たさない）なら仕掛けない",async w=>{
     const G=board(w,{p0:{field:["B11008"],hand:["B11009"]},p1:{field:["B01019"]},turn:0});const [p,o]=G.P;
-    const y=o.field[0];y.st="s";y.apM=8000;w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="ci2"&&f!=="ciAtk");
+    const y=o.field[0];y.st="s";y.apM=8000;w.AI_OFF=w.ev("AI_OFF0");
     await w.attackPhase({p,o,step:async()=>{},hold:new Set()});assert.ok(o.field.includes(y));assert.strictEqual(p.field[0].st,"a")}],
 ];

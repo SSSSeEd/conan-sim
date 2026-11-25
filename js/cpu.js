@@ -8,8 +8,11 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3","val2","val3","ci2","deck","deckL","ciAtk"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_OFF0=["strat","strat2","eval2","eval3","val2","val3","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+// ci2・ciAtk・deck（既定オン 11/25、青単探偵団の専用CPU）: ci2 は段階⑥（除去カットインを切る）。ciAtk は除去カットインで取れる相手にキャラへのアクションを仕掛ける。
+//   deck は js/deckcpu の手書き方針（今は青単探偵団だけ）。bench --deck 青単探偵団（各401〜501組で打ち切り）: +ci2 52.9%（51.2〜54.6）、+ci2,+ciAtk 53.7%（51.7〜55.8）、
+//   +ci2,+ciAtk,+deck 56.2%（53.8〜58.6、素の勝率 22.9%→35.4%）。deckL（学んだ表）を足しても 56.7% で差は誤差の範囲なので既定オフのまま
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
