@@ -105,7 +105,7 @@ module.exports=[
       assert.ok(w.apOf(ct.d)>w.apOf(ct.a))}],
   ]})(),
   // ---- 捨て札の点数（val2）: 旧CPUはレベルだけで比べ、同名の重複も当分出せない重さも見なかった ----
-  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="val2"&&f!=="val3")},off=w=>{w.AI_OFF=w.ev("AI_OFF0")};
+  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="val3")},off=w=>{w.AI_OFF=w.ev("AI_OFF0").concat(["val2"])};
     const MITSU="B01015",AYUMI="B01021",CONAN8="B01005"; // 円谷光彦 Lv3 / 吉田歩美 Lv3 / 江戸川コナン Lv8（青）
     const run=async(w,hand,file)=>{const G=board(w,{p0:{hand,file:Array(file).fill("B01019")}});const [x]=await w.discard(G.P[0],1);return w.C(x).nm};
     return [
