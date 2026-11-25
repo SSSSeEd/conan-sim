@@ -51,13 +51,18 @@ function condOk(tag,p){
 function hitsActive(x,p,target){const ks=[...x.kw,...(window.FX&&FX.kwExtra?FX.kwExtra(x,p):[])];
   if(ks.includes("アクティブ指定セット")&&(!target||(target.set||[]).some(s=>!s.under)))return true; // 服部平次 B03032: カードがセットされているアクティブ状態のキャラ
   return ks.includes("アクティブ指定")||ks.some(k=>{const m=k.match(/^アクティブ指定Lv(\d+)$/);return !!m&&(!target||lvOf(target)>=+m[1])})}
+// 効果文を行ごとに「行頭の条件タグ」と「残り」に分けたもの（文字列だけで決まるので、同じ効果文は1回だけ分ける。速さのため）
+const KW_LINES=new Map();
+function kwLines(f){f=f||"";let r=KW_LINES.get(f);if(r)return r;r=[];
+  for(const line of f.split("\n")){let s=line.trim(),m;const tags=[];while((m=s.match(/^【([^】]+)】/))){tags.push(m[1]);s=s.slice(m[0].length)}r.push({tags,rest:s})}
+  KW_LINES.set(f,r);return r}
 // 常在キーワード（行頭の条件タグを満たした〚〛）
 function staticKw(x,p){
   const out={rush:false,rushC:false,rushE:false,swift:false,bullet:false,misread:0,noGuard:false,guardSleep:false,mustGuard:false};
   const c=C(x);
-  for(const line of (c.f||"").split("\n")){
-    let s=line.trim(),ok=true,m;
-    while((m=s.match(/^【([^】]+)】/))){const r=condOk(m[1],p);if(r===false){ok=false}else if(r===null){ok=false}s=s.slice(m[0].length)}
+  for(const {tags,rest} of kwLines(c.f)){
+    let s=rest,ok=true,m;
+    for(const t of tags){const r=condOk(t,p);if(r===false){ok=false}else if(r===null){ok=false}}
     if(!ok)continue;
     if((m=s.match(/^〚([^〛]+)〛/))){const k=m[1];
       if(k==="突撃")out.rush=true;else if(k==="突撃［キャラ］")out.rushC=true;else if(k==="突撃［事件］")out.rushE=true;else if(k==="突撃［レベル4以下のキャラ］")out.rushC4=true;
