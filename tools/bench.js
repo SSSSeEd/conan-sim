@@ -6,6 +6,7 @@
 //   --seed N  --jobs N（並列数、既定はCPUコア数）  --nosearch（探索なし。速いが本番と違う）
 // 仕組み: 1組ごとに、デッキ2つ・乱数を決め、新CPU(A)が席0の試合と席1の試合を同じ乱数で1回ずつ行う（デッキと先攻後攻の運が打ち消し合う）。
 //   A と B（既定のCPU）が同じなら、2戦は同じ試合になり、必ず1勝1敗になる（none で確かめられる）。
+// 途中経過: 約10%ごとに標準エラーへ（戦数・経過・残りの目安・暫定勝率）。例: node tools/bench.js +x 2000 >結果.json 2>進捗.txt
 // 出力: Aの勝率と95%の幅、判定（採用候補 / 悪化 / 判定できず）。幅は組ごとの点（2勝=1、1勝1敗=0.5、2敗=0）のばらつきから出す
 "use strict";
 const os=require("os"),path=require("path"),{fork}=require("child_process");
@@ -49,7 +50,7 @@ async function worker({flag,from,to,decks,seed,search}){
       try{const {winner,turns}=await H.play(w,{decks:[structuredClone(da),structuredClone(db)],search:[search,search],aiOff:off});
         r.g.push({a:winner===null?0.5:winner===seatA?1:0,turns})}
       catch(e){r.g.push({a:0.5,err:String(e).slice(0,120)})}}
-    out.push(r)}
+    out.push(r);if(process.send)process.send({prog:1,s:(r.g[0].a+r.g[1].a)/2})} // 途中経過: 1組終わるごとに親へ
   return out}
 
 function summarize(o,rows,ms){
@@ -66,10 +67,14 @@ function summarize(o,rows,ms){
 async function main(){
   const o=parseArgs(process.argv.slice(2));const t0=Date.now();
   const J=Math.max(1,Math.min(o.jobs,o.pairs)),per=Math.ceil(o.pairs/J);
+  // 途中経過（標準エラーに、約10%ごと。結果のJSONは標準出力なので混ざらない）: 終わった戦数・経過時間・残りの目安・暫定のA勝率
+  let done=0,sum=0,next=0;const step=Math.max(1,Math.round(o.pairs/10));
+  const prog=s=>{done++;sum+=s;if(done>=next||done===o.pairs){next=done+step;const sec=(Date.now()-t0)/1000,left=sec/done*(o.pairs-done);
+    console.error(`進捗 ${done*2}/${o.pairs*2}戦（${Math.round(done/o.pairs*100)}%） 経過${Math.round(sec/60)}分 残り約${Math.round(left/60)}分 暫定A勝率${(sum/done*100).toFixed(1)}%`)}};
   const parts=await Promise.all(Array.from({length:J},(_,j)=>new Promise((res,rej)=>{
     const from=j*per,to=Math.min(o.pairs,from+per);if(from>=to)return res([]);
     const c=fork(__filename,["--worker"],{stdio:["ignore","ignore","inherit","ipc"]});
-    c.on("message",m=>{res(m);c.kill()});c.on("error",rej);c.on("exit",code=>{if(code)rej(new Error("worker exit "+code))});
+    c.on("message",m=>{if(m&&m.prog){prog(m.s);return}res(m);c.kill()});c.on("error",rej);c.on("exit",code=>{if(code)rej(new Error("worker exit "+code))});
     c.send({flag:o.flag,from,to,decks:o.decks,seed:o.seed,search:o.search})})));
   const rows=parts.flat().sort((a,b)=>a.i-b.i);
   const s=summarize(o,rows,Date.now()-t0);
