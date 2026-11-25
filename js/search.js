@@ -53,6 +53,7 @@ async function rollout(p,plan,deal){
   const o=g.P[1-p.idx];
   if(deal){const r=stratDeal(o,deal);o.hand=r.hand;o.deck=r.deck} // strat: 場合分けした配り方
   else{const pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length)}
+  ROLL_DEALT_T=o.hand.some(x=>stratThr(o,x)); // strat2 用: この配り方に「出たターンに証拠を増やせるキャラ」が入ったか
   G=g;let v;
   try{await cpuTurn(g.P[p.idx]);if(g.sim.next)await g.sim.next;v=evalState(p.idx)}
   catch(e){console.warn("search",e);v=-1e9}
@@ -92,7 +93,13 @@ async function rolloutN(p,plan){
   if(ai2(p,"strat")){const ss=stratDeals(G.P[1-p.idx]);
     if(ss){let v=0;for(const s of ss)v+=s.w*await rollout(p,plan,s.kind);return v}}
   if(!ai2(p,"multi"))return rollout(p,plan);
-  const K=window.ROLL_K||3;let s=0;for(let k=0;k<K;k++)s+=await rollout(p,plan);return s/K}
+  const K=window.ROLL_K||3;let s=0,anyT=false;for(let k=0;k<K;k++){s+=await rollout(p,plan);anyT=anyT||ROLL_DEALT_T}
+  // strat2（SeEd 11/25）: ランダムK回の中に「出たターンに証拠を増やせるキャラ（突撃・迅速・登場時に証拠）」を持つ配り方が1回も無く、
+  //   相手がそれを持っている可能性があるなら、その場合を1回足す。点数は (持たない確率)×K回の平均 ＋ (持つ確率)×足した1回
+  if(ai2(p,"strat2")&&!anyT){const o=G.P[1-p.idx],sp=stratSplit(o);
+    if(sp.h&&sp.T.length){const qT=1-pNone(sp.pool.length,sp.T.length,sp.h);return (1-qT)*(s/K)+qT*await rollout(p,plan,"T")}}
+  return s/K}
+let ROLL_DEALT_T=false;
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
 async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
