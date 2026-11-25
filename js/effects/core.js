@@ -37,9 +37,10 @@ const aiCardValue=(p,x)=>{const c=C(x);let v=lvOf(x);if(c.ci)v+=2;if(c.t==="キ�
 //   d 変装を持つキャラは ＋2（カットインと同じく、コンタクトで使える。変装 disg がオンのとき）
 function aiCardValue2(p,x,c){let d=0;
   if(p.hand.some(y=>y!==x&&C(y).nm===c.nm))d-=3; // 拾うときも、手札に同名があれば別の名前を取る
-  if(c.t==="キャラ"&&!p.solved){const over=lvOf(x)-(p.file.length+3);if(over>0)d-=over}
-  if(c.t==="イベント"&&canPlayColor(c,p))d+=2;
-  if(c.dg&&ai2(p,"disg"))d+=2;
+  if(ai2(p,"val3")){ // b・c・d は val3（a と合わせた初版は 4000戦 49.2%（48.1〜50.3）だったので分けて測る）
+    if(c.t==="キャラ"&&!p.solved){const over=lvOf(x)-(p.file.length+3);if(over>0)d-=over}
+    if(c.t==="イベント"&&canPlayColor(c,p))d+=2;
+    if(c.dg&&ai2(p,"disg"))d+=2}
   return d}
 
 async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true,can=null}={}){

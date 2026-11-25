@@ -105,16 +105,29 @@ module.exports=[
       assert.ok(w.apOf(ct.d)>w.apOf(ct.a))}],
   ]})(),
   // ---- 捨て札の点数（val2）: 旧CPUはレベルだけで比べ、同名の重複も当分出せない重さも見なかった ----
-  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="val2")},off=w=>{w.AI_OFF=w.ev("AI_OFF0")};
+  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="val2"&&f!=="val3")},off=w=>{w.AI_OFF=w.ev("AI_OFF0")};
     const MITSU="B01015",AYUMI="B01021",CONAN8="B01005"; // 円谷光彦 Lv3 / 吉田歩美 Lv3 / 江戸川コナン Lv8（青）
     const run=async(w,hand,file)=>{const G=board(w,{p0:{hand,file:Array(file).fill("B01019")}});const [x]=await w.discard(G.P[0],1);return w.C(x).nm};
     return [
     ["捨て札(val2): 同名が2枚ある手札では被りの方を捨て、名前違いを残す（SeEd 実況 11/22 T4）",async w=>{
       off(w);assert.strictEqual(await run(w,[AYUMI,MITSU,MITSU],1),"吉田歩美","旧: 同じ点なので先頭の歩美を捨てる");
       on(w);assert.strictEqual(await run(w,[AYUMI,MITSU,MITSU],1),"円谷光彦","新: 被りの光彦を捨てる")}],
-    ["捨て札(val2): FILE1 で当分出せない Lv8 を抱えず、すぐ出せる Lv3 を残す",async w=>{
+    ["捨て札(val3): FILE1 で当分出せない Lv8 を抱えず、すぐ出せる Lv3 を残す",async w=>{
       off(w);assert.strictEqual(await run(w,[CONAN8,MITSU],1),"円谷光彦","旧: レベルの低い方を捨てる");
       on(w);assert.strictEqual(await run(w,[CONAN8,MITSU],1),"江戸川コナン","新: 重すぎる方を捨てる");
       on(w);assert.strictEqual(await run(w,[CONAN8,MITSU],5),"円谷光彦","FILE5 なら Lv8 は近いので残す")}],
+  ]})(),
+  // ---- カットインのAP以外の効果（ci2）: 旧CPUはAP＋の無いカットインを使わなかった ----
+  ...(()=>{const on=w=>{w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="ci2")},off=w=>{w.AI_OFF=w.ev("AI_OFF0")};
+    const mk=w=>{const G=board(w,{p0:{field:["B11007","B11008"],hand:["B11009"]},p1:{field:["B01019"]},turn:0});const [q,o]=G.P;
+      const mine=q.field[0],theirs=o.field[0];theirs.apM=8000;const ct={a:mine,d:theirs};G.contact=ct;return {G,q,o,mine,theirs,ct,x:q.hand[0]}};
+    return [
+    ["カットイン(ci2): 探偵団Lv4が2種いる自分のターン、AP9000に負けるコンタクトで光彦 B11009 のカットインを切り、相手のLv2をリムーブして1枚引く",async w=>{
+      let t=mk(w);off(w);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[t.x],t.q,[]),null,"旧: AP＋が無いので切らない");
+      t=mk(w);on(w);const d=w.cpuContact(t.q,t.mine,t.theirs,[t.x],t.q,[]);assert.ok(d&&d.how==="cut"&&d.x===t.x,"新: 切る");
+      t=mk(w);on(w);const h0=t.q.hand.length;assert.strictEqual(await w.contactRight(t.q,t.ct,t.q),true);
+      assert.ok(!t.o.field.includes(t.theirs),"相手のキャラがリムーブされた");assert.strictEqual(t.q.hand.length,h0,"カットインを使って1枚引いた")}],
+    ["カットイン(ci2): 探偵団Lv4が1種だけなら条件を満たさないので切らない",async w=>{
+      const t=mk(w);t.q.field.pop();on(w);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[t.x],t.q,[]),null)}],
   ]})(),
 ];
