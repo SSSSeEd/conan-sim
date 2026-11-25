@@ -14,7 +14,9 @@ function evalState(me){
   const noAct=!!(G.cfg.noAct&&G.cfg.noAct[me]); // 比較実験用（tools/vs.js の search-noact）: 突撃などの価値とアクションの出し方を使わない旧探索
   const side=q=>{let v=0;for(const x of q.field){v+=(C(x).lv||0)*8+apOf(x)/250+lpOf(x)*25+(x.st==="a"?15:0);
     if(noAct)continue;const k=staticKw(x,q);v+=(k.rush?14:0)+(k.rushC||k.rushE?8:0)+(k.swift?14:0)+(k.bullet?10:0)+k.misread*6}return v};
-  const ev=q=>q.ev.length*60+(q.solved?40:0)+(q.solved&&q.ev.length>=q.level?300:0);
+  // eval3（段階④）: 証拠1つの価値を、事件レベルに近いほど高くする（あと3つ以内の証拠は +40）。序盤の証拠は安く、終盤の証拠は高い
+  //   SeEd 11/25「証拠2つしかないならガードで守っても美味しくない」: 少ない証拠を守る価値を下げ、勝ちに近い証拠の取り合いを重く見る
+  const ev=q=>q.ev.length*60+(ai2(G.P[me],"eval3")?40*Math.max(0,q.ev.length-(q.level-3)):0)+(q.solved?40:0)+(q.solved&&q.ev.length>=q.level?300:0);
   let v=ev(p)-ev(o)+side(p)-side(o)+(p.hand.length-o.hand.length)*12+(Math.min(p.file.length,9)-Math.min(o.file.length,9))*6;
   // eval2（段階④）: 試しの終わり（相手の手番の終わり＝次は自分の手番）で、次の自分の手番に勝てそうなら加点、その次の相手の手番に勝たれそうなら減点
   //   threatNext の見積り（現場のLP＋パートナー＋登場時の証拠、ガード役・ミスリードで減らした値 gainMin）を使う
