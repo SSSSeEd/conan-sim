@@ -9,7 +9,7 @@
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
 const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["stance","strat","strat2"]; // stance: 相手が勝てそうなとき、探索で守り/攻めの構えも試す（search.js、未測定）
+const AI_OFF0=["stance","strat","strat2","eval2"]; // stance: 相手が勝てそうなとき、探索で守り/攻めの構えも試す（search.js、未測定）
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // asst4（既定オン 11/24）: 手札の枚数（手札過多）ではアシストしない。出せるカードが増えるとき・解決編に入るときだけ。bench 2000戦: asst4なしのCPUが 49.4%（48.4〜50.4）＝勝率は変わらず、人間に近いので採用
 // order（既定オン 11/24）: アクションを手札より先にする順も探索で試す。4000戦 50.8%（49.5〜52.1、差なし）。SeEdの要望で採用

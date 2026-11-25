@@ -15,7 +15,12 @@ function evalState(me){
   const side=q=>{let v=0;for(const x of q.field){v+=(C(x).lv||0)*8+apOf(x)/250+lpOf(x)*25+(x.st==="a"?15:0);
     if(noAct)continue;const k=staticKw(x,q);v+=(k.rush?14:0)+(k.rushC||k.rushE?8:0)+(k.swift?14:0)+(k.bullet?10:0)+k.misread*6}return v};
   const ev=q=>q.ev.length*60+(q.solved?40:0)+(q.solved&&q.ev.length>=q.level?300:0);
-  return ev(p)-ev(o)+side(p)-side(o)+(p.hand.length-o.hand.length)*12+(Math.min(p.file.length,9)-Math.min(o.file.length,9))*6;
+  let v=ev(p)-ev(o)+side(p)-side(o)+(p.hand.length-o.hand.length)*12+(Math.min(p.file.length,9)-Math.min(o.file.length,9))*6;
+  // eval2（段階④）: 試しの終わり（相手の手番の終わり＝次は自分の手番）で、次の自分の手番に勝てそうなら加点、その次の相手の手番に勝たれそうなら減点
+  //   threatNext の見積り（現場のLP＋パートナー＋登場時の証拠、ガード役・ミスリードで減らした値 gainMin）を使う
+  if(ai2(p,"eval2")){const mine=threatNext(o,p),theirs=threatNext(p,o);
+    v+=(mine.lethalMin?200:mine.lethal?80:0)-(theirs.lethalMin?150:theirs.lethal?60:0)}
+  return v;
 }
 // 試す組み合わせ: 今のCPUのまま / 出せるカードそれぞれ / 何も出さない × ネクストヒントあり・なし
 // アシストしてから出せるカードも試す（plan.assist）。最初の手番は何も出さない組み合わせを試さない（SeEd: 1ターン目は使えるなら使う）
