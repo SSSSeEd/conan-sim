@@ -14,8 +14,15 @@ function evalState(me){
   const noAct=!!(G.cfg.noAct&&G.cfg.noAct[me]); // 比較実験用（tools/vs.js の search-noact）: 突撃などの価値とアクションの出し方を使わない旧探索
   const side=q=>{let v=0;for(const x of q.field){v+=(C(x).lv||0)*8+apOf(x)/250+lpOf(x)*25+(x.st==="a"?15:0);
     if(noAct)continue;const k=staticKw(x,q);v+=(k.rush?14:0)+(k.rushC||k.rushE?8:0)+(k.swift?14:0)+(k.bullet?10:0)+k.misread*6}return v};
-  const ev=q=>q.ev.length*60+(q.solved?40:0)+(q.solved&&q.ev.length>=q.level?300:0);
-  return ev(p)-ev(o)+side(p)-side(o)+(p.hand.length-o.hand.length)*12+(Math.min(p.file.length,9)-Math.min(o.file.length,9))*6;
+  // eval3（段階④）: 証拠1つの価値を、事件レベルに近いほど高くする（あと3つ以内の証拠は +40）。序盤の証拠は安く、終盤の証拠は高い
+  //   SeEd 11/25「証拠2つしかないならガードで守っても美味しくない」: 少ない証拠を守る価値を下げ、勝ちに近い証拠の取り合いを重く見る
+  const ev=q=>q.ev.length*60+(ai2(G.P[me],"eval3")?40*Math.max(0,q.ev.length-(q.level-3)):0)+(q.solved?40:0)+(q.solved&&q.ev.length>=q.level?300:0);
+  let v=ev(p)-ev(o)+side(p)-side(o)+(p.hand.length-o.hand.length)*12+(Math.min(p.file.length,9)-Math.min(o.file.length,9))*6;
+  // eval2（段階④）: 試しの終わり（相手の手番の終わり＝次は自分の手番）で、次の自分の手番に勝てそうなら加点、その次の相手の手番に勝たれそうなら減点
+  //   threatNext の見積り（現場のLP＋パートナー＋登場時の証拠、ガード役・ミスリードで減らした値 gainMin）を使う
+  if(ai2(p,"eval2")){const mine=threatNext(o,p),theirs=threatNext(p,o);
+    v+=(mine.lethalMin?200:mine.lethal?80:0)-(theirs.lethalMin?150:theirs.lethal?60:0)}
+  return v;
 }
 // 試す組み合わせ: 今のCPUのまま / 出せるカードそれぞれ / 何も出さない × ネクストヒントあり・なし
 // アシストしてから出せるカードも試す（plan.assist）。最初の手番は何も出さない組み合わせを試さない（SeEd: 1ターン目は使えるなら使う）
@@ -45,12 +52,15 @@ function turnPlans(p){
   return all.flatMap(pl=>[pl,{...pl,hint:false}]);
 }
 // 盤面をコピーして1つの組み合わせを試す。終わったら元の盤面に戻す
-async function rollout(p,plan){
+async function rollout(p,plan,deal){
   const real=G;
   const g=structuredClone({...real,rec:null,dlog:null,undo:[],ui:{mode:null}});
   g.sim={plan,planFor:p.idx,next:null,stage:0};for(const q of g.P)q.cpu=true;
   // 相手の手札は見えないので、相手の手札とデッキを混ぜて配り直す（同じ枚数）
-  const o=g.P[1-p.idx],pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length);
+  const o=g.P[1-p.idx];
+  if(deal){const r=stratDeal(o,deal);o.hand=r.hand;o.deck=r.deck} // strat: 場合分けした配り方
+  else{const pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length)}
+  ROLL_DEALT_T=o.hand.some(x=>stratThr(o,x)); // strat2 用: この配り方に「出たターンに証拠を増やせるキャラ」が入ったか
   G=g;let v;
   try{await cpuTurn(g.P[p.idx]);if(g.sim.next)await g.sim.next;v=evalState(p.idx)}
   catch(e){console.warn("search",e);v=-1e9}
@@ -60,15 +70,49 @@ async function rollout(p,plan){
 }
 // multi: 1つの案を、相手の手札の配り直しを変えて ROLL_K 回（既定3）試し、平均の点数で比べる（1回だと配り直しの運で点数が揺れ、良い案を選び損ねる）
 // 2026-11-24 bench 4000戦（環境デッキ16）: 1回に対して 3回 54.1%（52.8〜55.4）、5回 54.3%（53.0〜55.7）→ 3回を既定に（5回は時間が1.5倍で差なし）
+// strat（SeEd 11/25 の案）: 配り直しをランダムに3回ではなく、相手の手札を場合分けして試す。
+//   ①出たターンに証拠を増やせるキャラ（突撃・迅速・登場時に証拠）がある ②①は無いがAP＋2000以上のカットインがある ③どちらも無い
+//   それぞれの起こりやすさ（相手の見えないカード＝手札＋デッキの中の枚数から計算）で重みをつけて平均する
+const stratThr=(o,x)=>{const c=C(x);return c.t==="キャラ"&&(c.lv||0)<=Math.min(9,o.file.length+3)&&(/〚突撃|〚迅速/.test(c.f||"")||/【登場時】[^\n]*証拠を/.test(c.f||""))};
+const stratCut=(o,x)=>(cutinAp(x,o)||0)>=2000;
+const pNone=(n,k,h)=>{let q=1;for(let i=0;i<h;i++)q*=Math.max(0,n-k-i)/(n-i);return q}; // n枚からh枚引いて、k枚の当たりが1枚も入らない確率
+// 場合分けと重み（本番の盤面から計算）。配り方そのものは stratDeal で、試しの盤面（コピー）のカードを使って作る
+//   （本番のカードを試しの盤面に入れると、試しの手番が本番のカードを書き換えてしまう）
+function stratSplit(o){const pool=[...o.hand,...o.deck],h=o.hand.length;
+  const T=pool.filter(x=>stratThr(o,x)),rest=pool.filter(x=>!stratThr(o,x)),Cu=rest.filter(x=>stratCut(o,x)),N=rest.filter(x=>!stratCut(o,x));
+  return {pool,h,T,rest,Cu,N}}
+function stratDeals(o){
+  const {pool,h,T,rest,Cu,N}=stratSplit(o),n=pool.length;if(!h||!n)return null;
+  const qT=1-pNone(n,T.length,h),qC=1-pNone(rest.length,Cu.length,h);
+  const out=[];
+  if(T.length)out.push({w:qT,kind:"T"});
+  if(Cu.length)out.push({w:(1-qT)*qC,kind:"C"});
+  if(N.length>=h)out.push({w:(1-qT)*(1-qC),kind:"N"});
+  const sw=out.reduce((a,s)=>a+s.w,0);if(out.length<2||sw<=0)return null;
+  for(const s of out)s.w/=sw;return out}
+function stratDeal(o,kind){
+  const {pool,h,T,rest,Cu,N}=stratSplit(o);let hand;
+  if(kind==="N")hand=shuffle(N.slice()).slice(0,h);
+  else{const must=kind==="T"?T:Cu,from=kind==="T"?pool:rest;const m=must[Math.floor(Math.random()*must.length)];
+    hand=[m,...shuffle(from.filter(x=>x!==m)),...shuffle(pool.filter(x=>x!==m&&!from.includes(x)))].slice(0,h)}
+  const hs=new Set(hand);return {hand,deck:shuffle(pool.filter(x=>!hs.has(x)))}}
 async function rolloutN(p,plan){
+  if(ai2(p,"strat")){const ss=stratDeals(G.P[1-p.idx]);
+    if(ss){let v=0;for(const s of ss)v+=s.w*await rollout(p,plan,s.kind);return v}}
   if(!ai2(p,"multi"))return rollout(p,plan);
-  const K=window.ROLL_K||3;let s=0;for(let k=0;k<K;k++)s+=await rollout(p,plan);return s/K}
+  const K=window.ROLL_K||3;let s=0,anyT=false;for(let k=0;k<K;k++){s+=await rollout(p,plan);anyT=anyT||ROLL_DEALT_T}
+  // strat2（SeEd 11/25）: ランダムK回の中に「出たターンに証拠を増やせるキャラ（突撃・迅速・登場時に証拠）」を持つ配り方が1回も無く、
+  //   相手がそれを持っている可能性があるなら、その場合を1回足す。点数は (持たない確率)×K回の平均 ＋ (持つ確率)×足した1回
+  if(ai2(p,"strat2")&&!anyT){const o=G.P[1-p.idx],sp=stratSplit(o);
+    if(sp.h&&sp.T.length){const qT=1-pNone(sp.pool.length,sp.T.length,sp.h);return (1-qT)*(s/K)+qT*await rollout(p,plan,"T")}}
+  return s/K}
+let ROLL_DEALT_T=false;
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
 async function simTurnEnd(){if(G.sim.stage)return;G.sim.stage=1;await endTurn()}
 // 対戦記録（rec.search）に、探索が各組み合わせに付けた点数を残す。疑問のある行動を後から調べる用（node tools/scores.js 記録.json）
 function recSearch(p,tried,best){
   if(!G.rec)return;
-  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.order&&"アクション先",pl.stance&&"構え:"+({defend:"守り",attack:"攻め"})[pl.stance],pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
+  const label=pl=>[pl.play==="none"?"何も出さない":pl.play?(C({n:pl.play}).nm||pl.play):"今のCPU",pl.assist&&"アシスト先",pl.abFirst&&"能力先",pl.ab&&"能力:"+({none:"使わない",force:"全部使う"})[pl.ab],pl.act&&"アクション:"+({chara:"キャラ優先",case:"事件優先",stay:"しない"})[pl.act],pl.order&&"アクション先",pl.stance&&"構え:"+({defend:"守り",attack:"攻め"})[pl.stance],pl.keep===0&&"ガード役なし",pl.hint===false&&"ヒントなし"].filter(Boolean).join("+");
   (G.rec.search=G.rec.search||[]).push({t:G.turnNo,who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
   dl("search",{who:p.idx,pick:label(best||{}),plans:tried.map(([pl,v])=>[label(pl),Math.round(v)])});
 }
@@ -79,6 +123,9 @@ function recSearch(p,tried,best){
 const ACT_MODES=["chara","case","stay"];
 const STANCES=["defend","attack"]; // 構え（plan.stance）: defend=抵抗する / attack=抵抗も警戒もしない。無し=今の判定のまま
 let ROLL_RUSH=false;
+// rushb の加点（アクションの出し方で突撃・迅速のキャラを動かす案に+400）。いちばん良かった案に何かを足して試すときも、同じ加点で比べる
+//   （11/25 まで: 足した案には加点が無く、元の案が加点ありで比べられていたため、order・stance・keep2 はほぼ選ばれなかった）
+const rushB=(p,pl)=>ai2(p,"fair")&&pl.act&&pl.act!=="stay"?(window.RUSH_BONUS??400):0;
 async function chooseTurnPlan(p){
   const plans=turnPlans(p);
   let best=null,bv=-Infinity;
@@ -93,11 +140,14 @@ async function chooseTurnPlan(p){
       const vv=act!=="stay"?v+(window.RUSH_BONUS??400):v;if(vv>bv){bv=vv;best=pl}}}
   // order（実験）: いちばん良かった案に「アクションを先にする」行動順を足して試す（場にアクションできるキャラがいるときだけ）
   if(ai2(p,"order")&&best&&p.field.some(x=>x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case")||canAct(x,p,"reason")))){
-    const pl={...best,order:"act"},v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
+    const pl={...best,order:"act"},v=await rolloutN(p,pl)+rushB(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
   // stance（実験）: いちばん良かった案に「守り」（全員で相手の事件を削る）と「攻め」（守りに入らない）の構えを足して試す。
   // 守りの発動条件（resist / threat2 / wary）を手書きの閾値で決めるのではなく、試して良い方を選ぶ（設計: notes/cpu-architecture-plan-2026-11-24.md の段階4）
   if(danger){const b0=best;
-    for(const stance of STANCES){const pl={...b0,stance},v=await rolloutN(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
+    for(const stance of STANCES){const pl={...b0,stance},v=await rolloutN(p,pl)+rushB(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}}
+  // keep2（段階④、SeEd 11/25: ガード役は残したら偉いくらいで必須ではない。証拠が少ないなら守っても美味しくない）:
+  //   現場3体以上（今のCPUはガード役を1体残す）なら、いちばん良かった案に「ガード役を残さない」を足して試す
+  if(ai2(p,"keep2")&&best&&p.field.length>=3){const pl={...best,keep:0},v=await rolloutN(p,pl)+rushB(p,pl);tried.push([pl,v]);if(v>bv){bv=v;best=pl}}
   recSearch(p,tried,best);
   G.searchN=(G.searchN||0)+1;if(best&&Object.keys(best).length)G.searchChanged=(G.searchChanged||0)+1;
   return best;

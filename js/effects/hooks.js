@@ -86,7 +86,7 @@ const FX={
     const q=opp(o);for(const z of q.field.slice()){const e=def(z);if(e&&e.onOppMisread&&q.field.includes(z))await fxIf(q,z,"相手のミスリード",()=>e.onOppMisread(q,z))}}, // 相手がミスリードしたとき（小嶋元次 B05015） // 円谷光彦 B09016
   async onReveal(p,x){if(G.fxD){(G.revealQ=G.revealQ||[]).push({p,x});return}await resolving(()=>FX.runReveal(p,x))},
   async runReveal(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onReveal&&p.field.includes(y))await fxIf(p,y,"公開",()=>d.onReveal(p,y,x))}},
-  lpBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;const d=def(x);return d&&d.lpSelf?d.lpSelf(p,x)||0:0},
+  lpBonus(x){const p=G&&G.P.find(q=>q.field.includes(x));if(!p)return 0;const d=def(x);return d&&d.lpSelf?d.lpSelf(p,x)||0:0},
   kwExtra(x,p){if(!p||!p.field.includes(x))return [];const d=def(x);const out=d&&d.kwSelf?[...d.kwSelf(p,x)]:[];
     for(const s of setEvents(x)){const e=def(s);if(e&&e.setKw)out.push(...e.setKw(p,x))}return out}, // setKw: セットされたイベントが与えるキーワード
   async onHintUse(p,x){for(const y of p.field.slice()){const d=def(y);if(d&&d.onHintUse&&p.field.includes(y))await fxIf(p,y,"ネクストヒント",()=>d.onHintUse(p,y,x))}
@@ -95,7 +95,7 @@ const FX={
     if(p.noEvT===G.turnNo&&C(x).t==="イベント")return "このターンはイベントを使用できない"; // 「朝日射し夕日輝く鉄の瓶…」
     const cd=def(p.caseC);if(cd&&cd.handBlock&&C(x).t==="キャラ"){const r=cd.handBlock(p,x);if(r)return r} // 事件が課す「手札から使用できない」（集められた名探偵 など）
    const d=def(x);return d&&d.useBlock?d.useBlock(p,x):null},
-  lvBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
+  lvBonus(x){const p=G&&G.P.find(q=>q.field.includes(x));if(!p)return 0;let b=0;const d=def(x);if(d&&d.lvSelf)b+=d.lvSelf(p,x)||0;
     for(const q of G.P)for(const y of q.field){const d=def(y);if(d&&d.lvAura)b+=d.lvAura(q,y,x)||0}return b},
   async onGuarded(p,actor,guard,target){actor.guardedT=G.turnNo;const d=def(actor); // アクションがガードされた（京極真 B09041）
     if(d&&d.onGuarded&&p.field.includes(actor))await fxIf(p,actor,"ガードされたとき",()=>d.onGuarded(p,actor,guard))
@@ -185,7 +185,7 @@ const FX={
   async useAbility(p,x,a){if(typeof recAct==="function")recAct(p,"ability:"+a.label,x);if(a.turn1||a.turn2)useTurn(x,a.key);log(`${p.name} の ${C(x).nm} の能力:「${a.label}」`);await fxPre(p,x,"能力",a.label+"\n"+effText(x,"能力"));const r=await resolving(()=>withSrc(x,()=>a.run(p,x)),p);render();await runQueue();
     for(const y of p.field.slice()){const e=def(y);if(e&&e.onAllyDeclare&&p.field.includes(y))await fxIf(p,y,"能力",()=>e.onAllyDeclare(p,y,x,a))} // 自分のキャラが【宣言】能力を使用したとき（江戸川コナン B03002）
     await runQueue();return r},
-  apBonus(x){const p=G&&ownerOf(x);if(!p||!p.field.includes(x))return 0;let b=0;
+  apBonus(x){const p=G&&G.P.find(q=>q.field.includes(x));if(!p)return 0;/* 現場のキャラだけ（ownerOf で全部の場所を探すより速い。結果は同じ） */let b=0;
     if(G.turn===p.idx&&hasTrait(x,"サッカー選手"))b+=1000*p.field.filter(y=>idOf(y)==="0954").length; // 赤木守
     if(G.turn===p.idx&&idOf(x)==="1061")b+=1000; // 沖田総司 PR290
     if(G.contact&&(G.contact.a===x||G.contact.d===x))b+=2000*(x.set||[]).filter(s=>s.up&&idOf(s.c)==="0019").length; // シャッフルロマンス

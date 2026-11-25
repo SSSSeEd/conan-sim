@@ -65,7 +65,7 @@ function dropSets(p,x){const ss=x.set||[];x.set=[];
   for(const s of ss){if(toHand&&!s.up&&!s.under){p.hand.push(s.c);noteSetOff(p,x,s.c,true);continue}p.rm.push(s.c);if(!s.under)noteSetOff(p,x,s.c,!s.up)}
   const ev=ss.filter(s=>s.up&&!s.under).map(s=>s.c);if(ev.length&&G)G.queue.push({setRm:ev,p,turn:G.turn})}
 // MRが相手ターン中に現場を離れた場合は、行き先（手札・デッキなど）に一度置かれてから、すぐパートナーエリアへ移る（離れ方は問わない）
-function mrSweep(){if(!G)return;for(const p of G.P)for(const z of ["hand","deck","rm","file","ev"])for(const x of p[z].slice())
+function mrSweep(){if(!G)return;for(const p of G.P)for(const z of ["hand","deck","rm","file","ev"])if(p[z].some(x=>x.paPend))for(const x of p[z].slice()) /* paPend が無い場所は写さない（速さのため。結果は同じ） */
   if(x.paPend){if(x.paPend===G.turnNo&&G.turn!==p.idx){p[z].splice(p[z].indexOf(x),1);resetMods(x);x.paRet=0;p.pa.push(x);log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ`)}x.paPend=0}}
 async function runQueue(){mrSweep();while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
 function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);clearSave();render();
