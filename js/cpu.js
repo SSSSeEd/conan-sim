@@ -9,7 +9,9 @@
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
 const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3","val3","deckL"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_OFF0=["strat","strat2","eval2","eval3","val3","deckL","kaAmuro"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+// kaAmuro（既定オフ 11/25、白黄キッドの専用CPU）: 怪盗キッド&安室透 B09109 の能力を、手札を使ったあと・ネクストヒントの前に使い、デッキに当たり（Lv7以上）が残るキャラを選ぶ。
+//   bench --deck 白黄キッド 4000戦 49.0%（48.4〜49.6、わずかに悪化）。当たりの有無だけで選ぶ版 49.3%、両方の初版 49.1%。人の記録が無いので人間らしさは未測定
 // ci2・ciAtk・deck（既定オン 11/25、青単探偵団の専用CPU）: ci2 は段階⑥（除去カットインを切る）。ciAtk は除去カットインで取れる相手にキャラへのアクションを仕掛ける。
 //   deck は js/deckcpu の手書き方針（今は青単探偵団だけ）。bench --deck 青単探偵団（各401〜501組で打ち切り）: +ci2 52.9%（51.2〜54.6）、+ci2,+ciAtk 53.7%（51.7〜55.8）、
 //   +ci2,+ciAtk,+deck 56.2%（53.8〜58.6、素の勝率 22.9%→35.4%）。deckL（学んだ表）を足しても 56.7% で差は誤差の範囲なので既定オフのまま
@@ -153,6 +155,8 @@ function deckCpu(p){if(!window.DECK_CPU||!(ai2(p,"deck")||ai2(p,"deckL")))return
   if(p.deckCpu===undefined){p.deckCpu="";for(const k in DECK_CPU)if(DECK_CPU[k].detect(p)){p.deckCpu=k;break}}
   return p.deckCpu?DECK_CPU[p.deckCpu]:null} // 関数は探索の盤面コピーに入れられないので、席には名前だけ持つ
 function deckHook(p,name,...a){const d=deckCpu(p);return d&&d[name]?d[name](p,...a)||0:0}
+// 行動を差し込む口（非同期）。afterPlay(p,t): 手札を1枚使ったあと、ネクストヒントの前
+async function deckAct(p,name,...a){const d=deckCpu(p);if(d&&d[name])await d[name](p,...a)}
 // 局面の区切り（デッキ別CPUと対戦データの集計で共通）: 序盤=FILE4以下 / 終盤=解決編で証拠があと3以内 / それ以外は中盤
 const deckPhase=p=>p.solved&&p.ev.length>=p.level-3?"late":p.file.length<=4&&!p.solved?"early":"mid";
 
@@ -280,6 +284,8 @@ async function handPhase(t){
   }
   let pick1=fin.swift&&!playableReason(p,fin.swift,false)?fin.swift:planned();
   if(pick1){await useFromHand(p,pick1);await step()}
+  if(G.over)return;
+  await deckAct(p,"afterPlay",t);
   if(G.over)return;
   // ネクストヒントは何回でも可。FILE4以下ではしない。ヒント後のFILEぴったりで高レベル（Lv6以上）を使えるコンボがあるときだけ
   for(let n=0;n<4&&!G.over&&!p.noHint&&plan.hint!==false;n++){

@@ -50,11 +50,15 @@ DEF["0177"]={ // 沖野ヨーコ B02005
     run:async p=>{const t=await chooseChar(p,"AP＋2000する［毛利小五郎］",y=>!isOpp(p,y)&&named("毛利小五郎")(y));if(t){apTurn(t,2000);giveKw(t,"突撃")}return true}}]};
 
 // --- 白黄キッド（怪盗キッド&安室透／キッドVS安室 王妃の前髪） ---
+// B09109 の能力で当たるキャラ（レベル7以上）がデッキに残っているか。白黄キッドではレベル7・8の怪盗キッドと工藤優作 B08034 が当たり。
+//   レベル4の工藤優作 PR137 を当てると登場時にデッキの上4枚を削り、怪盗キッドを失うので選ばない（11/25 の 1回目は当たりの有無だけで選び、49.3%に下がった）
+const kaHit=(p,m)=>lvOf(m)>=7&&p.deck.some(y=>isChar(y)&&C(y).lv===lvOf(m)&&sameName(y,m))?1:0;
 DEF["1048"]={ // 怪盗キッド&安室透 B09109
   abilities:[
     {label:"現場のレベル8以下のキャラ1枚を選ぶ: 同レベル・同カード名のキャラを山札から探して登場（終了時にデッキの下へ）",turn1:true,partner:true,
-      can:p=>p.field.some(y=>lvOf(y)<=8),aiCan:p=>myTurn(p)&&p.field.length<5&&p.field.some(y=>lvOf(y)<=8&&lvOf(y)>=3),
-      run:async p=>{const [m]=await pickCards(p,"選ぶ現場のキャラ（レベル8以下）","",p.field.filter(y=>lvOf(y)<=8),{ai:cs=>cs.slice().sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,1)});if(!m)return true;
+      can:p=>p.field.some(y=>lvOf(y)<=8),aiCan:p=>myTurn(p)&&p.field.length<5&&p.field.some(y=>lvOf(y)<=8&&(ai2(p,"kaAmuro")?kaHit(p,y):lvOf(y)>=3)),
+      // kaAmuro（白黄キッドの規則、既定オフ）: デッキに当たり（同じレベル・同じカード名のキャラ）が残っているキャラを選ぶ。CPUはデッキリストと見えたカードから残りを知っている扱い
+      run:async p=>{const [m]=await pickCards(p,"選ぶ現場のキャラ（レベル8以下）","",p.field.filter(y=>lvOf(y)<=8),{ai:cs=>cs.slice().sort((a,b)=>(ai2(p,"kaAmuro")?kaHit(p,b)-kaHit(p,a):0)||lvOf(b)-lvOf(a)).slice(0,1)});if(!m)return true;
         const revealed=[];let hit=null;
         while(p.deck.length){const y=p.deck.shift();revealed.push(y);if(isChar(y)&&C(y).lv===lvOf(m)&&sameName(y,m)){hit=y;break}}
         log(`　${p.name} はデッキを公開: ${revealed.map(y=>C(y).nm).join("、")||"なし"}`,"n");
