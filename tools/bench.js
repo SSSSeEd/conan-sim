@@ -87,7 +87,8 @@ async function main(){
     console.error(`進捗 ${n*2}/${o.pairs*2}戦（${Math.round(n/o.pairs*100)}%） 経過${Math.round(sec/60)}分 残り約${Math.round(left/60)}分 暫定A勝率${(m*100).toFixed(1)}%`);
     if(!o.early||n>=o.pairs||stop)return;const se=sd/Math.sqrt(n),d=Math.abs(m-0.5);
     // SeEd 11/25: 明らかな結果なら打ち切ってよい。ただし考察ができなくなるほど減らさない → 4割（2000組なら1600戦）は必ず回し、「差が出そうにない」では止めない
-    if(n>=o.pairs*0.4&&d>2.58*se)stop=`結論が出たので打ち切り（${n}組の時点で99%の幅が50%をまたがない）`;
+    if(n>=o.pairs*0.1&&d>=0.1&&d>2.58*se)stop=`差が大きいので打ち切って考察へ（${n}組の時点で勝率が10%以上離れている）`; // SeEd 11/25: 勝率が10%近く下がった時点でとりあえず考察
+    else if(n>=o.pairs*0.4&&d>2.58*se)stop=`結論が出たので打ち切り（${n}組の時点で99%の幅が50%をまたがない）`;
     if(stop){console.error(stop);for(const c of kids)c.kill()}};
   await Promise.all(Array.from({length:J},(_,j)=>new Promise((res,rej)=>{
     const from=j*per,to=Math.min(o.pairs,from+per);if(from>=to)return res();
