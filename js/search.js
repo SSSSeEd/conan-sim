@@ -51,7 +51,7 @@ async function rollout(p,plan,deal){
   g.sim={plan,planFor:p.idx,next:null,stage:0};for(const q of g.P)q.cpu=true;
   // 相手の手札は見えないので、相手の手札とデッキを混ぜて配り直す（同じ枚数）
   const o=g.P[1-p.idx];
-  if(deal){const r=deal(o);o.hand=r.hand;o.deck=r.deck} // strat: 場合分けした配り方
+  if(deal){const r=stratDeal(o,deal);o.hand=r.hand;o.deck=r.deck} // strat: 場合分けした配り方
   else{const pool=shuffle([...o.hand,...o.deck]);o.hand=pool.slice(0,o.hand.length);o.deck=pool.slice(o.hand.length)}
   G=g;let v;
   try{await cpuTurn(g.P[p.idx]);if(g.sim.next)await g.sim.next;v=evalState(p.idx)}
@@ -68,21 +68,29 @@ async function rollout(p,plan,deal){
 const stratThr=(o,x)=>{const c=C(x);return c.t==="キャラ"&&(c.lv||0)<=Math.min(9,o.file.length+3)&&(/〚突撃|〚迅速/.test(c.f||"")||/【登場時】[^\n]*証拠を/.test(c.f||""))};
 const stratCut=(o,x)=>(cutinAp(x,o)||0)>=2000;
 const pNone=(n,k,h)=>{let q=1;for(let i=0;i<h;i++)q*=Math.max(0,n-k-i)/(n-i);return q}; // n枚からh枚引いて、k枚の当たりが1枚も入らない確率
-function stratDeals(o){
-  const pool=[...o.hand,...o.deck],h=o.hand.length,n=pool.length;if(!h||!n)return null;
+// 場合分けと重み（本番の盤面から計算）。配り方そのものは stratDeal で、試しの盤面（コピー）のカードを使って作る
+//   （本番のカードを試しの盤面に入れると、試しの手番が本番のカードを書き換えてしまう）
+function stratSplit(o){const pool=[...o.hand,...o.deck],h=o.hand.length;
   const T=pool.filter(x=>stratThr(o,x)),rest=pool.filter(x=>!stratThr(o,x)),Cu=rest.filter(x=>stratCut(o,x)),N=rest.filter(x=>!stratCut(o,x));
+  return {pool,h,T,rest,Cu,N}}
+function stratDeals(o){
+  const {pool,h,T,rest,Cu,N}=stratSplit(o),n=pool.length;if(!h||!n)return null;
   const qT=1-pNone(n,T.length,h),qC=1-pNone(rest.length,Cu.length,h);
-  const mk=(must,from)=>()=>{const m=must[Math.floor(Math.random()*must.length)];const others=shuffle(pool.filter(x=>x!==m&&from.includes(x)));const fill=shuffle(pool.filter(x=>x!==m&&!from.includes(x)));
-    const hand=[m,...others,...fill].slice(0,h);const hs=new Set(hand);return {hand,deck:shuffle(pool.filter(x=>!hs.has(x)))}};
   const out=[];
-  if(T.length)out.push({w:qT,deal:mk(T,pool)});
-  if(Cu.length)out.push({w:(1-qT)*qC,deal:mk(Cu,rest)});
-  if(N.length>=h)out.push({w:(1-qT)*(1-qC),deal:()=>{const hand=shuffle(N.slice()).slice(0,h);const hs=new Set(hand);return {hand,deck:shuffle(pool.filter(x=>!hs.has(x)))}}});
+  if(T.length)out.push({w:qT,kind:"T"});
+  if(Cu.length)out.push({w:(1-qT)*qC,kind:"C"});
+  if(N.length>=h)out.push({w:(1-qT)*(1-qC),kind:"N"});
   const sw=out.reduce((a,s)=>a+s.w,0);if(out.length<2||sw<=0)return null;
   for(const s of out)s.w/=sw;return out}
+function stratDeal(o,kind){
+  const {pool,h,T,rest,Cu,N}=stratSplit(o);let hand;
+  if(kind==="N")hand=shuffle(N.slice()).slice(0,h);
+  else{const must=kind==="T"?T:Cu,from=kind==="T"?pool:rest;const m=must[Math.floor(Math.random()*must.length)];
+    hand=[m,...shuffle(from.filter(x=>x!==m)),...shuffle(pool.filter(x=>x!==m&&!from.includes(x)))].slice(0,h)}
+  const hs=new Set(hand);return {hand,deck:shuffle(pool.filter(x=>!hs.has(x)))}}
 async function rolloutN(p,plan){
   if(ai2(p,"strat")){const ss=stratDeals(G.P[1-p.idx]);
-    if(ss){let v=0;for(const s of ss)v+=s.w*await rollout(p,plan,s.deal);return v}}
+    if(ss){let v=0;for(const s of ss)v+=s.w*await rollout(p,plan,s.kind);return v}}
   if(!ai2(p,"multi"))return rollout(p,plan);
   const K=window.ROLL_K||3;let s=0;for(let k=0;k<K;k++)s+=await rollout(p,plan);return s/K}
 // 試しの手番の終わり: 1回目（自分の手番）は相手の手番へ進め、2回目（相手の手番）はそこで止める
