@@ -85,12 +85,12 @@ module.exports=[
   ["8灰原(hai8): 登場したターンで、AP＋2000で初めて勝てるスリープ中の相手（AP6000）がいれば、Lv4の元太をAP＋2000してアクションし、リムーブする",async w=>{
     const run=async on=>{const G=board(w,{p0:{field:["B11003","B11008"]},p1:{field:["B01019"]},turn:0});const [p,o]=G.P;p.partner=w.inst("D08001");
       const hai=p.field[0];hai.fresh=true;p.field[1].fresh=false;const y=o.field[0];y.st="s";y.apM=5000;y.lpM=1;
-      w.AI_OFF=on?w.ev("AI_OFF0").filter(f=>f!=="hai8"):w.ev("AI_OFF0");
+      w.AI_OFF=on?w.ev("AI_OFF0"):w.ev("AI_OFF0").concat(["hai8"]);
       const t={p,o,plan:{},step:async()=>{},fin:{},hold:new Set()};await w.abilityPhase(t);await w.haiAttack(t);return {p,o,y,hai}};
     let r=await run(false);assert.strictEqual(r.hai.st,"a","旧: 使わない");assert.ok(r.o.field.includes(r.y));
     r=await run(true);assert.strictEqual(r.hai.st,"s","新: 8灰原をスリープして使う");assert.ok(!r.o.field.includes(r.y),"AP＋2000した元太のアクションでリムーブ")}],
   ["8灰原(hai8): 登場したターンでなく、手札にAP＋のカットインがあり、相手が勝ちそうでもないなら使わない（推理LP2を残す）",async w=>{
     const G=board(w,{p0:{field:["B11003","B11008"],hand:["D01011"]},p1:{field:["B01019"]},turn:0});const [p,o]=G.P;p.partner=w.inst("D08001");
-    const hai=p.field[0];hai.fresh=false;const y=o.field[0];y.st="s";y.apM=5000;y.lpM=1;w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="hai8");
+    const hai=p.field[0];hai.fresh=false;const y=o.field[0];y.st="s";y.apM=5000;y.lpM=1;w.AI_OFF=w.ev("AI_OFF0");
     assert.strictEqual(w.ev("haiPlan")(p,hai),null)}],
 ];
