@@ -8,7 +8,7 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2","val3","dgKill"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2","val3","dgKill","hai8"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
 const AI_OFF0=["strat","strat2","eval2","eval3","deckL","kaAmuro"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // kaAmuro（既定オフ 11/25、白黄キッドの専用CPU）: 怪盗キッド&安室透 B09109 の能力を、手札を使ったあと・ネクストヒントの前に使い、デッキに当たり（Lv7以上）が残るキャラを選ぶ。
 //   bench --deck 白黄キッド 4000戦 49.0%（48.4〜49.6、わずかに悪化）。当たりの有無だけで選ぶ版 49.3%、両方の初版 49.1%。人の記録が無いので人間らしさは未測定
@@ -17,6 +17,8 @@ const AI_OFF0=["strat","strat2","eval2","eval3","deckL","kaAmuro"]; // 既定オ
 //   +ci2,+ciAtk,+deck 56.2%（53.8〜58.6、素の勝率 22.9%→35.4%）。deckL（学んだ表）を足しても 56.7% で差は誤差の範囲なので既定オフのまま
 // dgKill（既定オン 11/25）: 歩美 B11007 の変装時の除去を狙って変装する。bench --deck 青単探偵団 1000組 50.5%（49.8〜51.3）で差なし、
 //   変装は1試合0.07→0.27回。勝率は変わらないが、このカードを人が使う目的どおりの動きなので採用（SeEd: 人間らしければ採用）
+// hai8（既定オン 11/26）: 8灰原 B11003 のAP＋2000を、SeEd の言う場面（登場したターン・AP＋のカットインが無い・相手が勝ちそうで除去が足りない）で使う。
+//   bench --deck 青単探偵団 1000組 50.1%（49.4〜50.9）で差なし。使用1試合0.39回、キャラへのアクション 0.79→1.09回。人の使い方どおりなので採用
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
@@ -224,6 +226,7 @@ async function cpuTurn(p){
   // 相手にアクティブなミスリードが2体以上いるなら、先にパートナーで推理して使わせ、スリープしたところをアクションで倒す
   if(!t.def.resist&&p.pLoc==="area"&&p.partner.st==="a"&&!p.solved&&canAct(p.partner,p,"reason")&&o.field.filter(y=>y.st==="a"&&(staticKw(y,o).misread||0)>0).length>=2){await reason(p,p.partner);await step();if(G.over)return}
   // 3) キャラへのアクション（勝てる相手）
+  await haiAttack(t);if(G.over)return;
   if(!t.def.resist&&!t.fin.on)await attackPhase(t);
   if(G.over)return;
   // 4) 事件へのアクション / 推理
@@ -243,6 +246,7 @@ async function actFirstTurn(t){
   const {p,o,plan,step}=t;
   const defNow=()=>{t.def=defenseCheck(p,o);if(plan.stance==="defend")t.def.resist=true;else if(plan.stance==="attack"){t.def.resist=false;t.def.calm=true}};
   defNow();
+  await haiAttack(t);if(G.over)return;
   if(!t.def.resist&&!t.fin.on)await attackPhase(t);
   if(G.over)return;
   await actorPhase(t);
@@ -254,6 +258,7 @@ async function actFirstTurn(t){
   defNow();
   await rushPhase(t);
   if(G.over)return;
+  await haiAttack(t);if(G.over)return;
   if(!t.def.resist&&!t.fin.on)await attackPhase(t); // 手札や能力で倒せる相手が増えた・スリープした相手がいれば
   if(G.over)return;
   await actorPhase(t);
@@ -333,6 +338,9 @@ function ciAtkPick(p,o,atks){
     const a=atks.filter(x=>canAct(x,p,"chara",y)&&(worth||lpOf(x)<=0)).sort((a,b)=>lpOf(a)-lpOf(b)||apOf(a)-apOf(b))[0];
     if(a)return {a,y}}
   return null}
+// hai8: 8灰原のAP＋2000で勝てるようにした相手には、守りの構え（抵抗）や勝ち切りの最中でも、そのキャラでアクションする（SeEd: 相手が勝ちそうで除去が足りない時に使う）
+async function haiAttack({p,o,step}){const h=p.haiAtk;if(!h||h.t!==G.turnNo)return;p.haiAtk=null;
+  if(p.field.includes(h.a)&&o.field.includes(h.y)&&h.y.st!=="a"&&canAct(h.a,p,"chara",h.y)&&apOf(h.a)>=apOf(h.y)){await declareAction(p,h.a,h.y);await step()}}
 // キャラへのアクション。倒す価値のある相手（LP2以上・効果あり・Lv6以上）を、LP→効果→レベルの順に、勝てるキャラで狙う（SeEd）
 async function attackPhase({p,o,step,hold}){
   for(;;){
