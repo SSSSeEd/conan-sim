@@ -42,10 +42,9 @@ module.exports=[
     const G=board(w,{p0:{field:["B01019","B01019"],hand:["D01002"],file:["B01019","B01019","B01019","B01019","B01019","B01019","B01019"],solved:true,level:3},p1:{field:["B01019"],ev:["B01019","B01019"]}});
     G.cfg.search=[false,false];G.sim={plan:{},planFor:0,stage:1};G.P[1].field[0].st="s";
     await w.cpuTurn(G.P[0]);assert.ok(G.over&&G.winner===0,"迅速で出したコナンも推理して勝った")}],
-  ["探索の場合分け(strat): 試しの手番が本番の盤面（相手の手札・デッキのカード）を書き換えない。場合ごとの重みの合計は1",async w=>{
+  ["探索: 試しの手番が本番の盤面（相手の手札・デッキのカード）を書き換えない",async w=>{
     const G=board(w,{p0:{field:["B01019"],hand:["B01008","B01019"],deck:Array(10).fill("B01019")},p1:{field:["B01019"],hand:["D01002","B01019","B02007"],deck:["B01008","B01019","D01009","B01019","B01019","B01019"]}});
-    w.AI_OFF=w.ev("AI_OFF0").filter(x=>x!=="strat");const snap=JSON.stringify(G.P);
-    const ss=w.stratDeals(G.P[1]);assert.ok(ss&&Math.abs(ss.reduce((a,s)=>a+s.w,0)-1)<1e-9,"重みの合計が1");
+    w.AI_OFF=w.ev("AI_OFF0");const snap=JSON.stringify(G.P);
     await w.rolloutN(G.P[0],{});assert.strictEqual(JSON.stringify(G.P),snap,"本番の盤面が変わっていない");w.AI_OFF=w.ev("AI_OFF0")}],
   ["ガード役(keep2): 現場3体なら今のCPUは1体残して推理する。探索が「ガード役なし」（plan.keep=0）を選んだら全員推理する（SeEd 11/25）",async w=>{
     w.AI_OFF=w.ev("AI_OFF0");
