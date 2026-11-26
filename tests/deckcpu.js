@@ -68,4 +68,18 @@ module.exports=[
     const G=board(w,{p0:{field:["B11008","B11009"],hand:["B11007"]},p1:{field:["B01019","B01019"]},turn:0});const [q,o]=G.P;
     const mine=q.field[0],theirs=o.field[0];theirs.apM=1000;o.field[1].st="s";G.contact={a:mine,d:theirs};
     w.AI_OFF=w.ev("AI_OFF0");assert.strictEqual(w.cpuContact(q,mine,theirs,[],q,[q.hand[0]]),null)}],
+  ["白黄キッド（kaAmuro）: 怪盗キッド&安室透 B09109 の能力は、デッキに当たり（同じレベル・同じカード名）が残っているキャラを選ぶ。オフなら今まで通りレベルの高いキャラ",async w=>{
+    const run=async on=>{const G=board(w,{p0:{field:["B09109","B08034","B02038"],deck:["D03003","B04033","B04033"],file:Array(9).fill("B04033")}});const p=G.P[0];
+      p.partner=w.inst("B02035P");p.caseC=w.inst("B09112");w.AI_OFF=on?w.ev("AI_OFF0").filter(f=>f!=="kaAmuro"):w.ev("AI_OFF0");
+      const x=p.field[0],ab=w.FX.abilities(p,x).find(a=>a.key==="ab0");assert.ok(ab&&ab.ok,"能力が使える");
+      await w.FX.useAbility(p,x,ab);return p.field.map(y=>y.n)};
+    assert.ok(!(await run(false)).includes("D03003"),"オフ: レベル8の工藤優作を選び、デッキに当たりが無く空振り");
+    assert.ok((await run(true)).includes("D03003"),"オン: レベル7の怪盗キッドを選び、デッキの怪盗キッド D03003 が登場")}],
+  ["白黄キッド（kaAmuro）: B09109 の能力を、手札を使ったあと・ネクストヒントで現場を埋める前に使う（オフでは、ヒントで現場が5枚になって使えずに終わる）",async w=>{
+    const run=async on=>{const G=board(w,{p0:{field:["B09109","D03003","B09043"],hand:["B04033"],deck:["D03003","B04033","B04033","B04033"],file:[...Array(8).fill("B04033"),"D03003"],solved:true,level:6}});const p=G.P[0];
+      p.partner=w.inst("B02035P");p.caseC=w.inst("B09112");p.pLoc="file";p.deckCpu="shirokid";w.AI_OFF=on?w.ev("AI_OFF0").filter(f=>f!=="kaAmuro"):w.ev("AI_OFF0");
+      const t={p,o:G.P[1],plan:{},step:async()=>{},fin:{},hold:new Set()};
+      await w.handPhase(t);await w.abilityPhase(t);return w.ev("turnCount")(p.field.find(y=>y.n==="B09109"),"ab0")};
+    assert.ok(!(await run(false)),"オフ: 能力を使わない");
+    assert.ok(await run(true),"オン: ヒントの前に能力を使う")}],
 ];
