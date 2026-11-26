@@ -40,7 +40,7 @@ function deckPool(w,kind){
 const ACT_RE=[["assist",/^. はアシスト/],["hint",/^. はネクストヒント/],["reason",/^. の .+ が推理（LP/],["caseAct",/^. の .+がアクション → 事件$/],["charaAct",/^. の .+がアクション → (?!事件$)/],["play",/^. は .+を登場させた|^. はイベント/],["disguise",/^. は .+ を .+ に変装/],["cutin",/^. はカットイン /]];
 async function worker({flag,from,to,decks,seed,search,deck}){
   const H=require("./headless");
-  const w=H.load({seed,init:{AI_OFF:[],...(process.env.ROLL_K?{ROLL_K:+process.env.ROLL_K}:{})}}); // ROLL_K=5 などで探索の試行回数（multi）を変えて測れる
+  const w=H.load({seed,init:{AI_OFF:[],...Object.fromEntries(["ROLL_K","DECK_KS","DECK_KP"].filter(k=>process.env[k]!=null).map(k=>[k,+process.env[k]]))}}); // ROLL_K=5 などで探索の試行回数（multi）を、DECK_KS・DECK_KP でデッキ別CPUの加点の強さを変えて測れる
   const AI_OFF0=w.ev("AI_OFF0"),offA=offFor(flag,AI_OFF0),pool=deckPool(w,decks);
   const me=deck?[...w.ev("PRESETS"),...w.ENV_DECKS.decks].find(d=>d.name===deck):null;if(deck&&!me)throw new Error("デッキが見つからない: "+deck);
   let st=null; // 今の試合の席ごとの数
