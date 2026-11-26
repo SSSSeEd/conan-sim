@@ -98,11 +98,11 @@ module.exports=[
     for(const y of o.field)y.fresh=false;o.pLoc="area";o.partner=w.inst("B01042");
     const [gin,kid]=o.field;const best=()=>o.field.slice().sort((a,b)=>w.aiTgtScore(p,b,"rm")-w.aiTgtScore(p,a,"rm"))[0];
     assert.ok(w.threatNext(p,o).lethal,"相手は次で勝てる見込み");
-    w.AI_OFF=w.ev("AI_OFF0");assert.strictEqual(best(),gin,"旧: ミスリードの銀三");
-    w.AI_OFF=w.ev("AI_OFF0").filter(f=>f!=="tgtLp");assert.strictEqual(best(),kid,"新: LP2のキッド")}],
+    w.AI_OFF=w.ev("AI_OFF0").concat(["tgtLp"]);assert.strictEqual(best(),gin,"旧: ミスリードの銀三");
+    w.AI_OFF=w.ev("AI_OFF0");assert.strictEqual(best(),kid,"新: LP2のキッド")}],
   ["守りの構え(rushDef): 抵抗中でも、事件にアクションできない突撃［キャラ］の光彦 B11009 は、倒せるスリープ中の推理役（園子 D03005）を倒す（SeEd 11/26 実況 T8）",async w=>{
     const run=async on=>{const G=board(w,{p0:{field:["B11009"]},p1:{field:["D03005"]},turn:0});const [p,o]=G.P;const x=p.field[0];x.fresh=true;w.ev("giveKw")(x,"突撃［キャラ］");
-      const y=o.field[0];y.st="s";w.AI_OFF=on?w.ev("AI_OFF0").filter(f=>f!=="rushDef"):w.ev("AI_OFF0");
+      const y=o.field[0];y.st="s";w.AI_OFF=on?w.ev("AI_OFF0"):w.ev("AI_OFF0").concat(["rushDef"]);
       await w.rushPhase({p,o,plan:{act:"chara"},step:async()=>{},hold:new Set(),def:{resist:true},fin:{}});return o.field.includes(y)};
     assert.strictEqual(await run(false),true,"旧: 守りの構えでは動かない");
     assert.strictEqual(await run(true),false,"新: 倒しに行く")}],
