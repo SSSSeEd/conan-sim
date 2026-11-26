@@ -22,6 +22,8 @@ process.on("unhandledRejection",e=>{console.log("FAIL 対戦中のエラー\n   
       if(!r.over)draws++}
     assert.ok(!w.warns.length,"警告が出た: "+w.warns.slice(0,3).join(" / "));
     assert.ok(draws<=N*0.05,`決着しない試合が多い（${draws}/${N}）`)});
+  for(const [name,f] of require("../tests/rules.js"))await ok("ルール: "+name,()=>f(H.load({seed:1})));
+  for(const [name,f] of require("../tests/effects.js"))await ok("効果: "+name,()=>f(H.load({seed:1})));
   for(const [name,f] of require("../tests/deckfill.js"))await ok("補完: "+name,()=>f(H.load({seed:1})));
   for(const [name,f] of require("../tests/mechanics.js"))await ok("仕組み: "+name,()=>f(H.load({seed:1})));
   for(const [name,f] of require("../tests/dlog.js"))await ok("詳しいログ: "+name,()=>f());
