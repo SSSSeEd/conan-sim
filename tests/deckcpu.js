@@ -56,6 +56,18 @@ module.exports=[
     const G=board(w,{p0:{field:["B11008"],hand:["B11009"]},p1:{field:["B01019"]},turn:0});const [p,o]=G.P;
     const y=o.field[0];y.st="s";y.apM=8000;w.AI_OFF=w.ev("AI_OFF0");
     await w.attackPhase({p,o,step:async()=>{},hold:new Set()});assert.ok(o.field.includes(y));assert.strictEqual(p.field[0].st,"a")}],
+  ["変装(dgKill): 自分のターン、Lv4の名前違いが歩美を入れて3種になるなら、勝っているコンタクトでも元太 B11008 を歩美 B11007 に変装し、相手のスリープ中のLv7以下をリムーブして1枚引く",async w=>{
+    const mk=()=>{const G=board(w,{p0:{field:["B11008","B11009","B01016"],hand:["B11007"],file:Array(4).fill("B05010")},p1:{field:["B01019","B01019"]},turn:0});const [q,o]=G.P;
+      q.caseC=w.inst("D01016");q.partner=w.inst("D08001"); // 歩美の変装の条件【事件青】【FILE4】
+      const mine=q.field[0],theirs=o.field[0];theirs.apM=1000;o.field[1].st="s";const ct={a:mine,d:theirs};G.contact=ct;return {G,q,o,mine,theirs,ct,x:q.hand[0]}};
+    let t=mk();w.AI_OFF=w.ev("AI_OFF0").concat(["dgKill"]);assert.strictEqual(w.cpuContact(t.q,t.mine,t.theirs,[],t.q,[t.x]),null,"旧: 勝っているので何もしない");
+    t=mk();w.AI_OFF=w.ev("AI_OFF0");const d=w.cpuContact(t.q,t.mine,t.theirs,[],t.q,[t.x]);assert.ok(d&&d.how==="dis"&&d.x===t.x,"新: 変装する");
+    t=mk();const y=t.o.field[1];assert.strictEqual(await w.contactRight(t.q,t.ct,t.q),true);
+    assert.ok(!t.o.field.includes(y),"スリープ中の相手をリムーブ");assert.strictEqual(t.q.hand.length,1,"1枚引いた")}],
+  ["変装(dgKill): 歩美を入れても名前違いのLv4が2種なら変装しない",async w=>{
+    const G=board(w,{p0:{field:["B11008","B11009"],hand:["B11007"]},p1:{field:["B01019","B01019"]},turn:0});const [q,o]=G.P;
+    const mine=q.field[0],theirs=o.field[0];theirs.apM=1000;o.field[1].st="s";G.contact={a:mine,d:theirs};
+    w.AI_OFF=w.ev("AI_OFF0");assert.strictEqual(w.cpuContact(q,mine,theirs,[],q,[q.hand[0]]),null)}],
   ["白黄キッド（kaAmuro）: 怪盗キッド&安室透 B09109 の能力は、デッキに当たり（同じレベル・同じカード名）が残っているキャラを選ぶ。オフなら今まで通りレベルの高いキャラ",async w=>{
     const run=async on=>{const G=board(w,{p0:{field:["B09109","B08034","B02038"],deck:["D03003","B04033","B04033"],file:Array(9).fill("B04033")}});const p=G.P[0];
       p.partner=w.inst("B02035P");p.caseC=w.inst("B09112");w.AI_OFF=on?w.ev("AI_OFF0").filter(f=>f!=="kaAmuro"):w.ev("AI_OFF0");

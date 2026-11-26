@@ -8,13 +8,15 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2","val3"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2","val3","dgKill"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
 const AI_OFF0=["strat","strat2","eval2","eval3","deckL","kaAmuro"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // kaAmuro（既定オフ 11/25、白黄キッドの専用CPU）: 怪盗キッド&安室透 B09109 の能力を、手札を使ったあと・ネクストヒントの前に使い、デッキに当たり（Lv7以上）が残るキャラを選ぶ。
 //   bench --deck 白黄キッド 4000戦 49.0%（48.4〜49.6、わずかに悪化）。当たりの有無だけで選ぶ版 49.3%、両方の初版 49.1%。人の記録が無いので人間らしさは未測定
 // ci2・ciAtk・deck（既定オン 11/25、青単探偵団の専用CPU）: ci2 は段階⑥（除去カットインを切る）。ciAtk は除去カットインで取れる相手にキャラへのアクションを仕掛ける。
 //   deck は js/deckcpu の手書き方針（今は青単探偵団だけ）。bench --deck 青単探偵団（各401〜501組で打ち切り）: +ci2 52.9%（51.2〜54.6）、+ci2,+ciAtk 53.7%（51.7〜55.8）、
 //   +ci2,+ciAtk,+deck 56.2%（53.8〜58.6、素の勝率 22.9%→35.4%）。deckL（学んだ表）を足しても 56.7% で差は誤差の範囲なので既定オフのまま
+// dgKill（既定オン 11/25）: 歩美 B11007 の変装時の除去を狙って変装する。bench --deck 青単探偵団 1000組 50.5%（49.8〜51.3）で差なし、
+//   変装は1試合0.07→0.27回。勝率は変わらないが、このカードを人が使う目的どおりの動きなので採用（SeEd: 人間らしければ採用）
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
@@ -80,6 +82,12 @@ function cpuContact0(q,mine,theirs,cuts,tp,dis=[]){
     const o=opp(q),bb=cuts.filter(x=>C(x).nm.includes("バーボン")&&cutinAp(x,q)!=null&&cutinAp(x,q)>=need).sort((a,b)=>cutinAp(a,q)-cutinAp(b,q))[0];
     const next=o.field.some(y=>y!==theirs&&y.st!=="a"&&apOf(y)<=apOf(mine))||o.ev.length>0;
     if(bb&&next)return {x:bb,how:"cut"}}
+  // dgKill（段階⑤ 青単探偵団）: 自分のターン、歩美 B11007 の【変装時】除去（Lv4名前違い3種以上でスリープ中のLv7以下をリムーブ・1枚引く）が働くなら変装する。
+  //   入れ替えるのはLv4以下のキャラだけ。勝っているコンタクトでは、変装後もAPで勝てるか、取る相手がこのコンタクトの相手（スリープ中のLv7以下）のときだけ。
+  //   負けているコンタクトで、手札の除去カットイン（ci2）で相手を取れるならそちらを先に使う
+  const dk=ai2(q,"dgKill")&&q===tp&&lvOf(mine)<=4?dis.find(x=>{const e=def(x);return e&&e.dgKill&&e.dgKill(q,mine)}):null;
+  if(dk){const T=apOf(theirs),ciK=ai2(q,"ci2")&&cuts.some(x=>{const e=def(x);return e&&e.ciKill&&e.ciKill(q,theirs)});
+    if(need<=0?(disguiseAp(q,mine,dk)>=T||theirs.st==="s"&&lvOf(theirs)<=7):!ciK)return {x:dk,how:"dis"}}
   if(need<=0)return null;
   // ジン B01098: 自分のターンに負けそうなら、自分よりレベルの高い相手のキャラと相打ちにする
   if(q===tp){const gin=cuts.find(x=>idOf(x)==="0086");if(gin&&lvOf(theirs)>=Math.max(6,lvOf(mine)))return {x:gin,how:"cut"}}
