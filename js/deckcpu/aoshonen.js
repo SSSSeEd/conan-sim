@@ -1,7 +1,7 @@
 "use strict";
 // デッキ専用CPU: 青単探偵団（公式レシピ B2RISJY2P、プリセット「青単探偵団」）。SeEdの方針 notes/aoshonen-cpu-policy-2026-11-22.md（プロジェクト共有フォルダ）
 // 軸: レベル4の名前の違う少年探偵団を並べる（吉田B11007・小嶋B11008・円谷B11009 の条件）→ リムーブエリアを貯めて 結成B03006・五人囃子B11017
-// 2つの層: ①SeEdの方針を手で書いた加点（スイッチ deck）②対戦データから学んだ表（スイッチ deckL、js/deckcpu/learned.js）
+// SeEdの方針を手で書いた加点（スイッチ deck）
 // 元は PR #109（SeEd版の青少年探偵団向け）。このデッキに無いカード（7コナンB11010・小さくなった名探偵B04013）の分は外した
 // 除去カットインの積極化（PR #109 の cut）は、カットインの判断（cpuContact）を別の作業が直しているので、ここには入れていない
 (function(){
@@ -28,8 +28,6 @@ function human(p,x){
   if(id==="B05005")v+=45;                             // MR(江戸川コナン＆工藤新一)は出せるなら出す
   if(id==="B11003")v+=late?32:24;                     // 8灰原: レベル4が出るたびに除去
   return v}
-const L=deckLearned("aoshonen");
-DECK_CPU.aoshonen={detect:isAo,
-  play:(p,x)=>(ai2(p,"deck")?human(p,x):0)+L.play(p,x),
-  plan:L.plan};
+window.DECK_CPU=window.DECK_CPU||{};
+DECK_CPU.aoshonen={detect:isAo,play:(p,x)=>ai2(p,"deck")?human(p,x):0};
 })();

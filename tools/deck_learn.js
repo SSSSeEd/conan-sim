@@ -1,16 +1,15 @@
 // デッキ別CPUのための分析（段階⑤）。tools/deck_data.js の出力から「局面ごとに勝率を上げる手」と「勝ちパターン（参考）」を出す
-// 使い方: node tools/deck_learn.js d.jsonl [d2.jsonl ...] [--name aoshonen] [--write] [--tau 0.04] [--md 出力.md]
-//   --write: 学んだ表を js/deckcpu/table_名前.js に書き出す（index.html・sw.js に読み込みを足すのは手で）
+// 使い方: node tools/deck_learn.js d.jsonl [d2.jsonl ...] [--name aoshonen] [--tau 0.04] [--md 出力.md]
 // 1) 手の効果（因果）: くじの手番（x=1）だけを使う。局面ph・カードXごとに、Xを選べた手番のうち
 //      「Xを選んだ手番の勝率」−「別の手を選んだ手番の勝率」。選ばれる確率（案の数で変わる）で重みをつける（逆確率重み）
 //    誤差: 95%の幅を出す。表には、誤差の大きいものほど0に寄せた値（縮小推定、事前の幅 tau=±4ポイント）を書く
 // 2) 勝ちパターン（相関、参考）: すべての手番で、同じ手番に一緒に使ったカードの組・局面ごとの使用と、その試合の勝率
 //    普通の対戦の記録なので、勝っているから使えた（原因と結果が逆）ものも混ざる。くじの結果と食い違うときはくじを信じる
 "use strict";
-const fs=require("fs"),path=require("path");
-function parseArgs(argv){const o={files:[],name:null,write:false,tau:0.04,md:null};
+const fs=require("fs");
+function parseArgs(argv){const o={files:[],name:null,tau:0.04,md:null};
   for(let i=0;i<argv.length;i++){const a=argv[i];
-    if(a==="--name")o.name=argv[++i];else if(a==="--write")o.write=true;else if(a==="--tau")o.tau=+argv[++i];else if(a==="--md")o.md=argv[++i];else o.files.push(a)}
+    if(a==="--name")o.name=argv[++i];else if(a==="--tau")o.tau=+argv[++i];else if(a==="--md")o.md=argv[++i];else o.files.push(a)}
   return o}
 const card=k=>k.replace(/^A:/,"");
 const load=files=>files.flatMap(f=>fs.readFileSync(f,"utf8").split("\n").filter(Boolean).map(l=>JSON.parse(l))).filter(g=>!g.err&&g.win!==0.5);
@@ -61,10 +60,5 @@ function report(games,L,pat,o){
 if(require.main===module){
   const o=parseArgs(process.argv.slice(2));const games=load(o.files);
   const L=learn(games,o.tau),pat=patterns(games);
-  const md=report(games,L,pat,o);if(o.md)fs.writeFileSync(o.md,md);console.log(md);
-  if(o.write){if(!o.name)throw new Error("--write には --name が要る");
-    const T={};for(const [ph,m] of Object.entries(L))for(const [X,r] of Object.entries(m))if(Math.abs(r.es)>=0.002)(T[ph]=T[ph]||{})[X]=+r.es.toFixed(3);
-    const f=path.join(__dirname,"..","js","deckcpu",`table_${o.name}.js`);
-    fs.writeFileSync(f,`"use strict";\n// 自動生成: node tools/deck_learn.js ${o.files.map(f=>path.basename(f)).join(" ")} --name ${o.name} --write（${games.length}試合、${new Date().toISOString().slice(0,10)}）\n// 局面ごとの「そのカードを出すと勝率が何ポイント上がるか」（縮小推定、0.01=1ポイント）。A=先にアシスト、none=出さない\nwindow.DECK_LEARNED=window.DECK_LEARNED||{};\nDECK_LEARNED.${o.name}=${JSON.stringify(T)};\n`);
-    console.error("書き出し: "+f)}}
+  const md=report(games,L,pat,o);if(o.md)fs.writeFileSync(o.md,md);console.log(md);}
 module.exports={learn,patterns,effect};
