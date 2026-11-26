@@ -68,7 +68,7 @@ function dropSets(p,x){const ss=x.set||[];x.set=[];
 function mrSweep(){if(!G)return;for(const p of G.P)for(const z of ["hand","deck","rm","file","ev"])if(p[z].some(x=>x.paPend))for(const x of p[z].slice()) /* paPend が無い場所は写さない（速さのため。結果は同じ） */
   if(x.paPend){if(x.paPend===G.turnNo&&G.turn!==p.idx){p[z].splice(p[z].indexOf(x),1);resetMods(x);x.paRet=0;p.pa.push(x);log(`${p.name} の ${C(x).nm} は現場を離れてパートナーエリアへ`)}x.paPend=0}}
 async function runQueue(){mrSweep();while(G&&G.queue.length&&!G.over){const i=G.queue.shift();if(window.FX)await FX.onLeave(i);render()}}
-function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);clearSave();render();
+function win(p,why){if(G.over)return;if(G.sim){G.over=true;G.winner=p.idx;return}G.over=true;log(`★ ${p.name} の勝利（${why}）`,"t");saveRecord(p,why);render();
   if(!window.SIM_FAST)showEndMenu(p,why)}
 function lose(p,why){win(opp(p),`${p.name} の敗北: ${why}`)}
 
@@ -135,52 +135,30 @@ function undo(){
   const u=G.undo.pop();Object.assign(G,u.s);UID=u.uid;
   G.rec.log.length=u.recL;G.rec.acts.length=u.recA;if(G.dlog&&u.dl!=null)G.dlog.length=u.dl;if(G.logC)G.logC.length=u.recL;
   G.ui.mode=null;G.ui.act=null;
-  uiUndo(u.logN);saveGame();
+  uiUndo(u.logN);
 }
 async function act(fn){ // 人の行動: 戻せるように保存してから実行
   pushUndo();G.busy=(G.busy||0)+1;
-  try{await fn()}finally{if(G){G.busy=Math.max(0,(G.busy||1)-1);saveGame()}}
+  try{await fn()}finally{if(G){G.busy=Math.max(0,(G.busy||1)-1)}}
 }
 
-// ===== 中断した対戦の保存と再開（接続切れ・リロード・アプリを閉じたとき用） =====
-// 落ち着いた時点（ターンのはじめ・人の行動が終わったあと）だけ端末に保存する。CPUのターン中に切れたら、そのターンのはじめからやり直す
-const SAVE_KEY="conan-sim-save";
-// 同じカードを指す参照（効果の待ち行列など）を保ったまま JSON にする
+// 同じカードを指す参照（効果の待ち行列など）を保ったまま JSON にする（判断ログ dlog 用）
 function packRefs(root){const ids=new Map();
   const f=v=>{if(v===null||typeof v!=="object")return v;
     if(ids.has(v))return {$r:ids.get(v)};const id=ids.size;ids.set(v,id);
     if(Array.isArray(v))return {$i:id,$a:v.map(f)};
     const o={$i:id};for(const k in v)o[k]=f(v[k]);return o};
   return f(root)}
+
 function unpackRefs(root){const ids=[];
   const f=v=>{if(v===null||typeof v!=="object")return v;
     if("$r" in v)return ids[v.$r];
     if("$a" in v){const a=[];ids[v.$i]=a;for(const x of v.$a)a.push(f(x));return a}
     const o={};ids[v.$i]=o;for(const k in v)if(k!=="$i")o[k]=f(v[k]);return o};
   return f(root)}
-function snapshotGame(){
-  return {v:1,at:new Date().toISOString(),uid:UID,meta:{turnNo:G.turnNo,turnName:cur().name,names:G.P.map(p=>p.name),decks:G.rec.decks},
-    g:packRefs({cfg:G.cfg,P:G.P,turn:G.turn,turnNo:G.turnNo,first:G.first,queue:G.queue,phase:G.phase,rec:G.rec,dlog:G.dlog||[],logC:G.logC||[],showOppHand:G.showOppHand})}
-}
-function saveGame(){
-  if(!G||G.sim||G.over||G.busy||G.ending||G.contact||G.phase!=="main"||window.SIM_FAST&&!window.SIM_SAVE)return;
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify(snapshotGame()))}catch(e){}
-}
-function clearSave(){try{localStorage.removeItem(SAVE_KEY)}catch(e){}}
-function loadSave(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");return s&&s.v===1&&s.g?s:null}catch(e){return null}}
-function resumeGame(s){
-  UID=s.uid;
-  G={...unpackRefs(s.g),over:false,ui:{mode:null},undo:[],busy:0};
-  for(const p of G.P)p.pa=p.pa||[]; // パートナーエリアの追加分（古い保存データ用）
-  uiNewGame();
-  G.rec.log.forEach(([t,m],i)=>uiLog(m,G.logC[i]||undefined));
-  uiLog("— 中断したところから再開 —","t");
-  render();
-  const p=cur();if(p.cpu){const t=cpuTurn(p);if(G.sim)G.sim.next=t}
-}
 
 async function startGame(cfg){
-  UID=1;clearSave();
+  UID=1;
   G={cfg,P:[mkPlayer(0,cfg.names[0],cfg.decks[0],!!cfg.cpu0),mkPlayer(1,cfg.names[1],cfg.decks[1],cfg.cpu)],turn:0,turnNo:0,first:0,over:false,ui:{mode:null},queue:[],undo:[],busy:0,showOppHand:!cfg.cpu||!!cfg.cpu0};
   uiNewGame();
   G.first=cfg.first==="rand"?Math.floor(Math.random()*2):+cfg.first;
@@ -235,11 +213,11 @@ function beginTurn(){
   const firstTurn=G.turnNo===1;
   toFile(p,firstTurn?1:2);
   log(`オートフェイズ: 1枚ドロー、FILEに${firstTurn?1:2}枚（FILE ${p.file.length}枚）`,"n");
-  G.phase="main";recTurnStart(p);dlTurnStart();render();saveGame();
+  G.phase="main";recTurnStart(p);dlTurnStart();render();
   const go=()=>FX.mainStart(p).then(()=>{dlSnap(p);if(p.cpu)return cpuTurn(p)}); // dlSnap: 人の手番なら盤面を丸ごと詳しいログへ（tools/agree.js 用） // 自分のメインフェイズ開始時の効果（沖矢昴 B05072・勝又力 B05075）
   // メインフェイズ開始時: 相手が効果でパートナーエリアに移したキャラを、持ち主が登場させるか決める
   const q=opp(p);
-  const t=q.pa.some(x=>x.paRet===G.turnNo)?FX.paReturn(q).then(()=>{saveGame();return go()}):go();
+  const t=q.pa.some(x=>x.paRet===G.turnNo)?FX.paReturn(q).then(()=>go()):go();
   if(t&&G.sim)G.sim.next=t
 }
 async function endTurn(){
