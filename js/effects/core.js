@@ -35,10 +35,17 @@ const aiCardValue=(p,x)=>{const c=C(x);let v=lvOf(x);if(c.ci)v+=2;if(c.t==="キ�
 //   b 当分出せない重いキャラ（レベルがFILE＋3を超える、解決編の前）は、超えた分だけ −（今は使えないものを抱えない）
 //   c 今の事件の色で使えるイベント（除去・ドローなど）は ＋2（レベルが低いだけで真っ先に捨てない）
 //   d 変装を持つキャラは ＋2（カットインと同じく、コンタクトで使える。変装 disg がオンのとき）
+// 重いカードを捨ててよい場面（SeEd 11/25「基本捨てるけど、キーカードや、解決編に入る3ターン目以降に先に仕掛けたいとき、相手が仕掛けてきそうなら捨てずに持っとく」）:
+//   自分の2ターン目まで・キーカードでない（デッキ別CPUの deckHook "key"）・相手が仕掛けてきそうでない（相手が解決編か、証拠が事件レベルまで2枚以内）
+function heavyDiscardOk(p,x){const o=opp(p);
+  if(Math.ceil((G.turnNo||0)/2)>=3)return false;
+  if(typeof deckHook==="function"&&deckHook(p,"key",x))return false;
+  if(o.solved||o.ev.length>=(o.level||7)-2)return false;
+  return true}
 function aiCardValue2(p,x,c){let d=0;
   if(p.hand.some(y=>y!==x&&C(y).nm===c.nm))d-=1; // 拾うときも、手札に同名があれば別の名前を取る
   if(ai2(p,"val3")){ // b・c・d は val3（a と合わせた初版は 4000戦 49.2%（48.1〜50.3）だったので分けて測る）
-    if(c.t==="キャラ"&&!p.solved){const over=lvOf(x)-(p.file.length+3);if(over>0)d-=over}
+    if(c.t==="キャラ"&&!p.solved&&heavyDiscardOk(p,x)){const over=lvOf(x)-(p.file.length+3);if(over>0)d-=over}
     if(c.t==="イベント"&&canPlayColor(c,p))d+=2;
     if(c.dg&&ai2(p,"disg"))d+=2}
   return d}
