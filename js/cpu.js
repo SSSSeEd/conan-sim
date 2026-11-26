@@ -8,7 +8,7 @@
 //   combo, early6, mid, lose, def2, annoy）を削除し、定着したもの（sit2, tgt2, case2, act2, hint, assist系, hold9, rushb, ab2, fileplan）はスイッチを外して普通のコードにした。
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
-const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2","val3","dgKill","hai8"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
+const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2","val3","dgKill","hai8","tgtLp","rushDef"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
 const AI_OFF0=["strat","strat2","eval2","eval3","deckL","kaAmuro"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // kaAmuro（既定オフ 11/25、白黄キッドの専用CPU）: 怪盗キッド&安室透 B09109 の能力を、手札を使ったあと・ネクストヒントの前に使い、デッキに当たり（Lv7以上）が残るキャラを選ぶ。
 //   bench --deck 白黄キッド 4000戦 49.0%（48.4〜49.6、わずかに悪化）。当たりの有無だけで選ぶ版 49.3%、両方の初版 49.1%。人の記録が無いので人間らしさは未測定
@@ -19,6 +19,8 @@ const AI_OFF0=["strat","strat2","eval2","eval3","deckL","kaAmuro"]; // 既定オ
 //   変装は1試合0.07→0.27回。勝率は変わらないが、このカードを人が使う目的どおりの動きなので採用（SeEd: 人間らしければ採用）
 // hai8（既定オン 11/26）: 8灰原 B11003 のAP＋2000を、SeEd の言う場面（登場したターン・AP＋のカットインが無い・相手が勝ちそうで除去が足りない）で使う。
 //   bench --deck 青単探偵団 1000組 50.1%（49.4〜50.9）で差なし。使用1試合0.39回、キャラへのアクション 0.79→1.09回。人の使い方どおりなので採用
+// tgtLp・rushDef（既定オン 11/26、SeEd の実況 vs 青単探偵団 T8 から）: 相手が勝ちそうなら除去でLPの高いキャラを取る／守りの構えでも突撃［キャラ］で推理役を倒す。
+//   bench（全環境デッキ）: +tgtLp 52.1%（50.9〜53.2、801組で打ち切り）、+rushDef 50.7%（50.2〜51.2、1401組で打ち切り）
 // asst3（既定オン 11/24）: 序盤の無駄なアシストを減らす。bench 4000戦 53.3%（51.9〜54.7）
 // fair・stance・keep2（既定オン 11/25）: 探索で後から足して試す案（行動順・構え・ガード役なし）を突撃の加点込みで比べる（fair）と、
 //   構えとガード役なしが選ばれるようになった。bench（各1602戦で打ち切り）: fair だけ 53.4%（51.9〜54.8）、fair＋stance 55.7%（54.1〜57.4）、
@@ -318,6 +320,13 @@ async function rushPhase(t){
   const rs=p.field.filter(x=>x.fresh&&x.st==="a"&&x!==p.partner&&(canAct(x,p,"chara")||canAct(x,p,"case"))).sort((a,b)=>apOf(b)-apOf(a));
   if(rs.length&&G.sim)G.sim.rushSeen=true;
   if(plan.act==="stay"){for(const x of rs)hold.add(x);return}
+  // rushDef（SeEd 11/26 実況: 守りの構えで、突撃［キャラ］の光彦が、倒せるスリープ中の園子（LP1）を放っておいて負けた）:
+  //   守りの構え（抵抗）でも、事件にアクションできない突撃［キャラ］のキャラは、推理できる相手（LP1以上）のキャラを倒しに行く。相手の推理を1つ減らすのも守り
+  if(def.resist&&!fin.on&&ai2(p,"rushDef")){
+    for(const x of rs){if(G.over||!p.field.includes(x)||x.st!=="a"||canAct(x,p,"case"))continue;
+      const tg=o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&lpOf(y)>=1&&canAct(x,p,"chara",y)&&apOf(x)>=apOf(y)).sort((a,b)=>lpOf(b)-lpOf(a)||apOf(b)-apOf(a))[0]||(ciAtkPick(p,o,[x])||{}).y;
+      if(tg){await declareAction(p,x,tg);await step()}}
+    return}
   if(!plan.act||def.resist||fin.on)return;
   for(const x of rs){
     for(const way of plan.act==="case"?["case","chara"]:["chara","case"]){
@@ -399,4 +408,8 @@ function aiTgtScore(p,x,how){
     v=lvOf(x)*6+(C(x).lp||0)*4+apOf(x)/1000;
     if(i.declSleep)v+=30;else if(i.decl)v+=10;if(i.enterOnly)v+=12;if(i.pers)v-=25;if(i.helper)v-=20;if(mis&&x.st==="a")v+=10;return v}
   if(i.pers)v+=35;if(mis&&x.st==="a")v+=(hot?40:20)*mis;if(i.helper)v+=15;if(i.decl&&!i.declSleep)v+=6;
-  if(i.enterOnly)v-=25;if(how==="bt"&&i.recur)v-=45;if(how==="rm"&&i.recur)v+=10;return v}
+  if(i.enterOnly)v-=25;if(how==="bt"&&i.recur)v-=45;if(how==="rm"&&i.recur)v+=10;
+  // tgtLp（SeEd 11/26 実況: 相手が次で勝てそうなのに、8灰原の除去でLP2のキッドではなくLP0の銀三（ミスリード）を取って負けた）:
+  //   相手が次の手番で勝てそうなら、推理できる（スタンでない）キャラのLP1につき+30。相手の証拠の伸びを直接減らす
+  if(ai2(p,"tgtLp")&&x.st!=="x"&&ownerOf(x)&&ownerOf(x)!==p){const o=ownerOf(x),t=threatNext(p,o);if(t&&t.lethal)v+=lpOf(x)*30}
+  return v}

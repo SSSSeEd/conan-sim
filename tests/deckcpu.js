@@ -93,4 +93,17 @@ module.exports=[
     const G=board(w,{p0:{field:["B11003","B11008"],hand:["D01011"]},p1:{field:["B01019"]},turn:0});const [p,o]=G.P;p.partner=w.inst("D08001");
     const hai=p.field[0];hai.fresh=false;const y=o.field[0];y.st="s";y.apM=5000;y.lpM=1;w.AI_OFF=w.ev("AI_OFF0");
     assert.strictEqual(w.ev("haiPlan")(p,hai),null)}],
+  ["除去の対象(tgtLp): 相手が次の手番で勝てそうなら、ミスリードの銀三 B10045（LP0）よりLP2のキッド B03046 を取る（SeEd 11/26 実況 T8）",async w=>{
+    const G=board(w,{p0:{field:["B11003"]},p1:{field:["B10045","B03046","D03005","B11034"],ev:Array(5).fill("B01019"),solved:true,level:8}});const [p,o]=G.P;p.solved=true;p.ev=[w.inst("B01019")];
+    for(const y of o.field)y.fresh=false;o.pLoc="area";o.partner=w.inst("B01042");
+    const [gin,kid]=o.field;const best=()=>o.field.slice().sort((a,b)=>w.aiTgtScore(p,b,"rm")-w.aiTgtScore(p,a,"rm"))[0];
+    assert.ok(w.threatNext(p,o).lethal,"相手は次で勝てる見込み");
+    w.AI_OFF=w.ev("AI_OFF0").concat(["tgtLp"]);assert.strictEqual(best(),gin,"旧: ミスリードの銀三");
+    w.AI_OFF=w.ev("AI_OFF0");assert.strictEqual(best(),kid,"新: LP2のキッド")}],
+  ["守りの構え(rushDef): 抵抗中でも、事件にアクションできない突撃［キャラ］の光彦 B11009 は、倒せるスリープ中の推理役（園子 D03005）を倒す（SeEd 11/26 実況 T8）",async w=>{
+    const run=async on=>{const G=board(w,{p0:{field:["B11009"]},p1:{field:["D03005"]},turn:0});const [p,o]=G.P;const x=p.field[0];x.fresh=true;w.ev("giveKw")(x,"突撃［キャラ］");
+      const y=o.field[0];y.st="s";w.AI_OFF=on?w.ev("AI_OFF0"):w.ev("AI_OFF0").concat(["rushDef"]);
+      await w.rushPhase({p,o,plan:{act:"chara"},step:async()=>{},hold:new Set(),def:{resist:true},fin:{}});return o.field.includes(y)};
+    assert.strictEqual(await run(false),true,"旧: 守りの構えでは動かない");
+    assert.strictEqual(await run(true),false,"新: 倒しに行く")}],
 ];
