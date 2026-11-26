@@ -9,7 +9,7 @@
 // 切り替えられるのは AI_SWITCH のスイッチだけ（守り・勝ち切りの発動条件。探索に構えを入れる段階で見直す）。
 //   既定はすべてオン。席ごとに切るときは cfg.aiOff[席] に名前を入れる（tools/bench.js の -名前）。新しい実験は AI_OFF0 に入れて既定オフで足す（bench の +名前）
 const AI_SWITCH=["fin2","threat2","resist","wary","combo2","multi","asst3","order","asst4","fair","stance","keep2","disg","ci2","ciAtk","deck","val2","val3","dgKill"]; // multi: 探索で案ごとに3回試して平均（search.js の rolloutN）
-const AI_OFF0=["strat","strat2","eval2","eval3","deckL","kaAmuro"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
+const AI_OFF0=["strat","strat2","eval2","eval3","deckL","kaAmuro","hai8"]; // 既定オフの実験: strat・strat2（配り直しの場合分け、48.1%・50.0%）、eval2（評価に次の手番の勝ち負け、50.4%）、eval3（終盤の証拠を高く、keep2と合わせて50.2%）
 // kaAmuro（既定オフ 11/25、白黄キッドの専用CPU）: 怪盗キッド&安室透 B09109 の能力を、手札を使ったあと・ネクストヒントの前に使い、デッキに当たり（Lv7以上）が残るキャラを選ぶ。
 //   bench --deck 白黄キッド 4000戦 49.0%（48.4〜49.6、わずかに悪化）。当たりの有無だけで選ぶ版 49.3%、両方の初版 49.1%。人の記録が無いので人間らしさは未測定
 // ci2・ciAtk・deck（既定オン 11/25、青単探偵団の専用CPU）: ci2 は段階⑥（除去カットインを切る）。ciAtk は除去カットインで取れる相手にキャラへのアクションを仕掛ける。
@@ -224,6 +224,7 @@ async function cpuTurn(p){
   // 相手にアクティブなミスリードが2体以上いるなら、先にパートナーで推理して使わせ、スリープしたところをアクションで倒す
   if(!t.def.resist&&p.pLoc==="area"&&p.partner.st==="a"&&!p.solved&&canAct(p.partner,p,"reason")&&o.field.filter(y=>y.st==="a"&&(staticKw(y,o).misread||0)>0).length>=2){await reason(p,p.partner);await step();if(G.over)return}
   // 3) キャラへのアクション（勝てる相手）
+  await haiAttack(t);if(G.over)return;
   if(!t.def.resist&&!t.fin.on)await attackPhase(t);
   if(G.over)return;
   // 4) 事件へのアクション / 推理
@@ -243,6 +244,7 @@ async function actFirstTurn(t){
   const {p,o,plan,step}=t;
   const defNow=()=>{t.def=defenseCheck(p,o);if(plan.stance==="defend")t.def.resist=true;else if(plan.stance==="attack"){t.def.resist=false;t.def.calm=true}};
   defNow();
+  await haiAttack(t);if(G.over)return;
   if(!t.def.resist&&!t.fin.on)await attackPhase(t);
   if(G.over)return;
   await actorPhase(t);
@@ -254,6 +256,7 @@ async function actFirstTurn(t){
   defNow();
   await rushPhase(t);
   if(G.over)return;
+  await haiAttack(t);if(G.over)return;
   if(!t.def.resist&&!t.fin.on)await attackPhase(t); // 手札や能力で倒せる相手が増えた・スリープした相手がいれば
   if(G.over)return;
   await actorPhase(t);
@@ -333,6 +336,9 @@ function ciAtkPick(p,o,atks){
     const a=atks.filter(x=>canAct(x,p,"chara",y)&&(worth||lpOf(x)<=0)).sort((a,b)=>lpOf(a)-lpOf(b)||apOf(a)-apOf(b))[0];
     if(a)return {a,y}}
   return null}
+// hai8: 8灰原のAP＋2000で勝てるようにした相手には、守りの構え（抵抗）や勝ち切りの最中でも、そのキャラでアクションする（SeEd: 相手が勝ちそうで除去が足りない時に使う）
+async function haiAttack({p,o,step}){const h=p.haiAtk;if(!h||h.t!==G.turnNo)return;p.haiAtk=null;
+  if(p.field.includes(h.a)&&o.field.includes(h.y)&&h.y.st!=="a"&&canAct(h.a,p,"chara",h.y)&&apOf(h.a)>=apOf(h.y)){await declareAction(p,h.a,h.y);await step()}}
 // キャラへのアクション。倒す価値のある相手（LP2以上・効果あり・Lv6以上）を、LP→効果→レベルの順に、勝てるキャラで狙う（SeEd）
 async function attackPhase({p,o,step,hold}){
   for(;;){

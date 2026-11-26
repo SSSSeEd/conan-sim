@@ -32,9 +32,21 @@ DEF["1171"]={ // 灰原哀 B11003
       run:async(p,x)=>{millSelf(p,3);x.lvT-=4;log(`　${C(x).nm} をターン終了時までレベル－4`,"n");return true},
       aiCan:p=>p.deck.length>12&&p.hand.some(y=>lvOf(y)<=p.file.length+4)},
     {label:"スリープ: レベル4の［少年探偵団］をAP＋2000",can:(p,x)=>x.st==="a"&&p.field.some(isKomae),
-      run:async(p,x)=>{const [y]=await pickCards(p,"AP＋2000するキャラ","",p.field.filter(isKomae),{min:1,max:1,ai:c=>c.slice().sort((a,b)=>apOf(b)-apOf(a))});
-        if(!y)return false;sleepCost(x);apTurn(y,2000);return true},
-      aiCan:(p,x)=>false}]};
+      run:async(p,x)=>{const k=haiPlan(p,x);const [y]=await pickCards(p,"AP＋2000するキャラ","",p.field.filter(isKomae),{min:1,max:1,ai:c=>k&&c.includes(k.a)?[k.a]:c.slice().sort((a,b)=>apOf(b)-apOf(a))});
+        if(!y)return false;sleepCost(x);apTurn(y,2000);if(k&&y===k.a)p.haiAtk={t:G.turnNo,a:k.a,y:k.y};return true},
+      aiCan:(p,x)=>!!haiPlan(p,x)}]};
+// hai8（CPU、SeEd 11/26）: 8灰原のAP＋2000は「登場したターン（どうせ推理できない）」「手札にAP＋のカットインが無いとき」「相手が次の手番で勝ちそうで除去が足りないとき」に使う。
+//   どの場合も、AP＋2000で初めて勝てる相手（スリープ中、取る価値のある相手）に、アクションできるLv4の探偵団がいるときだけ。返り値 {a:AP＋するキャラ, y:相手}
+function haiPlan(p,x){
+  if(!ai2(p,"hai8")||!myTurn(p)||x.st!=="a")return null;
+  const o=opp(p),worth=y=>lpOf(y)>=2||strongChar(y)||lvOf(y)>=6;
+  const why=x.fresh||!p.hand.some(c=>cutinAp(c,p)!=null)||(threatNext(p,o)||{}).lethal;if(!why)return null;
+  for(const y of o.field.filter(y=>y.st!=="a"&&!FX.noTarget(p,y)&&worth(y)).sort((a,b)=>lpOf(b)-lpOf(a)||lvOf(b)-lvOf(a))){
+    const as=p.field.filter(a=>a!==x&&isKomae(a)&&canAct(a,p,"chara",y));
+    if(as.some(a=>apOf(a)>=apOf(y)))continue; // AP＋が無くても勝てる
+    const a=as.filter(a=>apOf(a)+2000>=apOf(y)).sort((a,b)=>lpOf(a)-lpOf(b)||apOf(b)-apOf(a))[0];
+    if(a)return {a,y}}
+  return null}
 DEF["1182"]={ // 毛利小五郎 B11014
   enter:async p=>{await enterFromRmS(p,y=>lvOf(y)<=4&&(exactName("妃英理")(y)||hasTrait(y,"毛利探偵事務所")),"スリープ状態で登場させるキャラ")}};
 DEF["1186"]={ // 大岡紅葉 B11019
