@@ -29,6 +29,7 @@ process.on("unhandledRejection",e=>{console.log("FAIL 対戦中のエラー\n   
   for(const [name,f] of require("../tests/dlog.js"))await ok("詳しいログ: "+name,()=>f());
   for(const [name,f] of require("../tests/cpu.js"))await ok("CPU: "+name,()=>f(H.load({seed:1})));
   for(const [name,f] of require("../tests/deckcpu.js"))await ok("デッキ別CPU: "+name,()=>f(H.load({seed:1})));
+  for(const [name,f] of require("../tests/review.js"))await ok("振り返り: "+name,()=>f(H.load({seed:1})));
   for(const [name,f] of require("../tests/feedback.js"))await ok("フィードバック: "+name.replace(/^フィードバック: /,""),()=>f(H.load({seed:1})));
   if(fail){console.log(`${fail}件失敗`);process.exit(1)}
 })();

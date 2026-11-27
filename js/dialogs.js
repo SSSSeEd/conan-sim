@@ -78,8 +78,21 @@ async function dlogFile(r,kind){const json=kind==="json",body=json?JSON.stringif
   try{const f=new File([blob],name,{type});if(navigator.canShare&&navigator.canShare({files:[f]})&&matchMedia("(pointer:coarse)").matches){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove()}
 async function dlogMenu(r){const v=await ask("詳しい対戦ログ",`${r.names[0]} vs ${r.names[1]}（${r.decks[0]} / ${r.decks[1]}）${r.turns}ターン\n通常のログに、手札の中身・ドロー・選択の候補と選んだ札・ガード/カットインの判断材料・探索の点数を足したものです。`,
-  [{label:"コピー（短縮版・分析用）",value:"cpc",primary:true},{label:"短縮版を保存",value:"cmp"},{label:"コピー（通常テキスト）",value:"cp"},{label:"通常テキストで保存",value:"txt"},{label:"JSONで保存",value:"json"},{label:"閉じる",value:0}]);
-  if(v==="cpc")await dlogCopy(r,true);else if(v==="cp")await dlogCopy(r);else if(v==="txt"||v==="json"||v==="cmp")await dlogFile(r,v)}
+  [{label:"振り返り（勝負所を文章で）",value:"rv",primary:true},{label:"コピー（短縮版・分析用）",value:"cpc"},{label:"短縮版を保存",value:"cmp"},{label:"コピー（通常テキスト）",value:"cp"},{label:"通常テキストで保存",value:"txt"},{label:"JSONで保存",value:"json"},{label:"閉じる",value:0}]);
+  if(v==="rv")await dlogReview(r);else if(v==="cpc")await dlogCopy(r,true);else if(v==="cp")await dlogCopy(r);else if(v==="txt"||v==="json"||v==="cmp")await dlogFile(r,v)}
+// 対戦後の振り返り（js/review.js）: 人の手番ごとにCPUの探索と比べ、勝負所を定型文で出す。探索を回すので数秒〜十数秒かかる
+async function dlogReview(r){
+  if(G&&!G.over&&G.rec){toast("対戦中は使えません（対戦が終わってから）");return}
+  let text="";
+  await modal((m,done)=>{
+    m.insertAdjacentHTML("beforeend",`<div class="mt">振り返り</div><div class="mb" id="rvBody" style="white-space:pre-wrap;font-size:13px;line-height:1.6">計算しています…</div>
+      <div class="opts"><button id="rvCopy" disabled>コピー</button><button class="primary" id="rvClose">閉じる</button></div>`);
+    m.querySelector("#rvClose").onclick=()=>done();
+    const body=m.querySelector("#rvBody");
+    reviewGame(r,{onProgress:(i,n)=>{body.textContent=`計算しています… ${i}/${n}手番`}}).then(res=>{
+      text=res.lines.join("\n");body.textContent=text;const c=m.querySelector("#rvCopy");c.disabled=false;
+      c.onclick=async()=>{try{await navigator.clipboard.writeText(text);toast("コピーしました")}catch(e){toast("コピーできませんでした")}}
+    }).catch(e=>{console.warn(e);body.textContent="振り返りを作れませんでした"})})}
 async function copyPacked(recs,{log}={}){
   const list=Array.isArray(recs)?recs:[recs];
   let chunks;try{chunks=await Feedback.packChunks(list,{parse:t=>parseDeckText(t),nameOf:n=>(DB[n]||{}).nm||n,log},{per:10})}catch(e){console.warn(e);toast("圧縮できませんでした");return}
