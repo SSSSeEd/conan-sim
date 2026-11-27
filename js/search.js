@@ -9,7 +9,10 @@ function searchOn(p){if(window.SEARCH)return true;const s=G.cfg.search;return s?
 // 盤面の点数（me から見て）。勝ち負けが最優先、次に証拠、現場、手札、FILE
 function evalState(me){
   const p=G.P[me],o=G.P[1-me];
-  if(G.over)return G.winner===me?1e5:-1e5;
+  // lose2（既定オフ、SeEd の対戦 11/27 T15）: 試しの全部で負ける手番は、全案が −100000 の同点になり先頭の案（今のCPU）を選んでいた。
+  //   負けの点数に盤面の点数の1/10を足し、負けるなら負けるなりに、証拠を取り返す・場を残す案を選ぶ（勝ち負けの差 2e5 に比べて小さい）
+  if(G.over&&(G.winner===me||!ai2(p,"lose2")))return G.winner===me?1e5:-1e5;
+  const lost=G.over;
   // キーワードの価値: 突撃・迅速は出したばかりでも動ける、ブレットはガードされない、ミスリードは相手の推理を減らす
   const noAct=!!(G.cfg.noAct&&G.cfg.noAct[me]); // 比較実験用（tools/vs.js の search-noact）: 突撃などの価値とアクションの出し方を使わない旧探索
   const side=q=>{let v=0;for(const x of q.field){v+=(C(x).lv||0)*8+apOf(x)/250+lpOf(x)*25+(x.st==="a"?15:0);
@@ -22,7 +25,7 @@ function evalState(me){
   //   threatNext の見積り（現場のLP＋パートナー＋登場時の証拠、ガード役・ミスリードで減らした値 gainMin）を使う
   if(ai2(p,"eval2")){const mine=threatNext(o,p),theirs=threatNext(p,o);
     v+=(mine.lethalMin?200:mine.lethal?80:0)-(theirs.lethalMin?150:theirs.lethal?60:0)}
-  return v;
+  return lost?-1e5+Math.max(-5000,Math.min(5000,v))/10:v;
 }
 // 試す組み合わせ: 今のCPUのまま / 出せるカードそれぞれ / 何も出さない × ネクストヒントあり・なし
 // アシストしてから出せるカードも試す（plan.assist）。最初の手番は何も出さない組み合わせを試さない（SeEd: 1ターン目は使えるなら使う）

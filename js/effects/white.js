@@ -44,7 +44,7 @@ DEF["0979"]={ // 怪盗キッド B09036
     const cnt=n=>p.field.filter(y=>namesOf(y).includes(n)).length;
     const y=await revealFromHand(p,y=>isChar(y)&&lvOf(y)<=8,"カード名を書き換えるキャラを公開",{ai:c=>{const b=c.slice().sort((a,b)=>cnt(C(b).nm)-cnt(C(a).nm))[0];return b&&cnt(C(b).nm)>cnt(nameOf(x))?[b]:[]}});
     if(y){x.nmT=C(y).nm;log(`　${C(x).nm} のカード名はターン終了時まで［${x.nmT}］`,"n")}},
-  abilities:[{label:"同じカード名のキャラの数に応じて効果",turn1:true,can:(p,x)=>p.file.length>=5&&p.field.filter(y=>sameName(y,x)).length>=2,
+  abilities:[{label:"同じカード名のキャラの数に応じて効果",turn1:true,can:(p,x)=>p.file.length>=5&&p.field.filter(y=>sameName(y,x)).length>=2,aiCan:p=>!(ai2(p,"kaName")&&p.field.some(y=>idOf(y)==="1048"&&!turnCount(y,"ab1"))&&kaRename(p)), // kaName: B09109 の書き換えで数を増やしてから
     run:async(p,x)=>{const n=p.field.filter(y=>sameName(y,x)).length;if(n>=2)await bottomChar(p,y=>y!==x&&apLe(8000)(y));if(n>=5)giveKw(x,"突撃［事件］");return true}}]};
 DEF["0782"]={ // ロボット黒羽快斗 B07053
   enter:async(p,x)=>{if(await revealFromHand(p,named("黒羽快斗","怪盗キッド"),"公開する［黒羽快斗］か［怪盗キッド］",{ai:c=>myTurn(p)?c.slice(0,1):[]}))giveKw(x,"突撃")}};
