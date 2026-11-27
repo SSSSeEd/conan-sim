@@ -106,4 +106,27 @@ module.exports=[
       await w.rushPhase({p,o,plan:{act:"chara"},step:async()=>{},hold:new Set(),def:{resist:true},fin:{}});return o.field.includes(y)};
     assert.strictEqual(await run(false),true,"旧: 守りの構えでは動かない");
     assert.strictEqual(await run(true),false,"新: 倒しに行く")}],
+  ["白黄キッド（kaName、既定オン）: 怪盗キッド&安室透 B09109 の書き換えは、得になるときだけ。旧: 怪盗キッドを［工藤優作］に書き換えていた（SeEd 対戦 11/27 T11）",async w=>{
+    const run=async(on,field)=>{const G=board(w,{p0:{field,hand:["PR137","B04033"],file:Array(7).fill("B04033")}});const p=G.P[0];
+      p.partner=w.inst("B02035P");p.caseC=w.inst("B09112");w.AI_OFF=on?w.ev("AI_OFF0"):[...w.ev("AI_OFF0"),"kaName"];
+      const x=p.field.find(y=>y.n==="B09109"),ab=w.FX.abilities(p,x).find(a=>a.key==="ab1");
+      return {ok:ab.aiCan(p,x),r:await ab.run(p,x),names:p.field.map(y=>w.ev("nameOf")(y))}};
+    // 怪盗キッドだけの現場: 書き換えても数は増えない
+    let o=await run(false,["B09109","B09036","B04033"]);assert.ok(o.names.includes("工藤優作"),"旧: 先頭の手札（工藤優作）を公開して怪盗キッドを書き換える");
+    let n=await run(true,["B09109","B09036","B04033"]);assert.strictEqual(n.ok,false);assert.strictEqual(n.r,false);assert.ok(!n.names.includes("工藤優作"),"新: 書き換えない");
+    // 怪盗キッド4枚＋工藤優作: 工藤優作を［怪盗キッド］にすると5枚になり、B09036 が突撃［事件］を得られる
+    n=await run(true,["B09109","B09036","B04033","B09043","B08034"]);assert.strictEqual(n.ok,true);assert.ok(n.names.every(m=>m!=="工藤優作"),"新: 工藤優作を［怪盗キッド］に");
+    const G=w.__G(),p=G.P[0],k=p.field.find(y=>y.n==="B09036");assert.strictEqual(p.field.filter(y=>w.ev("sameName")(y,k)).length,5)}],
+  ["白黄キッド（kaName、既定オン）: 得になる書き換えが残っている間は、怪盗キッド B09036 の能力を待つ",async w=>{
+    const G=board(w,{p0:{field:["B09109","B09036","B04033","B09043","B08034"],hand:["B04033"],file:Array(7).fill("B04033")}});const p=G.P[0];
+    p.partner=w.inst("B02035P");p.caseC=w.inst("B09112");const k=p.field.find(y=>y.n==="B09036"),ab=w.FX.abilities(p,k).find(a=>a.key==="ab0");
+    w.AI_OFF=[...w.ev("AI_OFF0"),"kaName"];assert.strictEqual(!ab.aiCan||ab.aiCan(p,k),true,"オフ: すぐ使う");
+    w.AI_OFF=w.ev("AI_OFF0");assert.strictEqual(ab.aiCan(p,k),false,"オン: 書き換えを待つ")}],
+  ["負けの点数（lose2、既定オン）: 試しで負けた盤面どうしでも、証拠の多い方を高く見る（オフなら同点の −100000）",async w=>{
+    const G=board(w,{p0:{ev:["B04033"]},p1:{ev:["B04033","B04033"]}});G.over=true;G.winner=1;
+    const ev=w.ev("evalState");w.AI_OFF=[...w.ev("AI_OFF0"),"lose2"];const a0=ev(0);G.P[0].ev.push(w.inst("B04033"));const b0=ev(0);
+    assert.strictEqual(a0,-1e5);assert.strictEqual(b0,-1e5,"オフ: 同点");
+    w.AI_OFF=w.ev("AI_OFF0");const b1=ev(0);G.P[0].ev.pop();const a1=ev(0);
+    assert.ok(a1>-1e5-1000&&a1<-1e5+1000,"オン: 負けの近く");assert.ok(b1>a1,"オン: 証拠の多い方が上");
+    G.winner=0;assert.strictEqual(ev(0),1e5,"勝ちは今まで通り")}],
 ];

@@ -53,6 +53,14 @@ DEF["0177"]={ // 沖野ヨーコ B02005
 // B09109 の能力で当たるキャラ（レベル7以上）がデッキに残っているか。白黄キッドではレベル7・8の怪盗キッドと工藤優作 B08034 が当たり。
 //   レベル4の工藤優作 PR137 を当てると登場時にデッキの上4枚を削り、怪盗キッドを失うので選ばない（11/25 の 1回目は当たりの有無だけで選び、49.3%に下がった）
 const kaHit=(p,m)=>lvOf(m)>=7&&p.deck.some(y=>isChar(y)&&C(y).lv===lvOf(m)&&sameName(y,m))?1:0;
+// kaName（既定オフ、SeEd の対戦 11/27 T11・T13）: B09109 の「カード名の書き換え」を、得になるときだけ使う。
+//   旧: 公開する札も書き換える相手も先頭のもの（T11 は怪盗キッドを［工藤優作］に、T13 は怪盗キッドを［怪盗キッド］に書き換えていた）
+//   得になる = 現場の怪盗キッド B09036 の能力（同じカード名の数が2枚以上・5枚以上で効果）が未使用で、書き換えでその数が2か5に届く。
+//   返り値 {show:公開する手札, t:書き換える自分のキャラ} か null。B09036 の能力は、得になる書き換えが残っている間は待つ（white.js）
+const kaRename=p=>{const k=p.field.find(y=>idOf(y)==="0979"&&!turnCount(y,"ab0"));if(!k||p.file.length<5)return null;
+  const nm=nameOf(k),n=p.field.filter(y=>sameName(y,k)).length;if(!(n+1===2||n+1===5))return null;
+  const show=p.hand.find(y=>isChar(y)&&lvOf(y)<=8&&namesOf(y).includes(nm));if(!show)return null;
+  const t=p.field.filter(y=>!sameName(y,k)).sort((a,b)=>lvOf(a)-lvOf(b))[0];return t?{show,t}:null};
 DEF["1048"]={ // 怪盗キッド&安室透 B09109
   abilities:[
     {label:"現場のレベル8以下のキャラ1枚を選ぶ: 同レベル・同カード名のキャラを山札から探して登場（終了時にデッキの下へ）",turn1:true,partner:true,
@@ -66,9 +74,11 @@ DEF["1048"]={ // 怪盗キッド&安室透 B09109
         if(hit){await enterByEffect(p,hit,"a");giveKw(hit,"終了時デッキの下")}
         for(const y of rest)p.deck.push(y);shuffle(p.deck);log("　デッキをシャッフル","n");return true}},
     {label:"手札のレベル8以下のキャラを公開: 現場のキャラのカード名を書き換える",turn1:true,partner:true,
-      can:p=>p.hand.some(y=>isChar(y)&&lvOf(y)<=8)&&p.field.length>0,aiCan:()=>false,
-      run:async p=>{const y=await revealFromHand(p,z=>isChar(z)&&lvOf(z)<=8,"公開するキャラ（レベル8以下）",{must:true});if(!y)return false;
-        const t=await chooseChar(p,"カード名を書き換えるキャラ",z=>!isOpp(p,z),{ai:cs=>cs.filter(z=>!isOpp(p,z)).slice(0,1)});
+      can:p=>p.hand.some(y=>isChar(y)&&lvOf(y)<=8)&&p.field.length>0,aiCan:p=>ai2(p,"kaName")&&!!kaRename(p),
+      run:async p=>{const plan=p.cpu&&ai2(p,"kaName")?kaRename(p):null;
+        if(p.cpu&&ai2(p,"kaName")&&!plan){log("　書き換えて得になるキャラがいないので、公開しない","n");return false}
+        const y=await revealFromHand(p,z=>isChar(z)&&lvOf(z)<=8,"公開するキャラ（レベル8以下）",{must:true,ai:cs=>plan?[cs.find(z=>z===plan.show)||cs[0]]:cs.slice(0,1)});if(!y)return false;
+        const t=await chooseChar(p,"カード名を書き換えるキャラ",z=>!isOpp(p,z),{ai:cs=>plan&&cs.includes(plan.t)?[plan.t]:cs.filter(z=>!isOpp(p,z)).slice(0,1)});
         if(t){t.nmT=nameOf(y);log(`　${C(t).nm} のカード名はターン終了時まで［${t.nmT}］`,"n")}return true}}]};
 DEF["1051"]={ // キッドVS安室 王妃の前髪 B09112
   solvedTrigger:solvedDisc,
