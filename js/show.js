@@ -44,3 +44,17 @@ async function showCpu(p,x,title,sub,target){
   await sleep(250*pace());
 }
 function clearAct(){if(G&&G.ui.act){G.ui.act=null;render()}}
+// 公開・選んだカードを並べて見せる（CPUが公開したカード／リムーブするカードを選んでから動かすまでの間、はっきり見せる）。タップで次へ
+function showCards(p,title,sub,cards,{ms=1900}={}){
+  if(!G||window.SIM_FAST||window.SIM_TURBO||G.sim||!cards||!cards.length)return Promise.resolve();
+  ms=Math.round((ms+(cards.length>1?500:0))*pace());
+  render();
+  return new Promise(res=>{
+    const d=document.createElement("div");d.id="pubshow";d.className=p&&p.idx===0?"me":"op";
+    d.innerHTML=`<div class="pst">${esc(title)}</div><div class="psc"></div><div class="pss">${esc(sub||"")}</div><div class="tap">タップで次へ</div>`;
+    const box=d.querySelector(".psc");
+    for(const x of cards)box.appendChild(cardEl(x));
+    document.body.appendChild(d);
+    let t;const end=()=>{if(!d.isConnected)return;clearTimeout(t);d.classList.add("out");setTimeout(()=>{d.remove();res()},180)};
+    d.onclick=end;t=setTimeout(end,ms);
+  })}
