@@ -242,6 +242,15 @@ html.lr .side.active-turn .pname .ord{background:var(--manila);color:var(--manil
 .frh{font-weight:bold;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.frh span{color:var(--manila);font-weight:normal;font-size:12px}
 .frtips{margin:6px 0;padding-left:18px;font-size:13px;line-height:1.5}
 .frtips .fr-good{color:#7fd18b}.frtips .fr-bad,.frtips .fr-unused{color:#e5b07a}
+.rvhead{font-weight:bold;margin-bottom:4px}
+.rvcard{display:flex;gap:8px;border:1px solid var(--line,#445);border-radius:8px;padding:8px;margin:6px 0}
+.rvt{flex:none;width:44px;text-align:center;font-size:22px;font-weight:bold;color:var(--manila);line-height:1.1}.rvt small{display:block;font-size:10px;font-weight:normal;color:var(--ink-dim)}
+.rvitems{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.rvit{display:flex;gap:6px;align-items:flex-start}.rvit b{font-size:13px}
+.rvs{flex:none;width:20px;height:20px;border-radius:10px;text-align:center;line-height:20px;font-size:11px;font-weight:bold;color:#111;background:#93a7b6}
+.sev-大 .rvs{background:#e58a7a}.sev-中 .rvs{background:#e5b07a}
+.rvd{font-size:12px;color:var(--ink-dim);line-height:1.5;margin-top:1px}
+.rvfoot{font-size:11px;color:var(--ink-dim);margin-top:8px}
 .frt{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}.frt th,.frt td{padding:2px 4px;border-bottom:1px solid #2a3a48;text-align:right}.frt th:first-child,.frt td:first-child{text-align:left}
 .fbl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--manila)}
 .fbl textarea{width:100%;box-sizing:border-box;font-size:14px;background:var(--desk);color:var(--ink);border:1px solid var(--line,#445);border-radius:6px;padding:6px}

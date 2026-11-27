@@ -8,6 +8,8 @@
 // 使い方: node tools/review.js ログ.json（アプリは 記録タブ → 詳しい対戦ログ → 振り返り）
 const RV_GAP=150;       // 探索の点数の差がこれ以上なら勝負所（証拠1つ≒60点、勝ち負けは±1e5）
 const RV_MAXN=5;        // 勝負所として出す手番の数
+const rvLab=l=>l.replace(/\+ヒントなし/,"（ヒントなし）").replace(/\+/g," ＋ ");
+const rvSev=w=>w>=300?"大":w>=150?"中":"小";
 const RV_ESC=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
 
 // 人の1手番の行為を、通常ログの行から数える（tools/agree.js の feats と同じ読み方。名前つき）
@@ -43,27 +45,27 @@ function rvRules(p,o,h,t,guardsEnd){
   // ① 相手があと2つ以下なのに、証拠を増やす・削る行動が1回もない
   if(close<=2&&close>0&&(h.reason+h.actCase)===0){
     const k=Math.min(o.ev.length,Math.max(1,caseCan.length));
-    out.push({kind:"noEvidence",w:300+60*(3-close),
-      text:`相手の証拠が${o.ev.length}/${lvO}で、あと${close}つで勝てる状態でした。この手番は推理も事件アクションもなく、証拠は${p.ev.length}のままです。`
-        +(caseCan.length?`${caseCan.slice(0,2).map(nm).join("・")}で事件アクションをすると、相手の証拠は${o.ev.length}→${o.ev.length-k}、自分は+${k}でした。`:"")});
+    out.push({kind:"noEvidence",w:300+60*(3-close),head:`証拠を動かしていない（相手はあと${close}つ）`,
+      detail:`相手の証拠${o.ev.length}/${lvO}。推理も事件アクションも0回で、自分は${p.ev.length}のまま。`
+        +(caseCan.length?`${caseCan.slice(0,2).map(nm).join("・")}で事件アクション→相手${o.ev.length}→${o.ev.length-k}・自分+${k}。`:"")});
   }
   // ② アクティブなキャラが、何もせずに残っている（ガード役として残した場合もあるので、相手が次に勝てないときだけ強めに言う）
   const idle=act.filter(x=>(canAct(x,p,"reason")||canAct(x,p,"case")||canAct(x,p,"chara"))&&!h.actors.includes(nm(x)));
   if(idle.length&&done<act.length){
     const noThreat=!(close<=3);
-    out.push({kind:"idle",w:noThreat?160:60,
-      text:`${idle.slice(0,3).map(nm).join("・")}がアクティブのまま何もしていません（アクティブ${act.length}体のうち行動は${done}回）。`
-        +(p.ev.length||o.ev.length?`推理なら証拠+${lpOf(idle[0])}、事件アクションなら相手の証拠${o.ev.length}→${Math.max(0,o.ev.length-1)}かつ自分+1でした。`:"")
-        +(noThreat?"":"（ガード役として残した可能性もあります）")});
+    out.push({kind:"idle",w:noThreat?160:60,head:`${idle.slice(0,3).map(nm).join("・")}が何もしていない`,
+      detail:`アクティブ${act.length}体のうち行動は${done}回。`
+        +(p.ev.length||o.ev.length?`推理なら証拠+${lpOf(idle[0])}、事件アクションなら相手${o.ev.length}→${Math.max(0,o.ev.length-1)}・自分+1。`:"")
+        +(noThreat?"":"ガード役として残したなら問題なし。")});
   }
   // ③ ガード役の不足: 相手の次の手番の最大獲得 gainMax に対し、手番終了時のアクティブ数で防げるか
   if(guardsEnd!=null){const th=threatNext(p,o),mis=p.field.reduce((a,y)=>a+(y.st==="a"?(staticKw(y,p).misread||0):0),0);
     const after=Math.max(0,th.gainMax-guardsEnd-mis),reach=o.ev.length+after;
     if(th.gainMax>0&&(o.solved||o.file.length+2>=7)&&reach>=lvO){
-      out.push({kind:"guard",w:400,text:`相手の証拠は${o.ev.length}/${lvO}で、次の手番に最大+${th.gainMax}（${th.parts.slice(0,4).join("、")}）取れる形でした。`
-        +`手番終了時にアクティブなキャラが${guardsEnd}体でガードしても+${after}残り、証拠${reach}で事件レベルに届きます。ガード役を${Math.max(1,reach-lvO+1)}体以上多く残す／先に相手の証拠を削る必要がありました。`})}
+      out.push({kind:"guard",w:400,head:"ガード役が足りない",
+        detail:`相手の証拠${o.ev.length}/${lvO}。次の手番で最大+${th.gainMax}（${th.parts.slice(0,3).join("、")}）。アクティブ${guardsEnd}体では+${after}残り、証拠${reach}で届く。あと${Math.max(1,reach-lvO+1)}体残すか、先に証拠を削る。`})}
     else if(th.gainMax>0&&o.ev.length+th.gainMax>=lvO&&(o.solved||o.file.length+2>=7)&&reach<lvO){
-      out.push({kind:"guardOk",w:0,text:`ガード役${guardsEnd}体で相手の次手番の獲得を+${after}まで抑えられていました。`})}}
+      out.push({kind:"guardOk",w:0,head:"ガードは足りていた",detail:`アクティブ${guardsEnd}体で相手の獲得を+${after}に抑えられた。`})}}
   return out}
 
 // 探索の点数: 盤面を復元し、人の席をCPUとして chooseTurnPlan を回して、各案の点数を出す。人の手に近い案の点数と最善の案の点数を返す
@@ -104,18 +106,18 @@ async function reviewGame(r,opt={}){
     for(const x of rules)if(x.w>0)items.push({t:e.t,...x});
     if(srch&&srch.mine&&srch.best){const gap=Math.round(srch.best.v-srch.mine.v);
       if(gap>=RV_GAP&&srch.best.l!==srch.mine.l)
-        items.push({t:e.t,kind:"search",w:Math.min(500,gap/2),gap,
-          text:`CPUの探索では「${srch.best.l}」が${Math.round(srch.best.v)}点、あなたの手に近い「${srch.mine.l}」は${Math.round(srch.mine.v)}点で、${gap}点差（証拠1つ≒60点）でした。`})}
+        items.push({t:e.t,kind:"search",w:Math.min(500,gap/2),gap,head:`CPUなら「${rvLab(srch.best.l)}」`,
+          detail:`探索の点数 ${Math.round(srch.best.v)} 対 ${Math.round(srch.mine.v)}（差${gap}。証拠1つ≒60点）。あなたに近い手は「${rvLab(srch.mine.l)}」。`})}
     done++;if(opt.onProgress)opt.onProgress(done,snaps.length)}
   // 勝負所: 手番ごとに重みを足して、上位 RV_MAXN 手番
   const byT=new Map();for(const it of items){const a=byT.get(it.t)||{t:it.t,w:0,items:[]};a.w+=it.w;a.items.push(it);byT.set(it.t,a)}
   const top=[...byT.values()].sort((a,b)=>b.w-a.w).slice(0,RV_MAXN).sort((a,b)=>a.t-b.t);
-  const lines=[];
-  const result=r.winner==null?"未決着":`${r.names[r.winner]} の勝利`;
-  lines.push(`${N}（${r.decks[seat]}） vs ${r.names[1-seat]}（${r.decks[1-seat]}）／${r.turns}ターン／${result}`);
-  if(!snaps.length)lines.push("人の手番の盤面（snap）が入っていないログです。新しい版で対戦したログで試してください。");
-  else if(!top.length)lines.push("機械で判定できる大きな取りこぼしは見つかりませんでした（定型の判定に引っかからない種類の差は、ここでは拾えません）。");
-  else{lines.push("勝負所（点数の差・証拠の取りこぼしが大きかった手番）:");
-    for(const a of top)for(const it of a.items.sort((x,y)=>y.w-x.w))lines.push(`・${a.t}ターン目: ${it.text}`)}
-  lines.push("※盤面からの定型の判定とCPUの探索の点数だけで作った参考です。カード効果の細かい読みや、相手の手札の推測は含まれません。");
-  return {items,top,lines}}
+  const result=r.winner==null?"未決着":r.winner===seat?"あなたの勝ち":"あなたの負け";
+  const head=`${r.decks[seat]} vs ${r.decks[1-seat]}／${r.turns}ターン／${result}`;
+  const cards=top.map(a=>({t:a.t,items:a.items.sort((x,y)=>y.w-x.w).map(it=>({kind:it.kind,sev:rvSev(it.w),head:it.head,detail:it.detail}))}));
+  const note=!snaps.length?"人の手番の盤面（snap）が入っていないログです。新しい版で対戦したログで試してください。"
+    :!top.length?"機械で判定できる大きな取りこぼしは見つかりませんでした（定型の判定に引っかからない差は拾えません）。":"";
+  const lines=[head,...(note?[note]:[]),...cards.flatMap(c=>c.items.map(i=>`T${c.t}［${i.sev}］${i.head} — ${i.detail}`)),
+    "※盤面の定型判定とCPUの探索の点数だけの参考です。"];
+  return {items,top,cards,head,note,lines}}
+
