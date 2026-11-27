@@ -50,13 +50,15 @@ function aiCardValue2(p,x,c){let d=0;
     if(c.dg&&ai2(p,"disg"))d+=2}
   return d}
 
-async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true,can=null}={}){
+async function pickCards(p,title,body,cards,{min=0,max=1,ai,faceUp=true,can=null,show=true}={}){
   if(!cards.length)return [];
   if(p.cpu){
     let r=ai?ai(can?cards.filter(can):cards):cards.filter(y=>!can||can(y)).slice(0,max);
     r=r.slice(0,max);
     if(r.length<min)r=cards.slice(0,min);
     dl("pick",{who:p.idx,cpu:true,title,min,max,cands:dlCards(can?cards.filter(can):cards),chose:dlCards(r)});
+    // リムーブするカードをCPUが選んだら、動かす前に見せる（手札・現場・リムーブエリアなど、プレイヤーが確認できる札）
+    if(show&&r.length&&/リムーブ/.test(title))await showCards(p,`${p.name}: ${title}`,r.map(y=>C(y).nm).join("、"),r);
     return r;
   }
   const hr=await chooseCards(`${p.name}: ${title}`,body,cards,{min,max,faceUp,can,okLabel:"決定"});
@@ -199,8 +201,9 @@ function apTurn(x,v){x.apT+=v;log(`　${C(x).nm} をターン終了時までAP${
 // 手札から条件に合うカードを1枚公開（してもよい）。公開したら FX.onReveal（毛利蘭 B09004 など）
 async function revealFromHand(p,filter,title,{must=false,ai}={}){
   const cs=p.hand.filter(filter);if(!cs.length)return null;
-  const [y]=await pickCards(p,title,"公開するカードを選びます（公開したカードは手札に戻ります）。",cs,{min:must?1:0,max:1,ai:ai||(c=>c.slice(0,1))});
-  if(!y)return null;log(`　${p.name} は手札の ${C(y).nm} を公開`,"n");await FX.onReveal(p,y);return y}
+  const [y]=await pickCards(p,title,"公開するカードを選びます（公開したカードは手札に戻ります）。",cs,{min:must?1:0,max:1,ai:ai||(c=>c.slice(0,1)),show:false});
+  if(!y)return null;log(`　${p.name} は手札の ${C(y).nm} を公開`,"n");
+  if(p.cpu)await showCards(p,`${p.name} が手札を公開`,C(y).nm,[y]);await FX.onReveal(p,y);return y}
 // リムーブエリアから条件に合うキャラを1枚まで登場
 async function enterFromRm(p,filter,title){
   const cs=p.rm.filter(y=>isChar(y)&&filter(y));if(!cs.length)return null;

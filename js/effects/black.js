@@ -34,6 +34,7 @@ DEF["1142"]={ // ジン B10087
 DEF["0360"]={ // バーボン B03111
   enter:async(p,x)=>{if(!partnerIs(p,"黒"))return;const o=opp(p);
     log(`　${o.name} は手札を公開: ${o.hand.map(y=>C(y).nm).join("、")||"なし"}`);
+    if(p.cpu&&o.hand.length)await showCards(o,`${o.name} の手札を全公開`,"",o.hand.slice());
     if(!o.hand.some(y=>lvOf(y)<=7))return;
     const [y]=await pickCards(p,"相手の手札（全公開）からリムーブさせるカード（レベル7以下）","公開された手札から、レベル7以下のカードを1枚まで選びます。",o.hand.slice(),{min:0,max:1,can:y=>lvOf(y)<=7,ai:c=>c.slice().sort((a,b)=>aiCardValue(o,b)-aiCardValue(o,a)).slice(0,1)});
     if(y){detach(y);o.rm.push(y);log(`　${o.name} の手札の ${C(y).nm} をリムーブ`)}}};

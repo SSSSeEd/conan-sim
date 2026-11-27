@@ -10,7 +10,7 @@ const FILES=[...fs.readFileSync(path.join(ROOT,"index.html"),"utf8").matchAll(/<
 // 画面側（ui.js / dialogs.js / show.js）の関数のうち、ゲーム処理から呼ばれるもの
 const UI_STUB=`
 function render(){}function uiLog(){}function logCount(){return 0}function uiNewGame(){}function uiUndo(){}function showEndMenu(){}
-function toast(){}function cutin(){return Promise.resolve()}function revealCard(){return Promise.resolve()}
+function toast(){}function cutin(){return Promise.resolve()}function revealCard(){return Promise.resolve()}function showCards(){return Promise.resolve()}
 async function showFx(){}async function showCpu(){}function clearAct(){if(G&&G.ui)G.ui.act=null}function pace(){return 0}
 // 人の操作を待つ画面。CPU同士なら呼ばれないはず
 function needHuman(n){return ()=>{throw new Error(n+": 人の操作が必要な画面が呼ばれた")}}

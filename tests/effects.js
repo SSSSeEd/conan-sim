@@ -3,6 +3,13 @@ const assert=require("assert");
 const {board}=require("./rules.js");
 const R="B01019"; // 効果文なし（カットインだけ）のキャラ Lv2
 module.exports=[
+  ["CPUがリムーブする札を選ぶと、動かす前にその札を画面に見せる（showCards）。公開（revealFromHand）も同じ",async w=>{
+    const G=board(w,{p0:{hand:[R,"B01019"]}});const p=G.P[0];p.cpu=true;const [a]=p.hand;
+    const seen=[];w.showCards=async(q,t,s,cs)=>{seen.push([t,cs.slice()])};
+    await w.ev("pickCards")(p,"リムーブするカード","",p.hand.slice(),{min:1,max:1,ai:c=>[a]});
+    assert.strictEqual(seen.length,1);assert.ok(seen[0][1].length===1&&seen[0][1][0]===a);
+    await w.ev("revealFromHand")(p,()=>true,"公開するカード",{must:true,ai:c=>[a]});
+    assert.strictEqual(seen.length,2);assert.ok(seen[1][1].length===1&&seen[1][1][0]===a)}],
   ["pickCards の can: 全カードを見せても CPU は対象外（can が false）を選ばない（バーボン B03111 の手札公開）",async w=>{
     const G=board(w,{p0:{hand:[R,"B01019"]}});const [a,b]=G.P[0].hand;
     const r=await w.ev("pickCards")(G.P[0],"t","",[a,b],{min:1,max:1,can:y=>y===b,ai:c=>c.slice(0,1)});
