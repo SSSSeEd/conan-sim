@@ -44,13 +44,13 @@ module.exports=[
     const cd=w.ENV_DECKS.decks.map(x=>w.parseDeckText(x.text)).find(r=>r.main.some(cul));
     if(cd){const o=w.fillDeck({partner:cd.partner,caseN:cd.caseN,main:cd.main.filter(cul).slice(0,3).concat(cd.main.filter(n=>!cul(n)).slice(0,12))});
       assert.strictEqual(w.validateDeck({partner:o.partner,caseN:o.caseN,main:o.main}).length,0)}}],
-  ["デッキ選択: 「環境デッキ」分類は勝率上位15デッキ＋追加分（青単探偵団）で、同じデッキはプリセット・noteの欄から外れる",w=>{
-    const v=w.ev("deckGroups()").find(x=>x[1]==="v")[2],N=w.ev("DECK_TOP_N"),wr=w.ev("DECK_WR");
-    assert.strictEqual(v.length,N+1);assert.strictEqual(v[N].name,"青単探偵団");
+  ["デッキ選択: 「環境デッキ」分類は勝率上位15デッキ＋追加分（DECK_ENV_EXTRA）で、勝率の高い順に並び、CPUで使える",w=>{
+    const v=w.ev("deckGroups()").find(x=>x[1]==="v")[2],N=w.ev("DECK_TOP_N"),wr=w.ev("DECK_WR"),ex=w.ev("DECK_ENV_EXTRA");
+    assert.strictEqual(v.length,N+ex.length);ex.forEach((n,i)=>assert.strictEqual(v[N+i].name,n));
     for(let i=1;i<N;i++)assert.ok(wr[v[i-1].name]>=wr[v[i].name]);
-    assert.ok(w.parseDeckText(v[N].text).errors.length===0&&w.cpuReady(w.parseDeckText(v[N].text)))}],
+    for(const d of v)assert.ok(w.parseDeckText(d.text).errors.length===0&&w.cpuReady(w.parseDeckText(d.text)),d.name)}],
   ["デッキ選択: 勝率表が全デッキ名と一致し、上位15デッキは勝率の高い順に並ぶ。表にないデッキ（マイデッキ）は順位なし",w=>{
-    const wr=w.ev("DECK_WR"),ex=w.ev("DECK_ENV_EXTRA"),all=[...w.ev("PRESETS"),...w.ENV_DECKS.decks].filter(d=>!ex.includes(d.name)); // 追加分（青単探偵団）は総当たり前なので勝率表にない
+    const wr=w.ev("DECK_WR"),ex=w.ev("DECK_ENV_EXTRA"),all=[...w.ev("PRESETS"),...w.ENV_DECKS.decks].filter(d=>!ex.includes(d.name)); // 追加分（DECK_ENV_EXTRA）は総当たり前なので勝率表にない
     for(const d of all)assert.ok(wr[d.name]>0,d.name+" の勝率がない");
     assert.strictEqual(Object.keys(wr).length,all.length);
     const top=all.filter(d=>w.deckRank(d)<w.ev("DECK_TOP_N"));assert.strictEqual(top.length,w.ev("DECK_TOP_N"));
