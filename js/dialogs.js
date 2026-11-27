@@ -85,12 +85,16 @@ async function dlogReview(r){
   if(G&&!G.over&&G.rec){toast("対戦中は使えません（対戦が終わってから）");return}
   let text="";
   await modal((m,done)=>{
-    m.insertAdjacentHTML("beforeend",`<div class="mt">振り返り</div><div class="mb" id="rvBody" style="white-space:pre-wrap;font-size:13px;line-height:1.6">計算しています…</div>
+    m.insertAdjacentHTML("beforeend",`<div class="mt">振り返り</div><div class="mb frbody" id="rvBody" style="font-size:13px;line-height:1.5">計算しています…</div>
       <div class="opts"><button id="rvCopy" disabled>コピー</button><button class="primary" id="rvClose">閉じる</button></div>`);
     m.querySelector("#rvClose").onclick=()=>done();
     const body=m.querySelector("#rvBody");
     reviewGame(r,{onProgress:(i,n)=>{body.textContent=`計算しています… ${i}/${n}手番`}}).then(res=>{
-      text=res.lines.join("\n");body.textContent=text;const c=m.querySelector("#rvCopy");c.disabled=false;
+      text=res.lines.join("\n");
+      const cardsHtml=res.cards.map(c=>`<div class="rvcard"><div class="rvt">${c.t}<small>ターン目</small></div><div class="rvitems">${c.items.map(i=>`<div class="rvit sev-${i.sev}"><span class="rvs">${i.sev}</span><div><b>${esc(i.head)}</b><div class="rvd">${esc(i.detail)}</div></div></div>`).join("")}</div></div>`).join("");
+      body.style.whiteSpace="normal";
+      body.innerHTML=`<div class="rvhead">${esc(res.head)}</div>${res.note?`<div class="rvd">${esc(res.note)}</div>`:`<div class="rvd">勝負所の手番（大＝特に大きい取りこぼし）</div>`}${cardsHtml}<div class="rvfoot">盤面の定型判定とCPUの探索の点数だけの参考です。カードの細かい効果読みや相手の手札の推測は含みません。</div>`;
+      const c=m.querySelector("#rvCopy");c.disabled=false;
       c.onclick=async()=>{try{await navigator.clipboard.writeText(text);toast("コピーしました")}catch(e){toast("コピーできませんでした")}}
     }).catch(e=>{console.warn(e);body.textContent="振り返りを作れませんでした"})})}
 async function copyPacked(recs,{log}={}){
