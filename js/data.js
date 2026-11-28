@@ -109,7 +109,7 @@ function setDeckTopOnly(v){try{localStorage.setItem("conan-sim-decktop",v?"top":
 // 勝率の順位（0が一番高い）。表にないデッキ（マイデッキなど）は null
 function deckRank(d){if(!(d.name in DECK_WR))return null;return Object.keys(DECK_WR).filter(n=>DECK_WR[n]>DECK_WR[d.name]).length}
 // 「環境デッキ」分類: 勝率上位DECK_TOP_Nデッキ（DECK_WR順）＋ DECK_ENV_EXTRA（勝率表にまだ無い追加分）。同じデッキ（同じ名前）はプリセット・noteの欄からは外して重複を避ける
-const DECK_ENV_EXTRA=[]; // 青単探偵団は 2026-11-28 の総当たりで勝率表に入った（29位）
+const DECK_ENV_EXTRA=["青単探偵団"]; // 勝率は上位15の外（2026-11-28で29位）だが、SeEdの希望で環境デッキに入れる（公式の優勝デッキ）
 function deckGroups(){const pre=[...PRESETS,...loadUserPresets()],env=(window.ENV_DECKS&&ENV_DECKS.decks)||[];
   const all=[...pre,...env];const top=Object.keys(DECK_WR).sort((a,b)=>DECK_WR[b]-DECK_WR[a]).slice(0,DECK_TOP_N);
   const v=[...top,...DECK_ENV_EXTRA].map(n=>all.find(d=>d.name===n)).filter(Boolean);

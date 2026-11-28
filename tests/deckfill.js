@@ -50,7 +50,7 @@ module.exports=[
     for(let i=1;i<N;i++)assert.ok(wr[v[i-1].name]>=wr[v[i].name]);
     for(const d of v)assert.ok(w.parseDeckText(d.text).errors.length===0&&w.cpuReady(w.parseDeckText(d.text)),d.name)}],
   ["デッキ選択: 勝率表が全デッキ名と一致し、上位15デッキは勝率の高い順に並ぶ。表にないデッキ（マイデッキ）は順位なし",w=>{
-    const wr=w.ev("DECK_WR"),ex=w.ev("DECK_ENV_EXTRA"),all=[...w.ev("PRESETS"),...w.ENV_DECKS.decks].filter(d=>!ex.includes(d.name)); // 追加分（DECK_ENV_EXTRA）は総当たり前なので勝率表にない
+    const wr=w.ev("DECK_WR"),ex=w.ev("DECK_ENV_EXTRA"),all=[...w.ev("PRESETS"),...w.ENV_DECKS.decks].filter(d=>!ex.includes(d.name)||d.name in wr); // 追加分（DECK_ENV_EXTRA）は総当たり前なら勝率表にない（勝率表にあって上位外の追加分もある）
     for(const d of all)assert.ok(wr[d.name]>0,d.name+" の勝率がない");
     assert.strictEqual(Object.keys(wr).length,all.length);
     const top=all.filter(d=>w.deckRank(d)<w.ev("DECK_TOP_N"));assert.strictEqual(top.length,w.ev("DECK_TOP_N"));
